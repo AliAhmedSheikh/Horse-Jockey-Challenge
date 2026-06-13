@@ -18,8 +18,6 @@ import { useTheme } from "@/context/ThemeContext";
 const navItems = [
   { href: "/", label: "Dashboard", icon: IconGrid },
   { href: "/live", label: "Live", icon: IconCalendar },
-  { href: "/jockey-challenges", label: "Jockey Challenges", icon: IconUser },
-  { href: "/driver-challenges", label: "Driver Challenges", icon: IconCar },
   { href: "/meetings", label: "Meetings", icon: IconList },
   { href: "/results", label: "Results", icon: IconList },
   { href: "/settings", label: "Formula Settings", icon: IconSettings },

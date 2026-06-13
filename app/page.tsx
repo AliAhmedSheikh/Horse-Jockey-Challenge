@@ -13,6 +13,7 @@ import {
   IconRefresh,
   IconChevronRight,
 } from "@/data/icons";
+import { useState, useEffect } from "react";
 
 interface DashboardData {
   meetings: Meeting[];
@@ -26,8 +27,33 @@ interface DashboardData {
   };
 }
 
+function useAustralianTime() {
+  const [time, setTime] = useState("");
+  useEffect(() => {
+    const fmt = () => {
+      const d = new Date();
+      const opts: Intl.DateTimeFormatOptions = {
+        timeZone: "Australia/Sydney",
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      };
+      setTime(new Intl.DateTimeFormat("en-AU", opts).format(d));
+    };
+    fmt();
+    const id = setInterval(fmt, 30000);
+    return () => clearInterval(id);
+  }, []);
+  return time;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
+  const now = useAustralianTime();
   const { data, error, isLoading, mutate } = useSWR<DashboardData>("/api/dashboard", fetcher, { refreshInterval: 30000 });
 
   if (isLoading) {
@@ -57,7 +83,7 @@ export default function DashboardPage() {
             Dashboard
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Jockey & Driver Challenge overview
+            {now || "Loading..."}
           </p>
         </div>
         <button
@@ -86,7 +112,7 @@ export default function DashboardPage() {
           icon={<IconUser className="w-5 h-5" />}
           trend={dashboardCards.activeJockeyChallenges > 0 ? "up" : "neutral"}
           trendLabel={dashboardCards.activeJockeyChallenges > 0 ? "Active" : "No active"}
-          onClick={() => router.push("/jockey-challenges")}
+          onClick={() => router.push("/meetings")}
         />
         <DataCard
           title="Driver Challenges"
@@ -95,7 +121,7 @@ export default function DashboardPage() {
           icon={<IconCar className="w-5 h-5" />}
           trend={dashboardCards.activeDriverChallenges > 0 ? "up" : "neutral"}
           trendLabel={dashboardCards.activeDriverChallenges > 0 ? "Active" : "No active"}
-          onClick={() => router.push("/driver-challenges")}
+          onClick={() => router.push("/meetings")}
         />
         <DataCard
           title="Total Participants"
@@ -113,8 +139,7 @@ export default function DashboardPage() {
           <div className="space-y-2">
             {[
               { label: "View Meetings", href: "/meetings", icon: IconCalendar },
-              { label: "Jockey Challenges", href: "/jockey-challenges", icon: IconUser },
-              { label: "Driver Challenges", href: "/driver-challenges", icon: IconCar },
+              { label: "Live Now", href: "/live", icon: IconTrendingUp },
               { label: "Results", href: "/results", icon: IconTrendingUp },
             ].map((link) => (
               <button
