@@ -42,7 +42,7 @@ def refresh_meeting_status():
                 by_race = {}
                 for p in participants:
                     if p.completed_races < meeting.total_races:
-                        if random.random() < 0.3:
+                        if random.random() < 0.5:
                             p.completed_races += 1
                             p.remaining_races = meeting.total_races - p.completed_races
                             added = random.randint(1, 5)
@@ -68,10 +68,7 @@ def refresh_meeting_status():
                             )
                             db.add(result)
 
-                all_done = all(
-                    p.completed_races >= meeting.total_races
-                    for p in participants
-                )
+                all_done = meeting.completed_races >= meeting.total_races
                 if all_done:
                     meeting.status = MeetingStatus.FINISHED.value
                     logger.info(f"Meeting {meeting.name} -> FINISHED")
