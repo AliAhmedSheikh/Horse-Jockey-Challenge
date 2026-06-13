@@ -1,0 +1,7 @@
+node_modules/
+.next/
+*.pyc
+__pycache__/
+*.sqlite3
+.env
+.env.local
