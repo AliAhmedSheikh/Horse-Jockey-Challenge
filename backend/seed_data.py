@@ -151,23 +151,17 @@ def seed_database(db: Session):
 def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
     now = datetime.now(timezone.utc)
     meeting_id = 0
-    participants_data = []
-    seen_names = set()
 
     for market_list, mtype in [(api_jockey, "jockey"), (api_driver, "driver")]:
         for market in market_list:
-            name = market["meeting_name"]
-            if name in seen_names:
-                continue
-            seen_names.add(name)
             meeting_id += 1
             mid = f"m{meeting_id}"
+            meeting_name = market["meeting_name"]
             participants = market.get("participants", [])
-            total = len(participants)
 
             meeting = Meeting(
                 id=mid,
-                name=name,
+                name=meeting_name,
                 date=now.strftime("%Y-%m-%d"),
                 status=MeetingStatus.UPCOMING.value,
                 type=mtype,
@@ -179,7 +173,6 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
 
             for i, p in enumerate(participants):
                 pid = f"{mid}_{p['name'].lower().replace(' ', '_')}"
-                participants_data.append((mid, pid, p["name"], p["price"], total))
                 participant = Participant(
                     id=pid,
                     meeting_id=mid,
