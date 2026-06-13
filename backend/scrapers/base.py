@@ -1,7 +1,8 @@
 import logging
 from typing import List, Dict, Tuple
-from datetime import datetime, timezone
 import httpx
+
+from time_utils import today_aus
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
     if _all_cache is not None:
         return _all_cache
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = today_aus()
     client = _get_client()
     try:
         r = client.get(

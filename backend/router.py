@@ -7,6 +7,7 @@ from sqlalchemy import desc, func
 
 from database import get_db, SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus
+from time_utils import today_aus
 from schemas import (
     MeetingOut,
     ParticipantOut,
@@ -159,7 +160,7 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
 
 @router.get("/meetings/today")
 def get_todays_meetings(db: Session = Depends(get_db)):
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = today_aus()
     meetings = db.query(Meeting).filter(Meeting.date == today).all()
     return [_meeting_to_frontend(m, db) for m in meetings]
 
@@ -271,7 +272,7 @@ def get_meeting_detail(meeting_id: str, db: Session = Depends(get_db)):
 
 @router.get("/dashboard")
 def get_dashboard(db: Session = Depends(get_db)):
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = today_aus()
     meetings = db.query(Meeting).filter(Meeting.date == today).options(
         joinedload(Meeting.participants)
     ).all()

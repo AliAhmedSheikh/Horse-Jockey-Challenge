@@ -3,9 +3,9 @@ import random
 import logging
 
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 from models import Meeting, Participant, Price, Result, MeetingStatus, MeetingType
 from scrapers.base import LadbrokesAPIScraper, invalidate_cache
+from time_utils import today_aus
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ def _compute_status(bookmaker_price: float, ai_price: float) -> str:
 
 def seed_database(db: Session):
     existing = db.query(Meeting).count()
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = today_aus()
     if existing > 0:
         today_count = db.query(Meeting).filter(Meeting.date == today).count()
         if today_count > 0:
