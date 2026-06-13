@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/api";
 import type { RaceResult } from "@/data/types";
 import DataCard from "@/components/DataCard";
 import {
@@ -12,29 +14,11 @@ import {
 } from "@/data/icons";
 
 export default function ResultsPage() {
-  const [results, setResults] = useState<RaceResult[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "jockey" | "driver">("all");
+  const { data, error, isLoading, mutate } = useSWR<{ recentResults: RaceResult[] }>("/api/dashboard", fetcher, { refreshInterval: 30000 });
+  const results = data?.recentResults ?? [];
 
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/dashboard");
-      const json = await res.json();
-      setResults(json.recentResults);
-    } catch (e) {
-      console.error("Failed to fetch results:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Loading results...</p>
@@ -100,7 +84,7 @@ export default function ResultsPage() {
                 </button>
               ))}
             </div>
-            <button onClick={() => { setLoading(true); fetchData(); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition-colors">
+            <button onClick={() => mutate()} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition-colors">
               <IconRefresh className="w-4 h-4" />
             </button>
           </div>

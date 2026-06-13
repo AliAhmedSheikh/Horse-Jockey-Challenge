@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/api";
 import type { Participant } from "@/data/types";
 import ChallengeTable from "@/components/ChallengeTable";
 import DataCard from "@/components/DataCard";
@@ -15,27 +17,10 @@ type SortKey =
 type FilterStatus = "all" | "value" | "neutral" | "avoid";
 
 export default function DriverChallengesPage() {
-  const [drivers, setDrivers] = useState<Participant[]>([]);
-  const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("overlayPercent");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/dashboard");
-        const json = await res.json();
-        setDrivers(json.drivers);
-      } catch (e) {
-        console.error("Failed to fetch drivers:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const { data, error, isLoading } = useSWR<{ drivers: Participant[] }>("/api/dashboard", fetcher, { refreshInterval: 30000 });
+  const drivers = data?.drivers ?? [];
 
   let filtered = [...drivers];
   if (filterStatus !== "all") {
@@ -63,7 +48,7 @@ export default function DriverChallengesPage() {
 
   const totalValue = filtered.filter((d) => d.status === "value").length;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Loading driver challenges...</p>

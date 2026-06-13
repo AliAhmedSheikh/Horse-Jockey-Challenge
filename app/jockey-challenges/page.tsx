@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/api";
 import type { Participant } from "@/data/types";
 import ChallengeTable from "@/components/ChallengeTable";
 import DataCard from "@/components/DataCard";
@@ -15,27 +17,10 @@ type SortKey =
 type FilterStatus = "all" | "value" | "neutral" | "avoid";
 
 export default function JockeyChallengesPage() {
-  const [jockeys, setJockeys] = useState<Participant[]>([]);
-  const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("overlayPercent");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/dashboard");
-        const json = await res.json();
-        setJockeys(json.jockeys);
-      } catch (e) {
-        console.error("Failed to fetch jockeys:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const { data, error, isLoading } = useSWR<{ jockeys: Participant[] }>("/api/dashboard", fetcher, { refreshInterval: 30000 });
+  const jockeys = data?.jockeys ?? [];
 
   let filtered = [...jockeys];
   if (filterStatus !== "all") {
@@ -63,7 +48,7 @@ export default function JockeyChallengesPage() {
 
   const totalValue = filtered.filter((j) => j.status === "value").length;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Loading jockey challenges...</p>

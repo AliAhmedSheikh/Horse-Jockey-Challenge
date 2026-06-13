@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
+import { fetcher } from "@/lib/api";
 import DataCard from "@/components/DataCard";
 import ChallengeCard from "@/components/ChallengeCard";
 import type { Participant, Meeting, RaceResult } from "@/data/types";
@@ -10,8 +11,10 @@ import {
   IconCar,
   IconCalendar,
   IconTrendingUp,
+  IconList,
   IconStar,
   IconRefresh,
+  IconClock,
   IconChevronRight,
 } from "@/data/icons";
 
@@ -38,28 +41,9 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, error, isLoading, mutate } = useSWR<DashboardData>("/api/dashboard", fetcher, { refreshInterval: 30000 });
 
-  const fetchDashboard = useCallback(async () => {
-    try {
-      const res = await fetch("/api/dashboard");
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      console.error("Failed to fetch dashboard:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchDashboard();
-    const interval = setInterval(fetchDashboard, 30000);
-    return () => clearInterval(interval);
-  }, [fetchDashboard]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Loading dashboard...</p>
@@ -67,7 +51,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!data) {
+  if (error || !data) {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Failed to load dashboard data. Is the backend running?</p>
@@ -98,7 +82,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <button
-          onClick={() => { setLoading(true); fetchDashboard(); }}
+          onClick={() => mutate()}
           className="btn-secondary flex items-center gap-2"
         >
           <IconRefresh className="w-4 h-4" />

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import useSWR from "swr";
+import { fetcher } from "@/lib/api";
 import type { Meeting } from "@/data/types";
 import { IconUser, IconCar, IconStar, IconChevronRight, IconClock } from "@/data/icons";
 
@@ -18,34 +19,13 @@ const rankColors = ["text-amber-500", "text-slate-400", "text-amber-700 dark:tex
 export default function MeetingDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: meeting, error, isLoading } = useSWR<Meeting>(
+    params.id ? `/api/meetings/${params.id}` : null,
+    fetcher,
+    { refreshInterval: 30000 }
+  );
 
-  useEffect(() => {
-    if (!params.id) return;
-    const fetchData = async () => {
-      try {
-        const res = await fetch(`/api/meetings/${params.id}`);
-        if (!res.ok) {
-          if (res.status === 404) {
-            setMeeting(null);
-          }
-          return;
-        }
-        const json = await res.json();
-        setMeeting(json);
-      } catch (e) {
-        console.error("Failed to fetch meeting:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, [params.id]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Loading meeting...</p>

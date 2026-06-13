@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
+import { fetcher } from "@/lib/api";
 import type { Meeting } from "@/data/types";
 import DataCard from "@/components/DataCard";
 import { IconCalendar, IconUser, IconCar, IconChevronRight } from "@/data/icons";
@@ -15,27 +16,10 @@ const statusStyles: Record<string, string> = {
 
 export default function MeetingsPage() {
   const router = useRouter();
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, error, isLoading } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
+  const meetings = data ?? [];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/meetings/today");
-        const json = await res.json();
-        setMeetings(json);
-      } catch (e) {
-        console.error("Failed to fetch meetings:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Loading meetings...</p>
