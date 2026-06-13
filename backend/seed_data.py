@@ -161,6 +161,7 @@ def seed_database(db: Session):
 
 def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
     now = datetime.now(timezone.utc)
+    aus_date = today_aus()
     meeting_id = 0
 
     for market_list, mtype in [(api_jockey, "jockey"), (api_driver, "driver")]:
@@ -173,7 +174,7 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
             meeting = Meeting(
                 id=mid,
                 name=meeting_name,
-                date=now.strftime("%Y-%m-%d"),
+                date=aus_date,
                 status=MeetingStatus.UPCOMING.value,
                 type=mtype,
                 total_races=8,
@@ -212,12 +213,13 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
 
 
 def _seed_from_fallback(db: Session):
+    aus_date = today_aus()
     for meeting_data in ALL_MEETINGS:
         now = datetime.now(timezone.utc)
         meeting = Meeting(
             id=meeting_data["id"],
             name=meeting_data["name"],
-            date=now.strftime("%Y-%m-%d"),
+            date=aus_date,
             status=MeetingStatus.UPCOMING.value,
             type=meeting_data["type"],
             total_races=meeting_data["total_races"],
