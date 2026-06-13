@@ -4,6 +4,8 @@ node_modules/
 __pycache__/
 *.sqlite3
 *.db
+*.db-shm
+*.db-wal
 .env
 .env.local
 tsconfig.tsbuildinfo
