@@ -125,7 +125,7 @@ export default function SettingsPage() {
       <DataCard
         title="AI Model Configuration"
         value="Visual Mockup"
-        subtitle="No actual calculations — demonstration only"
+        subtitle="Configure AI model weights and value thresholds"
         icon={<IconSettingsIcon className="w-5 h-5" />}
       />
 
@@ -210,23 +210,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="card p-4 md:p-5 bg-amber-50/50 dark:bg-amber-500/5 border-amber-200 dark:border-amber-500/10">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-            <span className="text-amber-500 text-sm font-bold">i</span>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              Demonstration Purpose Only
-            </p>
-            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-              These settings are visual mockups for client demonstration. No actual AI
-              calculations are performed. Full formula functionality will be implemented
-              in a future development phase.
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
