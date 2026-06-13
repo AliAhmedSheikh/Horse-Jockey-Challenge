@@ -323,8 +323,8 @@ def get_dashboard(db: Session = Depends(get_db)):
             ))
 
     today_meetings = sum(1 for m in frontend_meetings if m.status != "Completed")
-    active_jockey = sum(1 for m in frontend_meetings if m.type == "Jockey" and m.status == "Live")
-    active_driver = sum(1 for m in frontend_meetings if m.type == "Driver" and m.status == "Live")
+    active_jockey = sum(1 for m in frontend_meetings if m.type == "Jockey" and m.status in ("Live", "Not Started"))
+    active_driver = sum(1 for m in frontend_meetings if m.type == "Driver" and m.status in ("Live", "Not Started"))
 
     # Set projected winners per meeting
     meeting_best = {}

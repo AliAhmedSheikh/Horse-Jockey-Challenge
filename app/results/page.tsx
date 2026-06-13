@@ -10,7 +10,7 @@ import { IconList, IconUser, IconCar, IconChevronRight, IconStar, IconRefresh } 
 export default function ResultsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: meetingsData, error, isLoading, mutate } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
-  const { data: podium } = useSWR<PodiumEntry[]>(
+  const { data: podium, isValidating: podiumLoading } = useSWR<PodiumEntry[]>(
     selectedId ? `/api/meetings/${selectedId}/podium` : null,
     fetcher,
     { refreshInterval: 15000 }
@@ -82,8 +82,10 @@ export default function ResultsPage() {
               </button>
 
               {selectedId === m.id && (
-                <div className="px-4 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700/50">
-                  {!podium || podium.length === 0 ? (
+                <div key={selectedId} className="px-4 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700/50">
+                  {podiumLoading ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">Loading...</p>
+                  ) : !podium || podium.length === 0 ? (
                     <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
                       {m.status === "Not Started" ? "Meeting has not started yet" : "No results available"}
                     </p>

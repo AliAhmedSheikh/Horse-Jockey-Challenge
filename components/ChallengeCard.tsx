@@ -30,8 +30,7 @@ export default function ChallengeCard({
   type,
 }: ChallengeCardProps) {
   const isPositive = participant.overlayPercent > 0;
-  const detailPath =
-    type === "jockey" ? "/jockey-challenges" : "/driver-challenges";
+  const detailPath = `/meetings/${participant.meetingId}`;
 
   return (
     <Link href={detailPath}>

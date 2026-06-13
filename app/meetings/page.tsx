@@ -131,7 +131,7 @@ export default function MeetingsPage() {
                   Projected
                 </p>
                 <p className="font-semibold text-amber-500 mt-0.5">
-                  {m.projectedWinner}
+                  {m.projectedWinner || "—"}
                 </p>
               </div>
             </div>

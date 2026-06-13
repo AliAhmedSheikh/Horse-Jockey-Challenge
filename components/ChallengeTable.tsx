@@ -38,6 +38,7 @@ export default function ChallengeTable({
   participants,
   type,
 }: ChallengeTableProps) {
+  const sorted = [...participants].sort((a, b) => b.currentPoints - a.currentPoints);
   return (
     <>
       <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700/50">
@@ -75,7 +76,7 @@ export default function ChallengeTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
-              {participants.map((p, i) => {
+              {sorted.map((p, i) => {
                 const isPositive = p.overlayPercent > 0;
                 return (
                   <tr
@@ -158,7 +159,7 @@ export default function ChallengeTable({
       </div>
 
       <div className="md:hidden space-y-3">
-        {participants.map((p) => (
+        {sorted.map((p) => (
           <ChallengeCard key={p.id + "-mobile"} participant={p} type={type} />
         ))}
       </div>
