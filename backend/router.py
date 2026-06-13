@@ -230,7 +230,7 @@ def get_dashboard(db: Session = Depends(get_db)):
         else:
             drivers.append(fp)
 
-    recent_results = db.query(Result).order_by(desc(Result.timestamp)).limit(10).all()
+    recent_results = db.query(Result).order_by(desc(Result.timestamp)).limit(30).all()
     race_results = []
     for r in recent_results:
         p = db.query(Participant).filter(Participant.id == r.participant_id).first()
