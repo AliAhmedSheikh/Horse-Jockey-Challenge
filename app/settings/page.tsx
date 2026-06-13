@@ -122,12 +122,15 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      <DataCard
-        title="AI Model Configuration"
-        value="Visual Mockup"
-        subtitle="Configure AI model weights and value thresholds"
-        icon={<IconSettingsIcon className="w-5 h-5" />}
-      />
+      <div className="card p-4 md:p-5 flex items-center gap-4">
+        <div className="flex-shrink-0 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-300">
+          <IconSettingsIcon className="w-5 h-5" />
+        </div>
+        <div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">AI Model Configuration</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Configure AI model weights and value thresholds</p>
+        </div>
+      </div>
 
       <div className="card p-4 md:p-6">
         <div className="space-y-6">
