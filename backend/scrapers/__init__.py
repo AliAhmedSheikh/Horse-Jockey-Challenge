@@ -1,6 +1,7 @@
 import random
 from typing import List, Dict
 from scrapers.base import LadbrokesAPIScraper
+from scrapers.tab_api import TabcorpAPIScraper
 
 
 def _vary_price(price: float, variation: float) -> float:
@@ -101,4 +102,5 @@ __all__ = [
     "SportsbetScraper",
     "PointsBetScraper",
     "TABtouchScraper",
+    "TabcorpAPIScraper",
 ]

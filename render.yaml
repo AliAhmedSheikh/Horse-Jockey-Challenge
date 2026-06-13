@@ -8,3 +8,18 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
+
+  - type: web
+    name: jockey-driver-api-staging
+    branch: tab-api-scraper
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: TAB_CLIENT_ID
+        sync: false
+      - key: TAB_CLIENT_SECRET
+        sync: false
