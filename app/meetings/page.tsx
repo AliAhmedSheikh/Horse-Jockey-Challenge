@@ -9,9 +9,8 @@ import { IconCalendar, IconUser, IconCar, IconChevronRight } from "@/data/icons"
 
 const statusStyles: Record<string, string> = {
   Live: "badge-value",
-  "Not Started": "bg-slate-50 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400 border-slate-200 dark:border-slate-500/20 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border",
-  Completed:
-    "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+  "Not Started": "badge-upcoming",
+  Completed: "badge-completed",
 };
 
 export default function MeetingsPage() {
@@ -23,6 +22,14 @@ export default function MeetingsPage() {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Loading meetings...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="page-transition text-center py-20">
+        <p className="text-slate-500 dark:text-slate-400">Failed to load meetings. Is the backend running?</p>
       </div>
     );
   }

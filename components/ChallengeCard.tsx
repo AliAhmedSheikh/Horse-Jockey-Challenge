@@ -1,6 +1,6 @@
 "use client";
 
-import { Participant } from "@/data/types";
+import type { Participant } from "@/data/types";
 import { IconStar, IconTrendingUp } from "@/data/icons";
 import Link from "next/link";
 

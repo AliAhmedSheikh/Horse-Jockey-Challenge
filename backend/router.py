@@ -1,10 +1,9 @@
 from datetime import datetime, timezone, timedelta
-import random
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import desc, func
 
 from database import get_db, SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus
@@ -18,6 +17,7 @@ from schemas import (
     LatestUpdate,
     DashboardCards,
     DashboardOut,
+    PodiumEntry,
 )
 
 router = APIRouter()
@@ -45,6 +45,15 @@ def _compute_status(bookmaker_price: float, ai_price: float) -> str:
         return "neutral"
     else:
         return "avoid"
+
+
+def _compute_ai_price(avg_bookmaker: float, completed_races: int, total_races: int) -> float:
+    if avg_bookmaker <= 0:
+        return 3.0
+    race_progress = completed_races / max(total_races, 1)
+    uncertainty = min(0.10, avg_bookmaker * 0.002)
+    discount = uncertainty * (1.0 - race_progress * 0.6)
+    return round(avg_bookmaker * (1.0 - discount), 2)
 
 
 def _meeting_to_frontend(meeting: Meeting, db: Session) -> MeetingOut:
@@ -94,6 +103,24 @@ def _meeting_to_frontend(meeting: Meeting, db: Session) -> MeetingOut:
     )
 
 
+def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting], prices: List) -> ParticipantOut:
+    bookmaker_prices = [pr.price for pr in prices]
+    avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
+    total_races = meeting.total_races if meeting else 8
+    ai_price = _compute_ai_price(avg_bookmaker, p.completed_races, total_races)
+    overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
+    remaining = meeting.total_races - p.completed_races if meeting else 0
+    avg_per_race = p.current_points / max(p.completed_races, 1)
+    projected = p.current_points + int(avg_per_race * remaining)
+    value_rating = _compute_value_rating(avg_bookmaker, ai_price)
+    return ParticipantOut(
+        id=p.id, name=p.name, meetingName=meeting.name if meeting else "", meetingId=p.meeting_id,
+        bookmakerPrice=round(avg_bookmaker, 2), aiPrice=ai_price, overlayPercent=overlay,
+        valueRating=value_rating, currentPoints=p.current_points, projectedFinalPoints=projected,
+        status=_compute_status(avg_bookmaker, ai_price), isProjectedWinner=False,
+    )
+
+
 def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
     prices = db.query(Price).filter(Price.participant_id == p.id).all()
     meeting = db.query(Meeting).filter(Meeting.id == p.meeting_id).first()
@@ -101,7 +128,8 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
     bookmaker_prices = [pr.price for pr in prices]
     avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
 
-    ai_price = round(avg_bookmaker * random.uniform(0.85, 1.05), 2)
+    total = meeting.total_races if meeting else 8
+    ai_price = _compute_ai_price(avg_bookmaker, p.completed_races, total)
     overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
 
     remaining = meeting.total_races - p.completed_races if meeting else 0
@@ -206,6 +234,29 @@ def get_meeting_results(meeting_id: str, db: Session = Depends(get_db)):
     ]
 
 
+@router.get("/meetings/{meeting_id}/podium")
+def get_meeting_podium(meeting_id: str, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    max_race = db.query(func.max(Result.race_number)).filter(Result.meeting_id == meeting_id).scalar()
+    if not max_race:
+        return []
+
+    rows = db.query(Result, Participant).join(
+        Participant, Result.participant_id == Participant.id
+    ).filter(
+        Result.meeting_id == meeting_id,
+        Result.race_number == max_race,
+    ).order_by(desc(Result.final_points)).limit(3).all()
+
+    return [
+        PodiumEntry(participant_name=p.name, final_points=r.final_points, position=i + 1)
+        for i, (r, p) in enumerate(rows)
+    ]
+
+
 @router.get("/meetings/{meeting_id}")
 def get_meeting_detail(meeting_id: str, db: Session = Depends(get_db)):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
@@ -216,15 +267,29 @@ def get_meeting_detail(meeting_id: str, db: Session = Depends(get_db)):
 
 @router.get("/dashboard")
 def get_dashboard(db: Session = Depends(get_db)):
-    meetings = db.query(Meeting).all()
+    meetings = db.query(Meeting).options(
+        joinedload(Meeting.participants)
+    ).all()
     frontend_meetings = [_meeting_to_frontend(m, db) for m in meetings]
 
-    all_participants = db.query(Participant).all()
+    meeting_map = {m.id: m for m in meetings}
+    all_participants = db.query(Participant).options(
+        joinedload(Participant.prices)
+    ).all()
+    participant_map = {p.id: p for p in all_participants}
+
+    # Pre-load prices lookup
+    all_prices = db.query(Price).all()
+    prices_by_participant = {}
+    for pr in all_prices:
+        prices_by_participant.setdefault(pr.participant_id, []).append(pr)
+
     jockeys = []
     drivers = []
     for p in all_participants:
-        meeting = db.query(Meeting).filter(Meeting.id == p.meeting_id).first()
-        fp = _participant_to_frontend(p, db)
+        meeting = meeting_map.get(p.meeting_id)
+        prs = prices_by_participant.get(p.id, [])
+        fp = _participant_to_frontend_with_data(p, meeting, prs)
         if meeting and meeting.type == "jockey":
             jockeys.append(fp)
         else:
@@ -233,12 +298,12 @@ def get_dashboard(db: Session = Depends(get_db)):
     recent_results = db.query(Result).order_by(desc(Result.timestamp)).limit(30).all()
     race_results = []
     for r in recent_results:
-        p = db.query(Participant).filter(Participant.id == r.participant_id).first()
-        m = db.query(Meeting).filter(Meeting.id == r.meeting_id).first()
+        p = participant_map.get(r.participant_id)
+        m = meeting_map.get(r.meeting_id)
         if p and m:
-            prices = db.query(Price).filter(Price.participant_id == p.id).all()
-            avg_bm = sum(pr.price for pr in prices) / len(prices) if prices else 3.0
-            ai_price = round(avg_bm * random.uniform(0.85, 1.05), 2)
+            prs = prices_by_participant.get(p.id, [])
+            avg_bm = sum(pr.price for pr in prs) / len(prs) if prs else 3.0
+            ai_price = _compute_ai_price(avg_bm, p.completed_races, m.total_races)
             overlay = round((avg_bm - ai_price) / ai_price * 100, 1)
 
             minutes_ago = int(
@@ -254,7 +319,7 @@ def get_dashboard(db: Session = Depends(get_db)):
                 updatedAiPrice=ai_price,
                 updatedOverlay=overlay,
                 timeUpdated=f"{max(1, minutes_ago)}m ago",
-                type=m.type,
+                type="Jockey" if m.type == "jockey" else "Driver",
             ))
 
     today_meetings = sum(1 for m in frontend_meetings if m.status != "Completed")

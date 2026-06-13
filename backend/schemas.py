@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -26,8 +26,7 @@ class MeetingOut(BaseModel):
     latestUpdates: List[LatestUpdate]
     projectedWinner: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ParticipantOut(BaseModel):
@@ -77,6 +76,12 @@ class DashboardCards(BaseModel):
     activeJockeyChallenges: int
     activeDriverChallenges: int
     totalParticipants: int
+
+
+class PodiumEntry(BaseModel):
+    participant_name: str
+    final_points: int
+    position: int
 
 
 class DashboardOut(BaseModel):

@@ -1,6 +1,6 @@
 "use client";
 
-import { Participant } from "@/data/types";
+import type { Participant } from "@/data/types";
 import { IconStar } from "@/data/icons";
 import ChallengeCard from "./ChallengeCard";
 

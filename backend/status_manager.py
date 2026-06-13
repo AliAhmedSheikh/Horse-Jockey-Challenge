@@ -38,6 +38,8 @@ def refresh_meeting_status():
                 participants = db.query(Participant).filter(
                     Participant.meeting_id == meeting.id
                 ).all()
+                n = len(participants)
+                by_race = {}
                 for p in participants:
                     if p.completed_races < meeting.total_races:
                         if random.random() < 0.3:
@@ -45,16 +47,22 @@ def refresh_meeting_status():
                             p.remaining_races = meeting.total_races - p.completed_races
                             added = random.randint(1, 5)
                             p.current_points += added
-                            meeting.completed_races = max(
-                                meeting.completed_races,
-                                max(pp.completed_races for pp in participants)
-                            )
+                            by_race.setdefault(p.completed_races, []).append((p, added))
+
+                for race_num, racers in by_race.items():
+                    if racers:
+                        positions = random.sample(range(1, max(n, len(racers)) + 1), len(racers))
+                        meeting.completed_races = max(
+                            meeting.completed_races,
+                            max(pp.completed_races for pp in participants)
+                        )
+                        for (p, added), pos in zip(racers, positions):
                             result = Result(
                                 meeting_id=meeting.id,
                                 participant_id=p.id,
                                 final_points=p.current_points,
-                                position=random.randint(1, max(len(participants), 3)),
-                                race_number=p.completed_races,
+                                position=pos,
+                                race_number=race_num,
                                 points_added=added,
                                 timestamp=datetime.now(timezone.utc),
                             )

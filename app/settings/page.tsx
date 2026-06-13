@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DataCard from "@/components/DataCard";
 import { IconSettings as IconSettingsIcon, IconRefresh } from "@/data/icons";
 
@@ -89,7 +89,18 @@ export default function SettingsPage() {
 
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    const stored = localStorage.getItem("formulaSettings");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setValues(parsed);
+      } catch {}
+    }
+  }, []);
+
   const handleSave = () => {
+    localStorage.setItem("formulaSettings", JSON.stringify(values));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -99,6 +110,7 @@ export default function SettingsPage() {
     settings.forEach((s) => {
       reset[s.id] = s.default;
     });
+    localStorage.setItem("formulaSettings", JSON.stringify(reset));
     setValues(reset);
   };
 

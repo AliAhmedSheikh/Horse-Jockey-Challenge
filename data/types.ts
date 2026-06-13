@@ -34,5 +34,11 @@ export interface RaceResult {
   updatedAiPrice: number;
   updatedOverlay: number;
   timeUpdated: string;
-  type: string;
+  type: "Jockey" | "Driver";
+}
+
+export interface PodiumEntry {
+  participant_name: string;
+  final_points: number;
+  position: number;
 }

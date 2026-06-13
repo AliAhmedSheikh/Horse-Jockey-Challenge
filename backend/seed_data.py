@@ -262,28 +262,29 @@ def _simulate_live_data(db: Session):
             Participant.meeting_id == meeting.id
         ).all()
 
-        used_points = set()
-        for i, p in enumerate(participants):
-            points = max(0, 10 - i * 2 + random.randint(-1, 2))
-            while points in used_points and len(used_points) < len(participants):
-                points += random.choice([-1, 1])
-            used_points.add(points)
-            p.current_points = points
-            p.completed_races = meeting.completed_races
-            p.remaining_races = meeting.total_races - meeting.completed_races
+        cumulative_points = {p.id: 0 for p in participants}
 
-            for rn in range(1, meeting.completed_races + 1):
-                pos = random.randint(1, len(participants))
+        for rn in range(1, meeting.completed_races + 1):
+            shuffled = list(participants)
+            random.shuffle(shuffled)
+            for pos, p in enumerate(shuffled, 1):
                 added = max(1, 6 - pos)
+                cumulative_points[p.id] += added
                 result = Result(
                     meeting_id=meeting.id,
                     participant_id=p.id,
-                    final_points=p.current_points,
+                    final_points=cumulative_points[p.id],
                     position=pos,
                     race_number=rn,
                     points_added=added,
                     timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 30)),
                 )
                 db.add(result)
+
+        # Update participant cumulative stats
+        for p in participants:
+            p.current_points = cumulative_points[p.id]
+            p.completed_races = meeting.completed_races
+            p.remaining_races = meeting.total_races - meeting.completed_races
 
         db.commit()

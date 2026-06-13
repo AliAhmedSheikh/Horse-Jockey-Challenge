@@ -24,7 +24,7 @@ class Meeting(Base):
     name = Column(String, nullable=False)
     date = Column(String, nullable=False)
     status = Column(String, default=MeetingStatus.UPCOMING.value)
-    type = Column(String, nullable=False)
+    type = Column(SAEnum(MeetingType), nullable=False)
     total_races = Column(Integer, default=0)
     completed_races = Column(Integer, default=0)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

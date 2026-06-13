@@ -14,7 +14,7 @@ export default function ThemeToggle() {
     >
       <span
         className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-all duration-300 flex items-center justify-center ${
-          theme === "dark" ? "left-0.5" : "left-7"
+          theme === "dark" ? "left-7" : "left-0.5"
         }`}
       >
         {theme === "dark" ? (

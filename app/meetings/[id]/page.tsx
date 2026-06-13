@@ -3,32 +3,53 @@
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
-import type { Meeting } from "@/data/types";
-import { IconUser, IconCar, IconStar, IconChevronRight, IconClock } from "@/data/icons";
+import type { Meeting, Participant } from "@/data/types";
+import { IconUser, IconCar, IconStar, IconChevronRight } from "@/data/icons";
 
 const statusStyles: Record<string, string> = {
   Live: "badge-value",
-  "Not Started":
-    "bg-slate-50 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400 border-slate-200 dark:border-slate-500/20 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border",
-  Completed:
-    "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+  "Not Started": "badge-upcoming",
+  Completed: "badge-completed",
 };
 
-const rankColors = ["text-amber-500", "text-slate-400", "text-amber-700 dark:text-amber-300"];
+function valueRatingColor(rating: string) {
+  switch (rating) {
+    case "Strong Value": return "text-emerald-500";
+    case "Value": return "text-emerald-400";
+    case "Neutral": return "text-amber-400";
+    default: return "text-red-400";
+  }
+}
 
 export default function MeetingDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: meeting, error, isLoading } = useSWR<Meeting>(
+  const { data: meeting, error: meetingError, isLoading: meetingLoading } = useSWR<Meeting>(
     params.id ? `/api/meetings/${params.id}` : null,
     fetcher,
     { refreshInterval: 30000 }
   );
+  const { data: participants } = useSWR<Participant[]>(
+    params.id ? `/api/meetings/${params.id}/participants` : null,
+    fetcher,
+    { refreshInterval: 30000 }
+  );
 
-  if (isLoading) {
+  if (meetingLoading) {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Loading meeting...</p>
+      </div>
+    );
+  }
+
+  if (meetingError) {
+    return (
+      <div className="page-transition text-center py-20">
+        <p className="text-slate-500 dark:text-slate-400">Failed to load meeting.</p>
+        <button onClick={() => router.push("/meetings")} className="btn-primary mt-4">
+          Back to Meetings
+        </button>
       </div>
     );
   }
@@ -44,6 +65,8 @@ export default function MeetingDetailPage() {
     );
   }
 
+  const sorted = participants ? [...participants].sort((a, b) => b.currentPoints - a.currentPoints) : [];
+
   return (
     <div className="page-transition space-y-6">
       <button
@@ -57,232 +80,198 @@ export default function MeetingDetailPage() {
       <div className="card p-4 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div
-              className={`w-14 h-14 rounded-xl flex items-center justify-center ${
-                meeting.type === "Jockey"
-                  ? "bg-blue-50 dark:bg-blue-500/10 text-blue-500"
-                  : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500"
-              }`}
-            >
-              {meeting.type === "Jockey" ? (
-                <IconUser className="w-7 h-7" />
-              ) : (
-                <IconCar className="w-7 h-7" />
-              )}
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${
+              meeting.type === "Jockey"
+                ? "bg-blue-50 dark:bg-blue-500/10 text-blue-500"
+                : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500"
+            }`}>
+              {meeting.type === "Jockey" ? <IconUser className="w-7 h-7" /> : <IconCar className="w-7 h-7" />}
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
-                  {meeting.name}
-                </h1>
-                <span className={statusStyles[meeting.status]}>
-                  {meeting.status}
-                </span>
+                <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{meeting.name}</h1>
+                <span className={statusStyles[meeting.status]}>{meeting.status}</span>
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                {meeting.type} Challenge
-              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{meeting.type} Challenge</p>
             </div>
           </div>
           <div className="flex items-center gap-4 md:gap-6">
             <div className="text-center">
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">
-                Completed
-              </p>
-              <p className="text-lg font-bold text-slate-900 dark:text-white">
-                {meeting.completedRaces}
-              </p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Completed</p>
+              <p className="text-lg font-bold text-slate-900 dark:text-white">{meeting.completedRaces}</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">
-                Remaining
-              </p>
-              <p className="text-lg font-bold text-slate-900 dark:text-white">
-                {meeting.totalRaces - meeting.completedRaces}
-              </p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Remaining</p>
+              <p className="text-lg font-bold text-amber-500">{meeting.totalRaces - meeting.completedRaces}</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">
-                Total Races
-              </p>
-              <p className="text-lg font-bold text-slate-900 dark:text-white">
-                {meeting.totalRaces}
-              </p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Total Races</p>
+              <p className="text-lg font-bold text-slate-900 dark:text-white">{meeting.totalRaces}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          <div className="card p-4 md:p-5">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-4">
-              Leaderboard
-            </h2>
-            <div className="space-y-1">
-              {meeting.leaderboard.map((entry, i) => (
-                <div
-                  key={entry.name}
-                  className={`flex items-center justify-between py-2.5 px-3 rounded-lg ${
-                    i === 0
-                      ? "bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/5 dark:to-transparent"
-                      : "hover:bg-slate-50 dark:hover:bg-slate-700/30"
-                  } transition-colors`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        i === 0
-                          ? "bg-amber-500 text-white"
-                          : i === 1
-                          ? "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
-                          : i === 2
-                          ? "bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                        {entry.name}
-                      </span>
-                      {i === 0 && entry.name === meeting.projectedWinner && (
-                        <IconStar className="w-3.5 h-3.5 text-amber-400" />
-                      )}
+      <div className="card p-4 md:p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Participants & Prices</h2>
+          {meeting.projectedWinner && (
+            <span className="flex items-center gap-1.5 text-xs text-amber-500">
+              <IconStar className="w-3.5 h-3.5" />
+              {meeting.projectedWinner}
+            </span>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700/50">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-800/80">
+                <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</th>
+                <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
+                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bookmaker</th>
+                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI Price</th>
+                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Overlay</th>
+                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
+                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Points</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
+              {sorted.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                    No participants loaded
+                  </td>
+                </tr>
+              ) : sorted.map((p, i) => (
+                <tr key={p.id} className={`bg-white dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${
+                  i === 0 ? "bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-500/5 dark:to-transparent" : ""
+                }`}>
+                  <td className="px-4 py-3">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      i === 0 ? "bg-amber-500 text-white" : i === 1 ? "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300" : i === 2 ? "bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300" : "text-slate-400"
+                    }`}>{i + 1}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-900 dark:text-white">{p.name}</span>
+                      {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
                     </div>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">${p.bookmakerPrice.toFixed(2)}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`text-sm font-semibold ${p.overlayPercent > 0 ? "text-emerald-500" : "text-red-500"}`}>
+                      {p.overlayPercent > 0 ? "+" : ""}{p.overlayPercent.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`text-sm font-semibold ${valueRatingColor(p.valueRating)}`}>{p.valueRating}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="text-sm font-bold text-slate-900 dark:text-white">{p.currentPoints}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="md:hidden space-y-3 mt-4">
+          {sorted.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">No participants loaded</p>
+          ) : sorted.map((p) => (
+            <div key={p.id} className="bg-slate-50 dark:bg-slate-700/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold text-slate-900 dark:text-white">{p.name}</span>
+                <span className={p.overlayPercent > 0 ? "text-sm font-semibold text-emerald-500" : "text-sm font-semibold text-red-500"}>
+                  {p.overlayPercent > 0 ? "+" : ""}{p.overlayPercent.toFixed(1)}%
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Bookmaker</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">${p.bookmakerPrice.toFixed(2)}</p>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">AI Price</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</p>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Value</p>
+                  <p className={`text-sm font-bold ${valueRatingColor(p.valueRating)}`}>{p.valueRating}</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">{p.currentPoints} pts</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="card p-4 md:p-5">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Race Progress</h2>
+          <div>
+            <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
+              <span>Progress</span>
+              <span>{meeting.completedRaces}/{meeting.totalRaces}</span>
+            </div>
+            <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all duration-500 ${
+                meeting.status === "Completed" ? "bg-blue-500" : meeting.status === "Live" ? "bg-emerald-500" : "bg-slate-400"
+              }`} style={{ width: `${(meeting.completedRaces / meeting.totalRaces) * 100}%` }} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{meeting.completedRaces}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">Completed</p>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-amber-500">{meeting.totalRaces - meeting.completedRaces}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">Remaining</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4 md:p-5">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Projected Winner</h2>
+          <div className="text-center py-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-amber-500/20">
+              {meeting.projectedWinner ? meeting.projectedWinner.split(" ").map((n) => n[0]).join("") : "?"}
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mt-3">{meeting.projectedWinner || "—"}</h3>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <IconStar className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-xs font-medium text-amber-500">AI Projected Winner</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4 md:p-5">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Latest Updates</h2>
+          {meeting.latestUpdates.length > 0 ? (
+            <div className="space-y-2">
+              {meeting.latestUpdates.slice(0, 5).map((u, i) => (
+                <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-700/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-sm font-medium text-slate-900 dark:text-white">{u.participant}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">
-                      {entry.points}
-                    </span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-1">
-                      pts
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-emerald-500">+{u.pointsAdded} pts</span>
+                    <span className="text-[10px] text-slate-400">{u.time}</span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="card p-4 md:p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                Latest Points Updates
-              </h2>
-              <IconClock className="w-4 h-4 text-slate-400" />
-            </div>
-            {meeting.latestUpdates.length > 0 ? (
-              <div className="space-y-2">
-                {meeting.latestUpdates.map((u, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-700/20"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span className="text-sm font-medium text-slate-900 dark:text-white">
-                        {u.participant}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-emerald-500">
-                        +{u.pointsAdded} pts
-                      </span>
-                      <span className="text-[10px] text-slate-400">{u.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">
-                No updates yet — meeting has not started
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="card p-4 md:p-5">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-4">
-              Race Progress
-            </h2>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-                  <span>Progress</span>
-                  <span>
-                    {meeting.completedRaces}/{meeting.totalRaces}
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      meeting.status === "Completed"
-                        ? "bg-blue-500"
-                        : meeting.status === "Live"
-                        ? "bg-emerald-500"
-                        : "bg-slate-400"
-                    }`}
-                    style={{
-                      width: `${(meeting.completedRaces / meeting.totalRaces) * 100}%`,
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {meeting.completedRaces}
-                  </p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Completed
-                  </p>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-amber-500">
-                    {meeting.totalRaces - meeting.completedRaces}
-                  </p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Remaining
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-4 md:p-5">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-4">
-              Projected Winner
-            </h2>
-            <div className="text-center py-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-amber-500/20">
-                {meeting.projectedWinner
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mt-3">
-                {meeting.projectedWinner}
-              </h3>
-              <div className="flex items-center justify-center gap-1 mt-1">
-                <IconStar className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-xs font-medium text-amber-500">
-                  AI Projected Winner
-                </span>
-              </div>
-              {meeting.status !== "Not Started" && meeting.leaderboard[0] && (
-                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">
-                    Current Leader
-                  </p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white mt-0.5">
-                    {meeting.leaderboard[0].name} — {meeting.leaderboard[0].points} pts
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+          ) : (
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">No updates yet</p>
+          )}
         </div>
       </div>
     </div>
