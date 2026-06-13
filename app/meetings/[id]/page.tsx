@@ -6,6 +6,8 @@ import { fetcher } from "@/lib/api";
 import type { Meeting, Participant } from "@/data/types";
 import { IconUser, IconCar, IconStar, IconChevronRight } from "@/data/icons";
 
+const BOOKMAKER_NAMES = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"];
+
 const statusStyles: Record<string, string> = {
   Live: "badge-value",
   "Not Started": "badge-upcoming",
@@ -65,7 +67,7 @@ export default function MeetingDetailPage() {
     );
   }
 
-  const sorted = participants ? [...participants].sort((a, b) => b.currentPoints - a.currentPoints) : [];
+  const sorted = participants ? [...participants].sort((a, b) => a.bookmakerPrice - b.bookmakerPrice) : [];
 
   return (
     <div className="page-transition space-y-6">
@@ -129,7 +131,9 @@ export default function MeetingDetailPage() {
               <tr className="bg-slate-50 dark:bg-slate-800/80">
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bookmaker</th>
+                {BOOKMAKER_NAMES.map((bm) => (
+                  <th key={bm} className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{bm}</th>
+                ))}
                 <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI Price</th>
                 <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Overlay</th>
                 <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
@@ -158,9 +162,11 @@ export default function MeetingDetailPage() {
                       {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">${p.bookmakerPrice.toFixed(2)}</span>
-                  </td>
+                  {BOOKMAKER_NAMES.map((bm) => (
+                    <td key={bm} className="px-2 py-3 text-right">
+                      <span className="text-sm font-semibold text-slate-900 dark:text-white">${(p.bookmakerPrices?.[bm] ?? p.bookmakerPrice).toFixed(2)}</span>
+                    </td>
+                  ))}
                   <td className="px-4 py-3 text-right">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</span>
                   </td>
@@ -192,11 +198,15 @@ export default function MeetingDetailPage() {
                   {p.overlayPercent > 0 ? "+" : ""}{p.overlayPercent.toFixed(1)}%
                 </span>
               </div>
+              <div className="grid grid-cols-5 gap-1.5 text-center mb-2">
+                {BOOKMAKER_NAMES.map((bm) => (
+                  <div key={bm} className="bg-white dark:bg-slate-800 rounded-lg p-1.5">
+                    <p className="text-[8px] text-slate-500 dark:text-slate-400 truncate">{bm}</p>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">${(p.bookmakerPrices?.[bm] ?? p.bookmakerPrice).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Bookmaker</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">${p.bookmakerPrice.toFixed(2)}</p>
-                </div>
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">AI Price</p>
                   <p className="text-sm font-bold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</p>
@@ -204,6 +214,10 @@ export default function MeetingDetailPage() {
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">Value</p>
                   <p className={`text-sm font-bold ${valueRatingColor(p.valueRating)}`}>{p.valueRating}</p>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Points</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{p.currentPoints}</p>
                 </div>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">{p.currentPoints} pts</p>

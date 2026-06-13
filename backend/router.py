@@ -113,9 +113,10 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
     avg_per_race = p.current_points / max(p.completed_races, 1)
     projected = p.current_points + int(avg_per_race * remaining)
     value_rating = _compute_value_rating(avg_bookmaker, ai_price)
+    bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
     return ParticipantOut(
         id=p.id, name=p.name, meetingName=meeting.name if meeting else "", meetingId=p.meeting_id,
-        bookmakerPrice=round(avg_bookmaker, 2), aiPrice=ai_price, overlayPercent=overlay,
+        bookmakerPrice=round(avg_bookmaker, 2), bookmakerPrices=bookmaker_prices_dict, aiPrice=ai_price, overlayPercent=overlay,
         valueRating=value_rating, currentPoints=p.current_points, projectedFinalPoints=projected,
         status=_compute_status(avg_bookmaker, ai_price), isProjectedWinner=False,
     )
@@ -137,6 +138,7 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
     projected = p.current_points + int(avg_per_race * remaining)
 
     value_rating = _compute_value_rating(avg_bookmaker, ai_price)
+    bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
 
     return ParticipantOut(
         id=p.id,
@@ -144,6 +146,7 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
         meetingName=meeting.name if meeting else "",
         meetingId=p.meeting_id,
         bookmakerPrice=round(avg_bookmaker, 2),
+        bookmakerPrices=bookmaker_prices_dict,
         aiPrice=ai_price,
         overlayPercent=overlay,
         valueRating=value_rating,
@@ -156,7 +159,8 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
 
 @router.get("/meetings/today")
 def get_todays_meetings(db: Session = Depends(get_db)):
-    meetings = db.query(Meeting).all()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    meetings = db.query(Meeting).filter(Meeting.date == today).all()
     return [_meeting_to_frontend(m, db) for m in meetings]
 
 
@@ -267,19 +271,25 @@ def get_meeting_detail(meeting_id: str, db: Session = Depends(get_db)):
 
 @router.get("/dashboard")
 def get_dashboard(db: Session = Depends(get_db)):
-    meetings = db.query(Meeting).options(
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    meetings = db.query(Meeting).filter(Meeting.date == today).options(
         joinedload(Meeting.participants)
     ).all()
     frontend_meetings = [_meeting_to_frontend(m, db) for m in meetings]
 
+    meeting_ids = [m.id for m in meetings]
     meeting_map = {m.id: m for m in meetings}
-    all_participants = db.query(Participant).options(
+    all_participants = db.query(Participant).filter(
+        Participant.meeting_id.in_(meeting_ids)
+    ).options(
         joinedload(Participant.prices)
-    ).all()
+    ).all() if meeting_ids else []
     participant_map = {p.id: p for p in all_participants}
 
     # Pre-load prices lookup
-    all_prices = db.query(Price).all()
+    all_prices = db.query(Price).filter(
+        Price.meeting_id.in_(meeting_ids)
+    ).all() if meeting_ids else []
     prices_by_participant = {}
     for pr in all_prices:
         prices_by_participant.setdefault(pr.participant_id, []).append(pr)

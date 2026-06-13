@@ -51,7 +51,11 @@ export default function DriverChallengesPage() {
         <DataCard title="Meetings" value={Object.keys(byMeeting).length} subtitle="Active driver meetings" />
       </div>
 
-      {Object.entries(byMeeting).map(([meetingName, participants]) => {
+      {Object.keys(byMeeting).length === 0 ? (
+        <div className="card p-8 text-center">
+          <p className="text-sm text-slate-500 dark:text-slate-400">No driver challenges available</p>
+        </div>
+      ) : Object.entries(byMeeting).map(([meetingName, participants]) => {
         const meetingId = participants[0]?.meetingId;
         return (
           <div key={meetingName} className="card p-4 md:p-5">

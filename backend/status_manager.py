@@ -88,10 +88,10 @@ def scrape_all_bookmakers():
     db = SessionLocal()
     try:
         meetings = db.query(Meeting).filter(
-            Meeting.status == MeetingStatus.LIVE.value
+            Meeting.status.in_([MeetingStatus.LIVE.value, MeetingStatus.FINISHED.value])
         ).all()
         if not meetings:
-            logger.info("No live meetings to update, skipping scrape")
+            logger.info("No meetings to update, skipping scrape")
             return
 
         for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:

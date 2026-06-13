@@ -4,6 +4,7 @@ export interface Participant {
   meetingName: string;
   meetingId: string;
   bookmakerPrice: number;
+  bookmakerPrices: Record<string, number>;
   aiPrice: number;
   overlayPercent: number;
   valueRating: "Strong Value" | "Value" | "Neutral" | "Avoid";
@@ -12,6 +13,8 @@ export interface Participant {
   status: "value" | "neutral" | "avoid";
   isProjectedWinner: boolean;
 }
+
+export const BOOKMAKERS = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"];
 
 export interface Meeting {
   id: string;

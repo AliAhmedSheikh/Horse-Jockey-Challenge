@@ -35,6 +35,7 @@ class ParticipantOut(BaseModel):
     meetingName: str
     meetingId: str
     bookmakerPrice: float
+    bookmakerPrices: dict[str, float]
     aiPrice: float
     overlayPercent: float
     valueRating: str

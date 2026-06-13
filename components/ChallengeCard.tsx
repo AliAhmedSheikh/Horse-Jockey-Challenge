@@ -4,6 +4,8 @@ import type { Participant } from "@/data/types";
 import { IconStar, IconTrendingUp } from "@/data/icons";
 import Link from "next/link";
 
+const BOOKMAKER_NAMES = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"];
+
 interface ChallengeCardProps {
   participant: Participant;
   type: "jockey" | "driver";
@@ -76,15 +78,19 @@ export default function ChallengeCard({
           </span>
         </div>
 
+        <div className="grid grid-cols-5 gap-1 mb-3">
+          {BOOKMAKER_NAMES.map((bm) => (
+            <div key={bm}>
+              <p className="text-[8px] text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                {bm}
+              </p>
+              <p className="text-xs font-semibold text-slate-900 dark:text-white mt-0.5">
+                ${(participant.bookmakerPrices?.[bm] ?? participant.bookmakerPrice).toFixed(2)}
+              </p>
+            </div>
+          ))}
+        </div>
         <div className="grid grid-cols-3 gap-3 mb-3">
-          <div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Bookmaker
-            </p>
-            <p className="text-sm font-semibold text-slate-900 dark:text-white mt-0.5">
-              ${participant.bookmakerPrice.toFixed(2)}
-            </p>
-          </div>
           <div>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               AI Price

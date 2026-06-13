@@ -131,8 +131,19 @@ def _compute_status(bookmaker_price: float, ai_price: float) -> str:
 
 def seed_database(db: Session):
     existing = db.query(Meeting).count()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     if existing > 0:
-        return
+        today_count = db.query(Meeting).filter(Meeting.date == today).count()
+        if today_count > 0:
+            logger.info(f"Database already has {today_count} meetings for today ({today})")
+            return
+        else:
+            logger.info(f"Existing data is from a previous day, clearing and re-seeding for {today}")
+            db.query(Result).delete()
+            db.query(Price).delete()
+            db.query(Participant).delete()
+            db.query(Meeting).delete()
+            db.commit()
 
     logger.info("Seeding database with Ladbrokes API data...")
     api = LadbrokesAPIScraper()
