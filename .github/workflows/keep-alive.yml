@@ -2,7 +2,7 @@ name: Keep Render Alive
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -10,4 +10,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Render backend
-        run: curl -sSf https://horse-jockey-challenge-2.onrender.com/ > /dev/null 2>&1
+        run: |
+          curl -sS --max-time 15 -o /dev/null -w "%{http_code}" https://horse-jockey-challenge-2.onrender.com/
