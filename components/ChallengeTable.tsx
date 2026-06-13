@@ -98,7 +98,7 @@ export default function ChallengeTable({
                         </div>
                         <div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[140px]">
                               {p.name}
                             </span>
                             {p.isProjectedWinner && (
@@ -108,7 +108,7 @@ export default function ChallengeTable({
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
                       {p.meetingName}
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">

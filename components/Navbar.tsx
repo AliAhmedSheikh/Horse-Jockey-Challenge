@@ -10,7 +10,10 @@ import {
   IconCalendar,
   IconList,
   IconSettings,
+  IconSun,
+  IconMoon,
 } from "@/data/icons";
+import { useTheme } from "@/context/ThemeContext";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: IconGrid },
@@ -23,6 +26,7 @@ const navItems = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <>
@@ -86,7 +90,7 @@ export default function Navbar() {
       </aside>
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 transition-colors duration-300">
-        <div className="flex items-center justify-around px-2 py-1 safe-area-pb">
+        <div className="flex items-center justify-around px-1 py-1.5 safe-area-pb">
           {navItems.slice(0, 5).map((item) => {
             const isActive =
               item.href === "/"
@@ -96,7 +100,7 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-lg min-w-0 ${
+                className={`flex flex-col items-center gap-0.5 py-2.5 px-1.5 rounded-lg min-w-0 ${
                   isActive
                     ? "text-amber-500"
                     : "text-slate-500 dark:text-slate-400"
@@ -111,7 +115,7 @@ export default function Navbar() {
           })}
           <Link
             href="/settings"
-            className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-lg min-w-0 ${
+            className={`flex flex-col items-center gap-0.5 py-2.5 px-1.5 rounded-lg min-w-0 ${
               pathname === "/settings"
                 ? "text-amber-500"
                 : "text-slate-500 dark:text-slate-400"
@@ -120,6 +124,20 @@ export default function Navbar() {
             <IconSettings className="w-5 h-5" />
             <span className="text-[10px] font-medium">Settings</span>
           </Link>
+          <button
+            onClick={toggleTheme}
+            className="flex flex-col items-center gap-0.5 py-2.5 px-1.5 rounded-lg min-w-0 text-slate-500 dark:text-slate-400 active:text-amber-500 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? (
+              <IconMoon className="w-5 h-5" />
+            ) : (
+              <IconSun className="w-5 h-5" />
+            )}
+            <span className="text-[10px] font-medium">
+              {theme === "dark" ? "Dark" : "Light"}
+            </span>
+          </button>
         </div>
       </nav>
     </>

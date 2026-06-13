@@ -48,7 +48,7 @@ export default function MeetingDetailPage() {
     <div className="page-transition space-y-6">
       <button
         onClick={() => router.push("/meetings")}
-        className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-amber-500 transition-colors mb-2"
+        className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-amber-500 transition-colors px-2 py-1.5 mb-2"
       >
         <IconChevronRight className="w-4 h-4 rotate-180" />
         Back to Meetings

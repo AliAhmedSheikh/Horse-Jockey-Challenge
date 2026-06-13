@@ -74,7 +74,7 @@
   }
 
   .input-range::-webkit-slider-thumb {
-    @apply appearance-none w-5 h-5 rounded-full bg-amber-500 shadow-md shadow-amber-500/30 cursor-pointer;
+    @apply appearance-none w-7 h-7 rounded-full bg-amber-500 shadow-md shadow-amber-500/30 cursor-pointer;
   }
 
   .page-transition {

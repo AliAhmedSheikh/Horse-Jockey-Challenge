@@ -74,7 +74,7 @@ export default function ResultsPage() {
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  className={`px-3 py-2 text-xs font-medium rounded-md transition-all ${
                     filter === f
                       ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
                       : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
@@ -84,13 +84,13 @@ export default function ResultsPage() {
                 </button>
               ))}
             </div>
-            <button onClick={() => mutate()} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition-colors">
+            <button onClick={() => mutate()} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition-colors">
               <IconRefresh className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        <div className="hidden md:block overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700/50">
+        <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700/50">
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/80">
@@ -124,7 +124,7 @@ export default function ResultsPage() {
                   className="bg-white dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <span className="text-sm font-medium text-slate-900 dark:text-white">
+                    <span className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[120px] block">
                       {r.meetingName}
                     </span>
                   </td>

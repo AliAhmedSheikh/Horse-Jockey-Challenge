@@ -90,7 +90,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
         <DataCard
           title="Today's Meetings"
           value={dashboardCards.todayMeetings}
@@ -251,7 +251,7 @@ export default function DashboardPage() {
               </h2>
               <button
                 onClick={() => router.push("/results")}
-                className="text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors"
+                className="text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors px-2 py-1"
               >
                 View all
               </button>
@@ -295,7 +295,7 @@ export default function DashboardPage() {
               </h2>
               <button
                 onClick={() => router.push("/jockey-challenges")}
-                className="text-xs font-medium text-amber-500 hover:text-amber-400"
+                className="text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors px-2 py-1"
               >
                 View all
               </button>
@@ -324,7 +324,7 @@ export default function DashboardPage() {
               </h2>
               <button
                 onClick={() => router.push("/driver-challenges")}
-                className="text-xs font-medium text-amber-500 hover:text-amber-400"
+                className="text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors px-2 py-1"
               >
                 View all
               </button>
@@ -353,7 +353,7 @@ export default function DashboardPage() {
               </h2>
               <button
                 onClick={() => router.push("/meetings")}
-                className="text-xs font-medium text-amber-500 hover:text-amber-400"
+                className="text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors px-2 py-1"
               >
                 View all
               </button>

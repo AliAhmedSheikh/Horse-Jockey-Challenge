@@ -67,7 +67,7 @@ export default function DriverChallengesPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
         <DataCard
           title="Total Drivers"
           value={drivers.length}
@@ -109,7 +109,7 @@ export default function DriverChallengesPage() {
                   <button
                     key={f}
                     onClick={() => setFilterStatus(f)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    className={`px-3 py-2 text-xs font-medium rounded-md transition-all ${
                       filterStatus === f
                         ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
@@ -125,7 +125,7 @@ export default function DriverChallengesPage() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-lg px-3 py-1.5 text-slate-600 dark:text-slate-300 font-medium cursor-pointer focus:ring-2 focus:ring-amber-500/30"
+              className="text-xs bg-slate-100 dark:bg-slate-700 border-0 rounded-lg px-3 py-2 text-slate-600 dark:text-slate-300 font-medium cursor-pointer focus:ring-2 focus:ring-amber-500/30"
             >
               <option value="overlayPercent">Sort: Overlay</option>
               <option value="currentPoints">Sort: Points</option>
