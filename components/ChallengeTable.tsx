@@ -40,7 +40,7 @@ export default function ChallengeTable({
   participants,
   type,
 }: ChallengeTableProps) {
-  const sorted = [...participants].sort((a, b) => a.bookmakerPrice - b.bookmakerPrice);
+  const sorted = [...participants].sort((a, b) => b.currentPoints - a.currentPoints);
   return (
     <>
       <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700/50">

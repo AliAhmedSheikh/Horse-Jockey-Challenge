@@ -67,7 +67,7 @@ export default function MeetingDetailPage() {
     );
   }
 
-  const sorted = participants ? [...participants].sort((a, b) => a.bookmakerPrice - b.bookmakerPrice) : [];
+  const sorted = participants ? [...participants].sort((a, b) => b.currentPoints - a.currentPoints) : [];
 
   return (
     <div className="page-transition space-y-6">
@@ -143,7 +143,7 @@ export default function MeetingDetailPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
               {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     No participants loaded
                   </td>
                 </tr>
@@ -220,7 +220,6 @@ export default function MeetingDetailPage() {
                   <p className="text-sm font-bold text-slate-900 dark:text-white">{p.currentPoints}</p>
                 </div>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">{p.currentPoints} pts</p>
             </div>
           ))}
         </div>

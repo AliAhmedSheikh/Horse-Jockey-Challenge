@@ -41,7 +41,7 @@ export default function ResultsPage() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Results</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Select a meeting to view final standings</p>
         </div>
-        <button onClick={async () => { try { await fetch("/api/refresh", { method: "POST" }); } catch {} mutate(); }} className="btn-secondary flex items-center gap-2">
+        <button onClick={async () => { try { const r = await fetch("/api/refresh", { method: "POST" }); if (!r.ok) throw new Error("Refresh failed"); mutate(); } catch (e) { alert("Refresh failed. Is the backend running?"); } }} className="btn-secondary flex items-center gap-2">
           <IconRefresh className="w-4 h-4" />
           <span className="hidden sm:inline">Refresh</span>
         </button>

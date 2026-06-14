@@ -87,7 +87,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <button
-          onClick={async () => { try { await fetch("/api/refresh", { method: "POST" }); } catch {} mutate(); }}
+          onClick={async () => { try { const r = await fetch("/api/refresh", { method: "POST" }); if (!r.ok) throw new Error("Refresh failed"); mutate(); } catch (e) { alert("Refresh failed. Is the backend running?"); } }}
           className="btn-secondary flex items-center gap-2"
         >
           <IconRefresh className="w-4 h-4" />
