@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import List, Dict, Tuple, Optional
 import httpx
 
@@ -12,6 +13,8 @@ API_HEADERS = {
     "X-Partner": "JockeyDriverDashboard",
 }
 
+_client_lock = threading.Lock()
+_cache_lock = threading.Lock()
 _shared_client = None
 _all_cache = None
 
@@ -19,19 +22,23 @@ _all_cache = None
 def _get_client():
     global _shared_client
     if _shared_client is None:
-        _shared_client = httpx.Client(timeout=15, headers=API_HEADERS)
+        with _client_lock:
+            if _shared_client is None:
+                _shared_client = httpx.Client(timeout=15, headers=API_HEADERS)
     return _shared_client
 
 
 def invalidate_cache():
     global _all_cache
-    _all_cache = None
+    with _cache_lock:
+        _all_cache = None
 
 
 def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
     global _all_cache
-    if _all_cache is not None:
-        return _all_cache
+    with _cache_lock:
+        if _all_cache is not None:
+            return _all_cache
 
     today = today_aus()
     client = _get_client()
@@ -41,13 +48,12 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
             params={"date_from": today, "date_to": today, "country": "AUS", "type": " ", "limit": 200},
         )
         if r.status_code != 200:
-            _all_cache = ([], [])
-            return _all_cache
+            logger.warning(f"Ladbrokes API returned {r.status_code}, will retry on next request")
+            return ([], [])
         meetings = r.json().get("data", {}).get("meetings", [])
     except Exception as e:
-        logger.error(f"Failed to fetch meetings: {e}")
-        _all_cache = ([], [])
-        return _all_cache
+        logger.error(f"Failed to fetch meetings: {e}, will retry on next request")
+        return ([], [])
 
     jockey_markets = []
     driver_markets = []
@@ -77,9 +83,17 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                 if r2.status_code != 200:
                     continue
                 race_data = r2.json().get("data", {})
+                race_info = race_data.get("race", {})
+                start_time = (race_info.get("advertised_start_time") or
+                              race_info.get("start_time") or
+                              race_info.get("commence_time") or
+                              race_info.get("race_time") or
+                              race_info.get("time") or
+                              race_info.get("advertised_start") or "")
                 races_data.append({
                     "race_number": race_num,
-                    "status": race_data.get("race", {}).get("status", ""),
+                    "status": race_info.get("status", ""),
+                    "start_time": start_time,
                     "results": race_data.get("results", []),
                     "runners": race_data.get("runners", []),
                 })

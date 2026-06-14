@@ -1,6 +1,7 @@
 import logging
 import os
 import random
+import threading
 from typing import List, Dict, Optional
 
 from scrapers.base import LadbrokesAPIScraper
@@ -16,12 +17,15 @@ BOOKMAKER_CONFIG = {
 }
 
 _pe_scraper: Optional[PuntersEdgeScraper] = None
+_pe_lock = threading.Lock()
 
 
 def _get_pe_scraper() -> PuntersEdgeScraper:
     global _pe_scraper
     if _pe_scraper is None:
-        _pe_scraper = PuntersEdgeScraper()
+        with _pe_lock:
+            if _pe_scraper is None:
+                _pe_scraper = PuntersEdgeScraper()
     return _pe_scraper
 
 

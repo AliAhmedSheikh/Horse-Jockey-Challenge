@@ -90,11 +90,15 @@ export default function Navbar() {
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 transition-colors duration-300">
         <div className="flex items-center justify-around px-1 py-1.5 safe-area-pb">
-          {navItems.slice(0, 6).map((item) => {
+          {navItems.map((item) => {
             const isActive =
               item.href === "/"
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
+            let shortLabel = item.label;
+            if (shortLabel === "Formula Settings") shortLabel = "Settings";
+            else if (shortLabel === "Dashboard") shortLabel = "Home";
+            else shortLabel = shortLabel.split(" ")[0];
             return (
               <Link
                 key={item.href}
@@ -107,25 +111,8 @@ export default function Navbar() {
               >
                 <item.icon className="w-5 h-5" />
                 <span className="text-[10px] font-medium whitespace-nowrap">
-                  {item.label.split(" ")[0]}
+                  {shortLabel}
                 </span>
-              </Link>
-            );
-          })}
-          {navItems.slice(6, 7).map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-0.5 py-2.5 px-1.5 rounded-lg min-w-0 ${
-                  isActive
-                    ? "text-amber-500"
-                    : "text-slate-500 dark:text-slate-400"
-                }`}
-              >
-                <IconSettings className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Settings</span>
               </Link>
             );
           })}

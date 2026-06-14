@@ -29,7 +29,7 @@ interface DashboardData {
 export default function MeetingsPage() {
   const router = useRouter();
   const { data, error, isLoading } = useSWR<DashboardData>("/api/dashboard", fetcher, { refreshInterval: 30000 });
-  const { data: meetingsData } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
+  const { data: meetingsData, error: meetingsError } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
 
   const jockeys = data?.jockeys ?? [];
   const drivers = data?.drivers ?? [];

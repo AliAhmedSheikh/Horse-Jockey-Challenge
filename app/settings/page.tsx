@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/api";
 import DataCard from "@/components/DataCard";
 import { IconSettings as IconSettingsIcon, IconRefresh } from "@/data/icons";
 
@@ -79,6 +81,8 @@ const settings: SliderSetting[] = [
 ];
 
 export default function SettingsPage() {
+  const { data: apiData, mutate: mutateSettings } = useSWR<{ settings: Record<string, number> }>("/api/settings", fetcher, { refreshInterval: 30000 });
+
   const [values, setValues] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
     settings.forEach((s) => {
@@ -90,28 +94,52 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("formulaSettings");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setValues(parsed);
-      } catch {}
+    if (apiData?.settings) {
+      setValues((prev) => {
+        const merged = { ...prev };
+        for (const [key, val] of Object.entries(apiData.settings)) {
+          if (key in merged) {
+            merged[key] = val;
+          }
+        }
+        return merged;
+      });
     }
-  }, []);
+  }, [apiData]);
 
-  const handleSave = () => {
-    localStorage.setItem("formulaSettings", JSON.stringify(values));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    try {
+      const r = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: values }),
+      });
+      if (!r.ok) throw new Error("Save failed");
+      mutateSettings();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      alert("Failed to save settings. Is the backend running?");
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     const reset: Record<string, number> = {};
     settings.forEach((s) => {
       reset[s.id] = s.default;
     });
-    localStorage.setItem("formulaSettings", JSON.stringify(reset));
-    setValues(reset);
+    try {
+      const r = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: reset }),
+      });
+      if (!r.ok) throw new Error("Reset failed");
+      mutateSettings();
+      setValues(reset);
+    } catch (e) {
+      alert("Failed to reset settings. Is the backend running?");
+    }
   };
 
   return (

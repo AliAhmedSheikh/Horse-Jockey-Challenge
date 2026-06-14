@@ -10,7 +10,7 @@ import { IconList, IconUser, IconCar, IconChevronRight, IconStar, IconRefresh } 
 export default function ResultsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: meetingsData, error, isLoading, mutate } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
-  const { data: podium, isValidating: podiumLoading } = useSWR<PodiumEntry[]>(
+  const { data: podium, isLoading: podiumLoading } = useSWR<PodiumEntry[]>(
     selectedId ? `/api/meetings/${selectedId}/podium` : null,
     fetcher,
     { refreshInterval: 15000 }

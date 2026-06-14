@@ -5,8 +5,11 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
       - key: PUNTERSEDGE_API_KEY
-        value: e68af6ab-99f6-4d1f-8a19-8d2c1c80360a
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://jockey-driver-dashboard.vercel.app

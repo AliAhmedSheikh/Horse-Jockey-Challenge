@@ -1,0 +1,6747 @@
+{
+  "duplicate_results": [],
+  "points_mismatch": [],
+  "finished_meeting_race_mismatch": [],
+  "participant_completed_over_total": [],
+  "negative_remaining_races": [],
+  "orphaned_results_meeting": [],
+  "orphaned_results_participant": [],
+  "orphaned_prices_meeting": [],
+  "orphaned_prices_participant": [],
+  "meetings_with_zero_participants": [],
+  "participants_zero_results_with_completed_meeting": [],
+  "duplicate_participant_names": [],
+  "duplicate_meeting_names": [],
+  "finished_meeting_result_counts": [
+    {
+      "id": "m1",
+      "name": "Devonport Synthetic",
+      "total_races": 8,
+      "completed_races": 8,
+      "num_participants": 15,
+      "total_result_rows": 120
+    },
+    {
+      "id": "m10",
+      "name": "Kellerberrin",
+      "total_races": 7,
+      "completed_races": 7,
+      "num_participants": 14,
+      "total_result_rows": 98
+    },
+    {
+      "id": "m11",
+      "name": "Globe Derby",
+      "total_races": 9,
+      "completed_races": 9,
+      "num_participants": 24,
+      "total_result_rows": 216
+    },
+    {
+      "id": "m2",
+      "name": "Balaklava",
+      "total_races": 9,
+      "completed_races": 9,
+      "num_participants": 28,
+      "total_result_rows": 252
+    },
+    {
+      "id": "m3",
+      "name": "Port Macquarie",
+      "total_races": 8,
+      "completed_races": 8,
+      "num_participants": 23,
+      "total_result_rows": 184
+    },
+    {
+      "id": "m4",
+      "name": "Wangaratta",
+      "total_races": 8,
+      "completed_races": 8,
+      "num_participants": 30,
+      "total_result_rows": 240
+    },
+    {
+      "id": "m5",
+      "name": "Warren",
+      "total_races": 8,
+      "completed_races": 8,
+      "num_participants": 20,
+      "total_result_rows": 160
+    },
+    {
+      "id": "m6",
+      "name": "Sunshine Coast",
+      "total_races": 8,
+      "completed_races": 8,
+      "num_participants": 29,
+      "total_result_rows": 232
+    },
+    {
+      "id": "m7",
+      "name": "Warrnambool",
+      "total_races": 6,
+      "completed_races": 6,
+      "num_participants": 16,
+      "total_result_rows": 96
+    },
+    {
+      "id": "m8",
+      "name": "Alice Springs",
+      "total_races": 5,
+      "completed_races": 5,
+      "num_participants": 10,
+      "total_result_rows": 50
+    },
+    {
+      "id": "m9",
+      "name": "Kalgoorlie",
+      "total_races": 7,
+      "completed_races": 7,
+      "num_participants": 13,
+      "total_result_rows": 91
+    }
+  ],
+  "points_distribution_per_race": [
+    {
+      "meeting_id": "m1",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 12
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 12
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 12
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 12
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 12
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 12
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 12
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 8,
+      "points_added": 0.0,
+      "cnt": 12
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 8,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 8,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 8,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 11
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 11
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 10
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 3,
+      "points_added": 0.5,
+      "cnt": 2
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 11
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 11
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 11
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 11
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 21
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 21
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 21
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 21
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 21
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 21
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 21
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 8,
+      "points_added": 0.0,
+      "cnt": 21
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 8,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 8,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 8,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 9,
+      "points_added": 0.0,
+      "cnt": 21
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 9,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 9,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 9,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 15
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 15
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 15
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 15
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 15
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 15
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 15
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 25
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 25
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 25
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 25
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 25
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 25
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 25
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 8,
+      "points_added": 0.0,
+      "cnt": 25
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 8,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 8,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 8,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 9,
+      "points_added": 0.0,
+      "cnt": 25
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 9,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 9,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 9,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 20
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 20
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 20
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 20
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 20
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 20
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 20
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 8,
+      "points_added": 0.0,
+      "cnt": 20
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 8,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 8,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 8,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 27
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 27
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 27
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 27
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 27
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 27
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 27
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 8,
+      "points_added": 0.0,
+      "cnt": 27
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 8,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 8,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 8,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 17
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 17
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 17
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 17
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 17
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 17
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 17
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 8,
+      "points_added": 0.0,
+      "cnt": 17
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 8,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 8,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 8,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 8,
+      "points_added": 0.0,
+      "cnt": 26
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 8,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 8,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 8,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 13
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 13
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 13
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 13
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 13
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 13
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 7
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 7
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 7
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 7
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 7
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 1,
+      "points_added": 0.0,
+      "cnt": 10
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 1,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 1,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 1,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 2,
+      "points_added": 0.0,
+      "cnt": 10
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 2,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 2,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 2,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 3,
+      "points_added": 0.0,
+      "cnt": 10
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 3,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 3,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 3,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 4,
+      "points_added": 0.0,
+      "cnt": 10
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 4,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 4,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 4,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 5,
+      "points_added": 0.0,
+      "cnt": 10
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 5,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 5,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 5,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 6,
+      "points_added": 0.0,
+      "cnt": 10
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 6,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 6,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 6,
+      "points_added": 3.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 7,
+      "points_added": 0.0,
+      "cnt": 10
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 7,
+      "points_added": 1.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 7,
+      "points_added": 2.0,
+      "cnt": 1
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 7,
+      "points_added": 3.0,
+      "cnt": 1
+    }
+  ],
+  "multiple_position_1": [],
+  "negative_points": [],
+  "negative_points_added": [],
+  "weird_positions": [],
+  "completed_races_vs_result_count": [
+    {
+      "id": "m10_abbey_vidovich",
+      "name": "Abbey Vidovich",
+      "meeting_id": "m10",
+      "completed_races": 6,
+      "result_count": 7
+    },
+    {
+      "id": "m10_ashley_shepherd",
+      "name": "Ashley Shepherd",
+      "meeting_id": "m10",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m10_corey_peterson",
+      "name": "Corey Peterson",
+      "meeting_id": "m10",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m10_darcy_kulcsar",
+      "name": "Darcy Kulcsar",
+      "meeting_id": "m10",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m10_donald_harper",
+      "name": "Donald Harper",
+      "meeting_id": "m10",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m10_joe_suvaljko",
+      "name": "Joe Suvaljko",
+      "meeting_id": "m10",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m10_joseph_suvaljko",
+      "name": "Joseph Suvaljko",
+      "meeting_id": "m10",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m10_kylah_madden",
+      "name": "Kylah Madden",
+      "meeting_id": "m10",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m10_lachlan_kennelly",
+      "name": "Lachlan Kennelly",
+      "meeting_id": "m10",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m10_stuart_mcdonald",
+      "name": "Stuart McDonald",
+      "meeting_id": "m10",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m10_tom_nally",
+      "name": "Tom Nally",
+      "meeting_id": "m10",
+      "completed_races": 6,
+      "result_count": 7
+    },
+    {
+      "id": "m11_bernadette_page",
+      "name": "Bernadette Page",
+      "meeting_id": "m11",
+      "completed_races": 3,
+      "result_count": 9
+    },
+    {
+      "id": "m11_corey_johnson",
+      "name": "Corey Johnson",
+      "meeting_id": "m11",
+      "completed_races": 5,
+      "result_count": 9
+    },
+    {
+      "id": "m11_danielle_hill",
+      "name": "Danielle Hill",
+      "meeting_id": "m11",
+      "completed_races": 7,
+      "result_count": 9
+    },
+    {
+      "id": "m11_darren_billinger",
+      "name": "Darren Billinger",
+      "meeting_id": "m11",
+      "completed_races": 2,
+      "result_count": 9
+    },
+    {
+      "id": "m11_david_smith",
+      "name": "David Smith",
+      "meeting_id": "m11",
+      "completed_races": 8,
+      "result_count": 9
+    },
+    {
+      "id": "m11_dean_girardi",
+      "name": "Dean Girardi",
+      "meeting_id": "m11",
+      "completed_races": 5,
+      "result_count": 9
+    },
+    {
+      "id": "m11_greg_rogers",
+      "name": "Greg Rogers",
+      "meeting_id": "m11",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m11_jason_kittel",
+      "name": "Jason Kittel",
+      "meeting_id": "m11",
+      "completed_races": 6,
+      "result_count": 9
+    },
+    {
+      "id": "m11_joshua_holberton",
+      "name": "Joshua Holberton",
+      "meeting_id": "m11",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m11_katie_wilson",
+      "name": "Katie Wilson",
+      "meeting_id": "m11",
+      "completed_races": 2,
+      "result_count": 9
+    },
+    {
+      "id": "m11_kerry_green",
+      "name": "Kerry Green",
+      "meeting_id": "m11",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m11_malcolm_farrow",
+      "name": "Malcolm Farrow",
+      "meeting_id": "m11",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m11_mario_borg",
+      "name": "Mario Borg",
+      "meeting_id": "m11",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m11_mark_norman",
+      "name": "Mark Norman",
+      "meeting_id": "m11",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m11_michael_a_smith",
+      "name": "Michael A Smith",
+      "meeting_id": "m11",
+      "completed_races": 5,
+      "result_count": 9
+    },
+    {
+      "id": "m11_neil_mccallum",
+      "name": "Neil McCallum",
+      "meeting_id": "m11",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m11_nicholas_brown",
+      "name": "Nicholas Brown",
+      "meeting_id": "m11",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m11_reece_moore",
+      "name": "Reece Moore",
+      "meeting_id": "m11",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m11_ryan_hryhorec",
+      "name": "Ryan Hryhorec",
+      "meeting_id": "m11",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m11_samantha_hill",
+      "name": "Samantha Hill",
+      "meeting_id": "m11",
+      "completed_races": 5,
+      "result_count": 9
+    },
+    {
+      "id": "m11_terry_brown",
+      "name": "Terry Brown",
+      "meeting_id": "m11",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m11_tiana_mcmahon",
+      "name": "Tiana McMahon",
+      "meeting_id": "m11",
+      "completed_races": 2,
+      "result_count": 9
+    },
+    {
+      "id": "m11_tony_pullicino",
+      "name": "Tony Pullicino",
+      "meeting_id": "m11",
+      "completed_races": 3,
+      "result_count": 9
+    },
+    {
+      "id": "m11_wayne_hill",
+      "name": "Wayne Hill",
+      "meeting_id": "m11",
+      "completed_races": 7,
+      "result_count": 9
+    },
+    {
+      "id": "m12_brodie_davis",
+      "name": "Brodie Davis",
+      "meeting_id": "m12",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m12_christian_salter",
+      "name": "Christian Salter",
+      "meeting_id": "m12",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m12_dylan_ford",
+      "name": "Dylan Ford",
+      "meeting_id": "m12",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m12_ethan_arnott",
+      "name": "Ethan Arnott",
+      "meeting_id": "m12",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m12_gareth_rattray",
+      "name": "Gareth Rattray",
+      "meeting_id": "m12",
+      "completed_races": 6,
+      "result_count": 7
+    },
+    {
+      "id": "m12_grace_jones",
+      "name": "Grace Jones",
+      "meeting_id": "m12",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m12_hannah_van_dongen",
+      "name": "Hannah Van dongen",
+      "meeting_id": "m12",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m12_heath_woods",
+      "name": "Heath Woods",
+      "meeting_id": "m12",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m12_jack_watson",
+      "name": "Jack Watson",
+      "meeting_id": "m12",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m12_jacob_duggan",
+      "name": "Jacob Duggan",
+      "meeting_id": "m12",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m12_mark_yole",
+      "name": "Mark Yole",
+      "meeting_id": "m12",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m12_paul_williams",
+      "name": "Paul Williams",
+      "meeting_id": "m12",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m12_ricky_duggan",
+      "name": "Ricky Duggan",
+      "meeting_id": "m12",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m12_rodney_ashwood",
+      "name": "Rodney Ashwood",
+      "meeting_id": "m12",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m12_rohan_hillier",
+      "name": "Rohan Hillier",
+      "meeting_id": "m12",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m12_ryan_backhouse",
+      "name": "Ryan Backhouse",
+      "meeting_id": "m12",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m12_tiarna_ford",
+      "name": "Tiarna Ford",
+      "meeting_id": "m12",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m12_todd_rattray",
+      "name": "Todd Rattray",
+      "meeting_id": "m12",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m13_abby_sanderson",
+      "name": "Abby Sanderson",
+      "meeting_id": "m13",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m13_austin_mifsud",
+      "name": "Austin Mifsud",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_chris_alford",
+      "name": "Chris Alford",
+      "meeting_id": "m13",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m13_ewa_justice",
+      "name": "Ewa Justice",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_fred_spiteri",
+      "name": "Fred Spiteri",
+      "meeting_id": "m13",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m13_ian_miller",
+      "name": "Ian Miller",
+      "meeting_id": "m13",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m13_james_herbertson",
+      "name": "James Herbertson",
+      "meeting_id": "m13",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m13_jodi_quinlan",
+      "name": "Jodi Quinlan",
+      "meeting_id": "m13",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m13_john_caldow",
+      "name": "John Caldow",
+      "meeting_id": "m13",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m13_josh_duggan",
+      "name": "Josh Duggan",
+      "meeting_id": "m13",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m13_kate_gath",
+      "name": "Kate Gath",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_lauren_white",
+      "name": "Lauren White",
+      "meeting_id": "m13",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m13_leilani_justice",
+      "name": "Leilani Justice",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_liam_older",
+      "name": "Liam Older",
+      "meeting_id": "m13",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m13_matthew_craven",
+      "name": "Matthew Craven",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_michael_bellman",
+      "name": "Michael Bellman",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_nick_beale",
+      "name": "Nick Beale",
+      "meeting_id": "m13",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m13_paul_grech",
+      "name": "Paul Grech",
+      "meeting_id": "m13",
+      "completed_races": 0,
+      "result_count": 7
+    },
+    {
+      "id": "m13_reagan_clarke",
+      "name": "Reagan Clarke",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_rita_burnett",
+      "name": "Rita Burnett",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_ross_graham",
+      "name": "Ross Graham",
+      "meeting_id": "m13",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m13_ryan_sanderson",
+      "name": "Ryan Sanderson",
+      "meeting_id": "m13",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m13_scott_ewen",
+      "name": "Scott Ewen",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_sean_o'sullivan",
+      "name": "Sean O'Sullivan",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_tasmyn_potter",
+      "name": "Tasmyn Potter",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_tayla_french",
+      "name": "Tayla French",
+      "meeting_id": "m13",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m13_taylor_ford",
+      "name": "Taylor Ford",
+      "meeting_id": "m13",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m13_tony_mallia",
+      "name": "Tony Mallia",
+      "meeting_id": "m13",
+      "completed_races": 1,
+      "result_count": 7
+    },
+    {
+      "id": "m13_tyrone_abela",
+      "name": "Tyrone Abela",
+      "meeting_id": "m13",
+      "completed_races": 0,
+      "result_count": 7
+    },
+    {
+      "id": "m1_anthony_darmanin",
+      "name": "Anthony Darmanin",
+      "meeting_id": "m1",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m1_bree_temple",
+      "name": "Bree Temple",
+      "meeting_id": "m1",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m1_chloe_wells",
+      "name": "Chloe Wells",
+      "meeting_id": "m1",
+      "completed_races": 7,
+      "result_count": 8
+    },
+    {
+      "id": "m1_christopher_pang",
+      "name": "Christopher Pang",
+      "meeting_id": "m1",
+      "completed_races": 7,
+      "result_count": 8
+    },
+    {
+      "id": "m1_codi_jordan",
+      "name": "Codi Jordan",
+      "meeting_id": "m1",
+      "completed_races": 6,
+      "result_count": 8
+    },
+    {
+      "id": "m1_craig_atkinson",
+      "name": "Craig Atkinson",
+      "meeting_id": "m1",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m1_daniel_ganderton",
+      "name": "Daniel Ganderton",
+      "meeting_id": "m1",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m1_erica_byrne_burke",
+      "name": "Erica Byrne Burke",
+      "meeting_id": "m1",
+      "completed_races": 7,
+      "result_count": 8
+    },
+    {
+      "id": "m1_hayley_mccarthy",
+      "name": "Hayley McCarthy",
+      "meeting_id": "m1",
+      "completed_races": 6,
+      "result_count": 8
+    },
+    {
+      "id": "m1_jackson_radley",
+      "name": "Jackson Radley",
+      "meeting_id": "m1",
+      "completed_races": 6,
+      "result_count": 8
+    },
+    {
+      "id": "m1_kelvin_sanderson",
+      "name": "Kelvin Sanderson",
+      "meeting_id": "m1",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m1_kirra-lee_lane",
+      "name": "Kirra-Lee Lane",
+      "meeting_id": "m1",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m1_lauryn_bingley",
+      "name": "Lauryn Bingley",
+      "meeting_id": "m1",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m1_sam_kennedy",
+      "name": "Sam Kennedy",
+      "meeting_id": "m1",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m1_troy_baker",
+      "name": "Troy Baker",
+      "meeting_id": "m1",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m2_alyssa_webb",
+      "name": "Alyssa Webb",
+      "meeting_id": "m2",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m2_andrew_stead",
+      "name": "Andrew Stead",
+      "meeting_id": "m2",
+      "completed_races": 3,
+      "result_count": 9
+    },
+    {
+      "id": "m2_ashvin_goindasamy",
+      "name": "Ashvin Goindasamy",
+      "meeting_id": "m2",
+      "completed_races": 6,
+      "result_count": 9
+    },
+    {
+      "id": "m2_ben_price",
+      "name": "Ben Price",
+      "meeting_id": "m2",
+      "completed_races": 2,
+      "result_count": 9
+    },
+    {
+      "id": "m2_brooke_king",
+      "name": "Brooke King",
+      "meeting_id": "m2",
+      "completed_races": 6,
+      "result_count": 9
+    },
+    {
+      "id": "m2_caitlin_tootell",
+      "name": "Caitlin Tootell",
+      "meeting_id": "m2",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m2_campbell_rawiller",
+      "name": "Campbell Rawiller",
+      "meeting_id": "m2",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m2_dom_tourneur",
+      "name": "Dom Tourneur",
+      "meeting_id": "m2",
+      "completed_races": 5,
+      "result_count": 9
+    },
+    {
+      "id": "m2_emily_finnegan",
+      "name": "Emily Finnegan",
+      "meeting_id": "m2",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m2_harry_grace",
+      "name": "Harry Grace",
+      "meeting_id": "m2",
+      "completed_races": 8,
+      "result_count": 9
+    },
+    {
+      "id": "m2_isaac_sit",
+      "name": "Isaac Sit",
+      "meeting_id": "m2",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m2_jackson_murphy",
+      "name": "Jackson Murphy",
+      "meeting_id": "m2",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m2_jason_holder",
+      "name": "Jason Holder",
+      "meeting_id": "m2",
+      "completed_races": 5,
+      "result_count": 9
+    },
+    {
+      "id": "m2_jemma_gutte",
+      "name": "Jemma Gutte",
+      "meeting_id": "m2",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m2_kayla_crowther",
+      "name": "Kayla Crowther",
+      "meeting_id": "m2",
+      "completed_races": 7,
+      "result_count": 9
+    },
+    {
+      "id": "m2_lauren_stojakovic",
+      "name": "Lauren Stojakovic",
+      "meeting_id": "m2",
+      "completed_races": 6,
+      "result_count": 9
+    },
+    {
+      "id": "m2_margaret_collett",
+      "name": "Margaret Collett",
+      "meeting_id": "m2",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m2_matt_chadwick",
+      "name": "Matt Chadwick",
+      "meeting_id": "m2",
+      "completed_races": 2,
+      "result_count": 9
+    },
+    {
+      "id": "m2_polly_brewster",
+      "name": "Polly Brewster",
+      "meeting_id": "m2",
+      "completed_races": 2,
+      "result_count": 9
+    },
+    {
+      "id": "m2_shuichi_terachi",
+      "name": "Shuichi Terachi",
+      "meeting_id": "m2",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m2_sophie_logan",
+      "name": "Sophie Logan",
+      "meeting_id": "m2",
+      "completed_races": 1,
+      "result_count": 9
+    },
+    {
+      "id": "m2_sophie_potter",
+      "name": "Sophie Potter",
+      "meeting_id": "m2",
+      "completed_races": 6,
+      "result_count": 9
+    },
+    {
+      "id": "m2_stacey_metcalfe",
+      "name": "Stacey Metcalfe",
+      "meeting_id": "m2",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m2_tala_hutchinson",
+      "name": "Tala Hutchinson",
+      "meeting_id": "m2",
+      "completed_races": 6,
+      "result_count": 9
+    },
+    {
+      "id": "m2_taylor_johnstone",
+      "name": "Taylor Johnstone",
+      "meeting_id": "m2",
+      "completed_races": 4,
+      "result_count": 9
+    },
+    {
+      "id": "m2_todd_pannell",
+      "name": "Todd Pannell",
+      "meeting_id": "m2",
+      "completed_races": 6,
+      "result_count": 9
+    },
+    {
+      "id": "m2_wesley_cave",
+      "name": "Wesley Cave",
+      "meeting_id": "m2",
+      "completed_races": 3,
+      "result_count": 9
+    },
+    {
+      "id": "m2_will_price",
+      "name": "Will Price",
+      "meeting_id": "m2",
+      "completed_races": 3,
+      "result_count": 9
+    },
+    {
+      "id": "m3_aaron_bullock",
+      "name": "Aaron Bullock",
+      "meeting_id": "m3",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m3_anna_roper",
+      "name": "Anna Roper",
+      "meeting_id": "m3",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m3_ben_looker",
+      "name": "Ben Looker",
+      "meeting_id": "m3",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m3_braith_nock",
+      "name": "Braith Nock",
+      "meeting_id": "m3",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m3_grace_palmer",
+      "name": "Grace Palmer",
+      "meeting_id": "m3",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m3_grady_spokes",
+      "name": "Grady Spokes",
+      "meeting_id": "m3",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m3_jeff_kehoe",
+      "name": "Jeff Kehoe",
+      "meeting_id": "m3",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m3_jeff_penza",
+      "name": "Jeff Penza",
+      "meeting_id": "m3",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m3_jenny_duggan",
+      "name": "Jenny Duggan",
+      "meeting_id": "m3",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m3_jon_grisedale",
+      "name": "Jon Grisedale",
+      "meeting_id": "m3",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m3_kacie_adams",
+      "name": "Kacie Adams",
+      "meeting_id": "m3",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m3_lee_magorrian",
+      "name": "Lee Magorrian",
+      "meeting_id": "m3",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m3_liberty_smyth",
+      "name": "Liberty Smyth",
+      "meeting_id": "m3",
+      "completed_races": 7,
+      "result_count": 8
+    },
+    {
+      "id": "m3_madeline_owen",
+      "name": "Madeline Owen",
+      "meeting_id": "m3",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m3_matthew_bennett",
+      "name": "Matthew Bennett",
+      "meeting_id": "m3",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m3_mollie_fitzgerald",
+      "name": "Mollie Fitzgerald",
+      "meeting_id": "m3",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m3_poppie_gorton",
+      "name": "Poppie Gorton",
+      "meeting_id": "m3",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m3_raymond_spokes",
+      "name": "Raymond Spokes",
+      "meeting_id": "m3",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m3_rory_hutchings",
+      "name": "Rory Hutchings",
+      "meeting_id": "m3",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m3_stephen_cummins",
+      "name": "Stephen Cummins",
+      "meeting_id": "m3",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m3_stephen_traecey",
+      "name": "Stephen Traecey",
+      "meeting_id": "m3",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m3_teighan_worsnop",
+      "name": "Teighan Worsnop",
+      "meeting_id": "m3",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m3_william_stanley",
+      "name": "William Stanley",
+      "meeting_id": "m3",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m4_bailey_kinninmont",
+      "name": "Bailey Kinninmont",
+      "meeting_id": "m4",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m4_billy_egan",
+      "name": "Billy Egan",
+      "meeting_id": "m4",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m4_blaike_mcdougall",
+      "name": "Blaike Mcdougall",
+      "meeting_id": "m4",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m4_brendon_newport",
+      "name": "Brendon Newport",
+      "meeting_id": "m4",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m4_brittany_button",
+      "name": "Brittany Button",
+      "meeting_id": "m4",
+      "completed_races": 6,
+      "result_count": 8
+    },
+    {
+      "id": "m4_brodie_loy",
+      "name": "Brodie Loy",
+      "meeting_id": "m4",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m4_caitlin_hollowood",
+      "name": "Caitlin Hollowood",
+      "meeting_id": "m4",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m4_cassidy_hill",
+      "name": "Cassidy Hill",
+      "meeting_id": "m4",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m4_cory_parish",
+      "name": "Cory Parish",
+      "meeting_id": "m4",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m4_craig_williams",
+      "name": "Craig Williams",
+      "meeting_id": "m4",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m4_damien_thornton",
+      "name": "Damien Thornton",
+      "meeting_id": "m4",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m4_dylan_dunn",
+      "name": "Dylan Dunn",
+      "meeting_id": "m4",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m4_emma_ly",
+      "name": "Emma Ly",
+      "meeting_id": "m4",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m4_eoin_walsh",
+      "name": "Eoin Walsh",
+      "meeting_id": "m4",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m4_fred_w_kersley",
+      "name": "Fred W Kersley",
+      "meeting_id": "m4",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m4_jake_duffy",
+      "name": "Jake Duffy",
+      "meeting_id": "m4",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m4_jake_noonan",
+      "name": "Jake Noonan",
+      "meeting_id": "m4",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m4_justin_w_stanley",
+      "name": "Justin W Stanley",
+      "meeting_id": "m4",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m4_logan_mcneil",
+      "name": "Logan Mcneil",
+      "meeting_id": "m4",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m4_milos_bunjevac",
+      "name": "Milos Bunjevac",
+      "meeting_id": "m4",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m4_mitchell_aitken",
+      "name": "Mitchell Aitken",
+      "meeting_id": "m4",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m4_nathan_punch",
+      "name": "Nathan Punch",
+      "meeting_id": "m4",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m4_patrick_moloney",
+      "name": "Patrick Moloney",
+      "meeting_id": "m4",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m4_ruby_lamont",
+      "name": "Ruby Lamont",
+      "meeting_id": "m4",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m4_ryan_hurdle",
+      "name": "Ryan Hurdle",
+      "meeting_id": "m4",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m4_samantha_noble",
+      "name": "Samantha Noble",
+      "meeting_id": "m4",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m4_sarah_robbins",
+      "name": "Sarah Robbins",
+      "meeting_id": "m4",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m4_teo_nugent",
+      "name": "Teo Nugent",
+      "meeting_id": "m4",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m4_zac_moore",
+      "name": "Zac Moore",
+      "meeting_id": "m4",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m4_zoe_waller",
+      "name": "Zoe Waller",
+      "meeting_id": "m4",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m5_angel_brennan",
+      "name": "Angel Brennan",
+      "meeting_id": "m5",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m5_angela_cooper",
+      "name": "Angela Cooper",
+      "meeting_id": "m5",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m5_anna_weatherlake",
+      "name": "Anna Weatherlake",
+      "meeting_id": "m5",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m5_billy_cray",
+      "name": "Billy Cray",
+      "meeting_id": "m5",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m5_clayton_gallagher",
+      "name": "Clayton Gallagher",
+      "meeting_id": "m5",
+      "completed_races": 6,
+      "result_count": 8
+    },
+    {
+      "id": "m5_dylan_stanley",
+      "name": "Dylan Stanley",
+      "meeting_id": "m5",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m5_gabrielle_johnston",
+      "name": "Gabrielle Johnston",
+      "meeting_id": "m5",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m5_georgina_mcdonnell",
+      "name": "Georgina Mcdonnell",
+      "meeting_id": "m5",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m5_hollie_hull",
+      "name": "Hollie Hull",
+      "meeting_id": "m5",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m5_izzy_neale",
+      "name": "Izzy Neale",
+      "meeting_id": "m5",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m5_jacob_stiff",
+      "name": "Jacob Stiff",
+      "meeting_id": "m5",
+      "completed_races": 7,
+      "result_count": 8
+    },
+    {
+      "id": "m5_jake_pracey-holmes",
+      "name": "Jake Pracey-Holmes",
+      "meeting_id": "m5",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m5_ken_dunbar",
+      "name": "Ken Dunbar",
+      "meeting_id": "m5",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m5_kody_nestor",
+      "name": "Kody Nestor",
+      "meeting_id": "m5",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m5_leanne_boyd",
+      "name": "Leanne Boyd",
+      "meeting_id": "m5",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m5_liam_blanch",
+      "name": "Liam Blanch",
+      "meeting_id": "m5",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m5_mathew_cahill",
+      "name": "Mathew Cahill",
+      "meeting_id": "m5",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m5_mikayla_weir",
+      "name": "Mikayla Weir",
+      "meeting_id": "m5",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m5_serg_lisnyy",
+      "name": "Serg Lisnyy",
+      "meeting_id": "m5",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m5_zoe_hunt",
+      "name": "Zoe Hunt",
+      "meeting_id": "m5",
+      "completed_races": 6,
+      "result_count": 8
+    },
+    {
+      "id": "m6_aidan_keeley",
+      "name": "Aidan Keeley",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_ashley_butler",
+      "name": "Ashley Butler",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_ben_thompson",
+      "name": "Ben Thompson",
+      "meeting_id": "m6",
+      "completed_races": 5,
+      "result_count": 8
+    },
+    {
+      "id": "m6_benjamin_osmond",
+      "name": "Benjamin Osmond",
+      "meeting_id": "m6",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m6_boris_thornton",
+      "name": "Boris Thornton",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_cejay_graham",
+      "name": "Cejay Graham",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_corey_sutherland",
+      "name": "Corey Sutherland",
+      "meeting_id": "m6",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m6_courtney_bellamy",
+      "name": "Courtney Bellamy",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_damien_boche",
+      "name": "Damien Boche",
+      "meeting_id": "m6",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m6_daniel_moor",
+      "name": "Daniel Moor",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_danny_peisley",
+      "name": "Danny Peisley",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_frederick_larson",
+      "name": "Frederick Larson",
+      "meeting_id": "m6",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m6_jake_bayliss",
+      "name": "Jake Bayliss",
+      "meeting_id": "m6",
+      "completed_races": 7,
+      "result_count": 8
+    },
+    {
+      "id": "m6_jett_newman",
+      "name": "Jett Newman",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_justin_p_stanley",
+      "name": "Justin P Stanley",
+      "meeting_id": "m6",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m6_kayla_johnston",
+      "name": "Kayla Johnston",
+      "meeting_id": "m6",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m6_luke_p_dempsey",
+      "name": "Luke P Dempsey",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_mark_du_plessis",
+      "name": "Mark Du Plessis",
+      "meeting_id": "m6",
+      "completed_races": 4,
+      "result_count": 8
+    },
+    {
+      "id": "m6_michael_rodd",
+      "name": "Michael Rodd",
+      "meeting_id": "m6",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m6_montana_philpot",
+      "name": "Montana Philpot",
+      "meeting_id": "m6",
+      "completed_races": 3,
+      "result_count": 8
+    },
+    {
+      "id": "m6_nathan_thomas",
+      "name": "Nathan Thomas",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_olivia_kendal",
+      "name": "Olivia Kendal",
+      "meeting_id": "m6",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m6_paul_hamblin",
+      "name": "Paul Hamblin",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_rob_thorburn",
+      "name": "Rob Thorburn",
+      "meeting_id": "m6",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m6_ron_stewart",
+      "name": "Ron Stewart",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_ryan_maloney",
+      "name": "Ryan Maloney",
+      "meeting_id": "m6",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m6_sean_cormack",
+      "name": "Sean Cormack",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m6_stephanie_tierney",
+      "name": "Stephanie Tierney",
+      "meeting_id": "m6",
+      "completed_races": 2,
+      "result_count": 8
+    },
+    {
+      "id": "m6_tiffani_brooker",
+      "name": "Tiffani Brooker",
+      "meeting_id": "m6",
+      "completed_races": 1,
+      "result_count": 8
+    },
+    {
+      "id": "m7_arron_lynch",
+      "name": "Arron Lynch",
+      "meeting_id": "m7",
+      "completed_races": 2,
+      "result_count": 6
+    },
+    {
+      "id": "m7_bradley_rantall",
+      "name": "Bradley Rantall",
+      "meeting_id": "m7",
+      "completed_races": 3,
+      "result_count": 6
+    },
+    {
+      "id": "m7_braidon_small",
+      "name": "Braidon Small",
+      "meeting_id": "m7",
+      "completed_races": 3,
+      "result_count": 6
+    },
+    {
+      "id": "m7_cillin_leonard",
+      "name": "Cillin Leonard",
+      "meeting_id": "m7",
+      "completed_races": 3,
+      "result_count": 6
+    },
+    {
+      "id": "m7_darryl_horner_jnr",
+      "name": "Darryl Horner Jnr",
+      "meeting_id": "m7",
+      "completed_races": 2,
+      "result_count": 6
+    },
+    {
+      "id": "m7_david_fisher",
+      "name": "David Fisher",
+      "meeting_id": "m7",
+      "completed_races": 3,
+      "result_count": 6
+    },
+    {
+      "id": "m7_david_mulcahy",
+      "name": "David Mulcahy",
+      "meeting_id": "m7",
+      "completed_races": 2,
+      "result_count": 6
+    },
+    {
+      "id": "m7_dean_parker",
+      "name": "Dean Parker",
+      "meeting_id": "m7",
+      "completed_races": 4,
+      "result_count": 6
+    },
+    {
+      "id": "m7_jordan_hart",
+      "name": "Jordan Hart",
+      "meeting_id": "m7",
+      "completed_races": 3,
+      "result_count": 6
+    },
+    {
+      "id": "m7_jordan_ratcliffe",
+      "name": "Jordan Ratcliffe",
+      "meeting_id": "m7",
+      "completed_races": 3,
+      "result_count": 6
+    },
+    {
+      "id": "m7_luca_remondet",
+      "name": "Luca Remondet",
+      "meeting_id": "m7",
+      "completed_races": 1,
+      "result_count": 6
+    },
+    {
+      "id": "m7_martin_kelly",
+      "name": "Martin Kelly",
+      "meeting_id": "m7",
+      "completed_races": 3,
+      "result_count": 6
+    },
+    {
+      "id": "m7_micheal_casey",
+      "name": "Micheal Casey",
+      "meeting_id": "m7",
+      "completed_races": 1,
+      "result_count": 6
+    },
+    {
+      "id": "m7_steven_pateman",
+      "name": "Steven Pateman",
+      "meeting_id": "m7",
+      "completed_races": 5,
+      "result_count": 6
+    },
+    {
+      "id": "m7_tom_ryan",
+      "name": "Tom Ryan",
+      "meeting_id": "m7",
+      "completed_races": 5,
+      "result_count": 6
+    },
+    {
+      "id": "m7_will_gordon",
+      "name": "Will Gordon",
+      "meeting_id": "m7",
+      "completed_races": 5,
+      "result_count": 6
+    },
+    {
+      "id": "m8_danielle_hirini",
+      "name": "Danielle Hirini",
+      "meeting_id": "m8",
+      "completed_races": 4,
+      "result_count": 5
+    },
+    {
+      "id": "m8_deborah_barton",
+      "name": "Deborah Barton",
+      "meeting_id": "m8",
+      "completed_races": 3,
+      "result_count": 5
+    },
+    {
+      "id": "m8_hannah_le_blanc",
+      "name": "Hannah Le Blanc",
+      "meeting_id": "m8",
+      "completed_races": 4,
+      "result_count": 5
+    },
+    {
+      "id": "m8_ianish_luximon",
+      "name": "Ianish Luximon",
+      "meeting_id": "m8",
+      "completed_races": 3,
+      "result_count": 5
+    },
+    {
+      "id": "m8_jessica_booth",
+      "name": "Jessica Booth",
+      "meeting_id": "m8",
+      "completed_races": 4,
+      "result_count": 5
+    },
+    {
+      "id": "m8_lek_maloney",
+      "name": "Lek Maloney",
+      "meeting_id": "m8",
+      "completed_races": 4,
+      "result_count": 5
+    },
+    {
+      "id": "m8_stan_tsaikos",
+      "name": "Stan Tsaikos",
+      "meeting_id": "m8",
+      "completed_races": 4,
+      "result_count": 5
+    },
+    {
+      "id": "m9_austin_galati",
+      "name": "Austin Galati",
+      "meeting_id": "m9",
+      "completed_races": 2,
+      "result_count": 7
+    },
+    {
+      "id": "m9_brandon_louis",
+      "name": "Brandon Louis",
+      "meeting_id": "m9",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m9_cassey_martinan",
+      "name": "Cassey Martinan",
+      "meeting_id": "m9",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m9_chanel_cooper",
+      "name": "Chanel Cooper",
+      "meeting_id": "m9",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m9_jade_mcnaught",
+      "name": "Jade Mcnaught",
+      "meeting_id": "m9",
+      "completed_races": 6,
+      "result_count": 7
+    },
+    {
+      "id": "m9_laqdar_ramoly",
+      "name": "Laqdar Ramoly",
+      "meeting_id": "m9",
+      "completed_races": 6,
+      "result_count": 7
+    },
+    {
+      "id": "m9_lisa_staples",
+      "name": "Lisa Staples",
+      "meeting_id": "m9",
+      "completed_races": 4,
+      "result_count": 7
+    },
+    {
+      "id": "m9_natasha_faithfull",
+      "name": "Natasha Faithfull",
+      "meeting_id": "m9",
+      "completed_races": 6,
+      "result_count": 7
+    },
+    {
+      "id": "m9_natika_riordan",
+      "name": "Natika Riordan",
+      "meeting_id": "m9",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m9_rocky_cheung",
+      "name": "Rocky Cheung",
+      "meeting_id": "m9",
+      "completed_races": 5,
+      "result_count": 7
+    },
+    {
+      "id": "m9_sharni_webster",
+      "name": "Sharni Webster",
+      "meeting_id": "m9",
+      "completed_races": 3,
+      "result_count": 7
+    },
+    {
+      "id": "m9_zephen_johnston-porter",
+      "name": "Zephen Johnston-Porter",
+      "meeting_id": "m9",
+      "completed_races": 4,
+      "result_count": 7
+    }
+  ],
+  "race_points_sum": [
+    {
+      "meeting_id": "m1",
+      "race_number": 1,
+      "num_results": 15,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 2,
+      "num_results": 15,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 3,
+      "num_results": 15,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 4,
+      "num_results": 15,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 5,
+      "num_results": 15,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 6,
+      "num_results": 15,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 7,
+      "num_results": 15,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m1",
+      "race_number": 8,
+      "num_results": 15,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 1,
+      "num_results": 14,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 2,
+      "num_results": 14,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 3,
+      "num_results": 14,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 4,
+      "num_results": 14,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 5,
+      "num_results": 14,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 6,
+      "num_results": 14,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m10",
+      "race_number": 7,
+      "num_results": 14,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 1,
+      "num_results": 24,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 2,
+      "num_results": 24,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 3,
+      "num_results": 24,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 4,
+      "num_results": 24,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 5,
+      "num_results": 24,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 6,
+      "num_results": 24,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 7,
+      "num_results": 24,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 8,
+      "num_results": 24,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m11",
+      "race_number": 9,
+      "num_results": 24,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 1,
+      "num_results": 18,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 2,
+      "num_results": 18,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 3,
+      "num_results": 18,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 4,
+      "num_results": 18,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 5,
+      "num_results": 18,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 6,
+      "num_results": 18,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m12",
+      "race_number": 7,
+      "num_results": 18,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 1,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 2,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 3,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 4,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 5,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 6,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m13",
+      "race_number": 7,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 1,
+      "num_results": 28,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 2,
+      "num_results": 28,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 3,
+      "num_results": 28,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 4,
+      "num_results": 28,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 5,
+      "num_results": 28,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 6,
+      "num_results": 28,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 7,
+      "num_results": 28,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 8,
+      "num_results": 28,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m2",
+      "race_number": 9,
+      "num_results": 28,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 1,
+      "num_results": 23,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 2,
+      "num_results": 23,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 3,
+      "num_results": 23,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 4,
+      "num_results": 23,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 5,
+      "num_results": 23,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 6,
+      "num_results": 23,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 7,
+      "num_results": 23,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m3",
+      "race_number": 8,
+      "num_results": 23,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 1,
+      "num_results": 30,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 2,
+      "num_results": 30,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 3,
+      "num_results": 30,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 4,
+      "num_results": 30,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 5,
+      "num_results": 30,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 6,
+      "num_results": 30,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 7,
+      "num_results": 30,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m4",
+      "race_number": 8,
+      "num_results": 30,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 1,
+      "num_results": 20,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 2,
+      "num_results": 20,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 3,
+      "num_results": 20,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 4,
+      "num_results": 20,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 5,
+      "num_results": 20,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 6,
+      "num_results": 20,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 7,
+      "num_results": 20,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m5",
+      "race_number": 8,
+      "num_results": 20,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 1,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 2,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 3,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 4,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 5,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 6,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 7,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m6",
+      "race_number": 8,
+      "num_results": 29,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 1,
+      "num_results": 16,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 2,
+      "num_results": 16,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 3,
+      "num_results": 16,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 4,
+      "num_results": 16,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 5,
+      "num_results": 16,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m7",
+      "race_number": 6,
+      "num_results": 16,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 1,
+      "num_results": 10,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 2,
+      "num_results": 10,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 3,
+      "num_results": 10,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 4,
+      "num_results": 10,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m8",
+      "race_number": 5,
+      "num_results": 10,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 1,
+      "num_results": 13,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 2,
+      "num_results": 13,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 3,
+      "num_results": 13,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 4,
+      "num_results": 13,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 5,
+      "num_results": 13,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 6,
+      "num_results": 13,
+      "total_points": 6.0
+    },
+    {
+      "meeting_id": "m9",
+      "race_number": 7,
+      "num_results": 13,
+      "total_points": 6.0
+    }
+  ],
+  "result_rows_per_participant": [
+    {
+      "id": "m10_aaron_suvaljko",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_abbey_vidovich",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_ashley_shepherd",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_corey_peterson",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_darcy_kulcsar",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_donald_harper",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_emily_suvaljko",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_joe_suvaljko",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_joseph_suvaljko",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_kylah_madden",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_lachlan_kennelly",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_liam_elliott",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_stuart_mcdonald",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m10_tom_nally",
+      "meeting_id": "m10",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m11_bernadette_page",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_corey_johnson",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_danielle_hill",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_darren_billinger",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_david_smith",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_dean_girardi",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_greg_rogers",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_jason_kittel",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_joshua_holberton",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_katie_wilson",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_kerry_green",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_malcolm_farrow",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_mario_borg",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_mark_norman",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_michael_a_smith",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_neil_mccallum",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_nicholas_brown",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_reece_moore",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_ryan_hryhorec",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_samantha_hill",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_terry_brown",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_tiana_mcmahon",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_tony_pullicino",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m11_wayne_hill",
+      "meeting_id": "m11",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m12_brodie_davis",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_christian_salter",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_dylan_ford",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_ethan_arnott",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_gareth_rattray",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_grace_jones",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_hannah_van_dongen",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_heath_woods",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_jack_watson",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_jacob_duggan",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_mark_yole",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_paul_williams",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_ricky_duggan",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_rodney_ashwood",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_rohan_hillier",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_ryan_backhouse",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_tiarna_ford",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m12_todd_rattray",
+      "meeting_id": "m12",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_abby_sanderson",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_austin_mifsud",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_chris_alford",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_ewa_justice",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_fred_spiteri",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_ian_miller",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_james_herbertson",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_jodi_quinlan",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_john_caldow",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_josh_duggan",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_kate_gath",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_lauren_white",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_leilani_justice",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_liam_older",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_matthew_craven",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_michael_bellman",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_nick_beale",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_paul_grech",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_reagan_clarke",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_rita_burnett",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_ross_graham",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_ryan_sanderson",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_scott_ewen",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_sean_o'sullivan",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_tasmyn_potter",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_tayla_french",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_taylor_ford",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_tony_mallia",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m13_tyrone_abela",
+      "meeting_id": "m13",
+      "result_rows": 7,
+      "total_races": 8,
+      "completed_races": 7
+    },
+    {
+      "id": "m1_anthony_darmanin",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_bree_temple",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_chloe_wells",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_christopher_pang",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_codi_jordan",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_craig_atkinson",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_daniel_ganderton",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_erica_byrne_burke",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_hayley_mccarthy",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_jackson_radley",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_kelvin_sanderson",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_kirra-lee_lane",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_lauryn_bingley",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_sam_kennedy",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m1_troy_baker",
+      "meeting_id": "m1",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m2_alyssa_webb",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_andrew_stead",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_ashvin_goindasamy",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_ben_price",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_brooke_king",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_caitlin_tootell",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_campbell_rawiller",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_dom_tourneur",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_emily_finnegan",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_harry_grace",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_isaac_sit",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_jackson_murphy",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_jason_holder",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_jemma_gutte",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_kayla_crowther",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_lauren_stojakovic",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_margaret_collett",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_matt_chadwick",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_polly_brewster",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_shuichi_terachi",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_sophie_logan",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_sophie_potter",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_stacey_metcalfe",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_tala_hutchinson",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_taylor_johnstone",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_todd_pannell",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_wesley_cave",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m2_will_price",
+      "meeting_id": "m2",
+      "result_rows": 9,
+      "total_races": 9,
+      "completed_races": 9
+    },
+    {
+      "id": "m3_aaron_bullock",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_anna_roper",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_ben_looker",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_braith_nock",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_grace_palmer",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_grady_spokes",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_jeff_kehoe",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_jeff_penza",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_jenny_duggan",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_jon_grisedale",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_kacie_adams",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_lee_magorrian",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_liberty_smyth",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_madeline_owen",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_matthew_bennett",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_mollie_fitzgerald",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_poppie_gorton",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_raymond_spokes",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_rory_hutchings",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_stephen_cummins",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_stephen_traecey",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_teighan_worsnop",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m3_william_stanley",
+      "meeting_id": "m3",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_bailey_kinninmont",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_billy_egan",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_blaike_mcdougall",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_brendon_newport",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_brittany_button",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_brodie_loy",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_caitlin_hollowood",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_cassidy_hill",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_cory_parish",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_craig_williams",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_damien_thornton",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_dylan_dunn",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_emma_ly",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_eoin_walsh",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_fred_w_kersley",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_jake_duffy",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_jake_noonan",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_justin_w_stanley",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_logan_mcneil",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_milos_bunjevac",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_mitchell_aitken",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_nathan_punch",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_patrick_moloney",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_ruby_lamont",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_ryan_hurdle",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_samantha_noble",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_sarah_robbins",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_teo_nugent",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_zac_moore",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m4_zoe_waller",
+      "meeting_id": "m4",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_angel_brennan",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_angela_cooper",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_anna_weatherlake",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_billy_cray",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_clayton_gallagher",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_dylan_stanley",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_gabrielle_johnston",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_georgina_mcdonnell",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_hollie_hull",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_izzy_neale",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_jacob_stiff",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_jake_pracey-holmes",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_ken_dunbar",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_kody_nestor",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_leanne_boyd",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_liam_blanch",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_mathew_cahill",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_mikayla_weir",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_serg_lisnyy",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m5_zoe_hunt",
+      "meeting_id": "m5",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_aidan_keeley",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_ashley_butler",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_ben_thompson",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_benjamin_osmond",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_boris_thornton",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_cejay_graham",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_corey_sutherland",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_courtney_bellamy",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_damien_boche",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_daniel_moor",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_danny_peisley",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_frederick_larson",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_jake_bayliss",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_jett_newman",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_justin_p_stanley",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_kayla_johnston",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_luke_p_dempsey",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_mark_du_plessis",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_michael_rodd",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_montana_philpot",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_nathan_thomas",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_olivia_kendal",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_paul_hamblin",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_rob_thorburn",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_ron_stewart",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_ryan_maloney",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_sean_cormack",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_stephanie_tierney",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m6_tiffani_brooker",
+      "meeting_id": "m6",
+      "result_rows": 8,
+      "total_races": 8,
+      "completed_races": 8
+    },
+    {
+      "id": "m7_arron_lynch",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_bradley_rantall",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_braidon_small",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_cillin_leonard",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_darryl_horner_jnr",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_david_fisher",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_david_mulcahy",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_dean_parker",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_jordan_hart",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_jordan_ratcliffe",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_luca_remondet",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_martin_kelly",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_micheal_casey",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_steven_pateman",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_tom_ryan",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m7_will_gordon",
+      "meeting_id": "m7",
+      "result_rows": 6,
+      "total_races": 6,
+      "completed_races": 6
+    },
+    {
+      "id": "m8_danielle_hirini",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m8_deborah_barton",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m8_hannah_le_blanc",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m8_ianish_luximon",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m8_jessica_booth",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m8_jessie_philpot",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m8_lek_maloney",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m8_paul_denton",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m8_raymond_vigar",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m8_stan_tsaikos",
+      "meeting_id": "m8",
+      "result_rows": 5,
+      "total_races": 5,
+      "completed_races": 5
+    },
+    {
+      "id": "m9_austin_galati",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_brandon_louis",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_cassey_martinan",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_chanel_cooper",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_holly_nottle",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_jade_mcnaught",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_laqdar_ramoly",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_lisa_staples",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_natasha_faithfull",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_natika_riordan",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_rocky_cheung",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_sharni_webster",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    },
+    {
+      "id": "m9_zephen_johnston-porter",
+      "meeting_id": "m9",
+      "result_rows": 7,
+      "total_races": 7,
+      "completed_races": 7
+    }
+  ],
+  "empty_participant_names": [],
+  "empty_meeting_names": [],
+  "zero_or_null_prices": []
+}

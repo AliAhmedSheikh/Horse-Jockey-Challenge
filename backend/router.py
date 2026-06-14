@@ -1,3 +1,5 @@
+import functools
+import time
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
@@ -6,8 +8,9 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
 
 from database import get_db, SessionLocal
-from models import Meeting, Participant, Price, Result, MeetingStatus
+from models import Meeting, Participant, Price, Result, MeetingStatus, FormulaSetting
 from time_utils import today_aus
+from utils import compute_value_rating, compute_status
 from schemas import (
     MeetingOut,
     ParticipantOut,
@@ -19,33 +22,13 @@ from schemas import (
     DashboardCards,
     DashboardOut,
     PodiumEntry,
+    FormulaSettingsOut,
 )
 
 router = APIRouter()
 
-
-def _compute_value_rating(bookmaker_price: float, ai_price: float) -> str:
-    if bookmaker_price == 0 or ai_price == 0:
-        return "Neutral"
-    overlay = (bookmaker_price - ai_price) / ai_price * 100
-    if overlay > 15:
-        return "Strong Value"
-    elif overlay > 5:
-        return "Value"
-    elif overlay > -5:
-        return "Neutral"
-    else:
-        return "Avoid"
-
-
-def _compute_status(bookmaker_price: float, ai_price: float) -> str:
-    rating = _compute_value_rating(bookmaker_price, ai_price)
-    if rating in ("Strong Value", "Value"):
-        return "value"
-    elif rating == "Neutral":
-        return "neutral"
-    else:
-        return "avoid"
+_cache = {}
+CACHE_TTL = 15
 
 
 def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_races: int, total_races: int) -> float:
@@ -87,10 +70,16 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
     return round(max(1.01, ai_price), 2)
 
 
-def _meeting_to_frontend(meeting: Meeting, db: Session) -> MeetingOut:
-    participants = db.query(Participant).filter(
-        Participant.meeting_id == meeting.id
-    ).all()
+def _meeting_to_frontend(meeting: Meeting, db: Session,
+                          _participants: Optional[List[Participant]] = None,
+                          _results: Optional[List[Result]] = None,
+                          _participant_map: Optional[dict] = None) -> MeetingOut:
+    if _participants is not None:
+        participants = _participants
+    else:
+        participants = db.query(Participant).filter(
+            Participant.meeting_id == meeting.id
+        ).all()
 
     sorted_ps = sorted(participants, key=lambda p: p.current_points, reverse=True)
     leaderboard = [
@@ -98,17 +87,23 @@ def _meeting_to_frontend(meeting: Meeting, db: Session) -> MeetingOut:
         for i, p in enumerate(sorted_ps)
     ]
 
-    recent_results = db.query(Result).filter(
-        Result.meeting_id == meeting.id,
-        Result.points_added > 0
-    ).order_by(desc(Result.timestamp)).limit(5).all()
+    if _results is not None:
+        recent_results = _results
+    else:
+        recent_results = db.query(Result).filter(
+            Result.meeting_id == meeting.id,
+            Result.points_added > 0
+        ).order_by(desc(Result.timestamp)).limit(5).all()
 
     latest_updates = []
     for r in recent_results:
-        p = db.query(Participant).filter(Participant.id == r.participant_id).first()
+        if _participant_map is not None:
+            p = _participant_map.get(r.participant_id)
+        else:
+            p = db.query(Participant).filter(Participant.id == r.participant_id).first()
         if p:
             minutes_ago = int(
-                (datetime.now(timezone.utc) - r.timestamp.replace(tzinfo=timezone.utc)).total_seconds() / 60
+                (datetime.now(timezone.utc) - (r.timestamp if r.timestamp and r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc))).total_seconds() / 60
             ) if r.timestamp else 0
             time_str = f"{max(1, minutes_ago)}m ago"
             latest_updates.append(
@@ -144,13 +139,13 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
     remaining = meeting.total_races - p.completed_races if meeting else 0
     avg_per_race = p.current_points / max(p.completed_races, 1)
     projected = round(p.current_points + avg_per_race * remaining, 1)
-    value_rating = _compute_value_rating(avg_bookmaker, ai_price)
+    value_rating = compute_value_rating(avg_bookmaker, ai_price)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
     return ParticipantOut(
         id=p.id, name=p.name, meetingName=meeting.name if meeting else "", meetingId=p.meeting_id,
         bookmakerPrice=round(avg_bookmaker, 2), bookmakerPrices=bookmaker_prices_dict, aiPrice=ai_price, overlayPercent=overlay,
         valueRating=value_rating, currentPoints=p.current_points, projectedFinalPoints=projected,
-        status=_compute_status(avg_bookmaker, ai_price), isProjectedWinner=False,
+        status=compute_status(avg_bookmaker, ai_price), isProjectedWinner=False,
     )
 
 
@@ -169,7 +164,7 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
     avg_per_race = p.current_points / max(p.completed_races, 1)
     projected = round(p.current_points + avg_per_race * remaining, 1)
 
-    value_rating = _compute_value_rating(avg_bookmaker, ai_price)
+    value_rating = compute_value_rating(avg_bookmaker, ai_price)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
 
     return ParticipantOut(
@@ -184,7 +179,7 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
         valueRating=value_rating,
         currentPoints=p.current_points,
         projectedFinalPoints=projected,
-        status=_compute_status(avg_bookmaker, ai_price),
+        status=compute_status(avg_bookmaker, ai_price),
         isProjectedWinner=False,
     )
 
@@ -301,30 +296,68 @@ def get_meeting_detail(meeting_id: str, db: Session = Depends(get_db)):
     return _meeting_to_frontend(meeting, db)
 
 
+def _cached(key: str, ttl: int = CACHE_TTL):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            now = time.time()
+            if key in _cache and now - _cache[key]["ts"] < ttl:
+                return _cache[key]["data"]
+            result = func(*args, **kwargs)
+            _cache[key] = {"data": result, "ts": now}
+            return result
+        return wrapper
+    return decorator
+
+
 @router.get("/dashboard")
+@_cached("dashboard")
 def get_dashboard(db: Session = Depends(get_db)):
     today = today_aus()
     meetings = db.query(Meeting).filter(Meeting.date == today).options(
         joinedload(Meeting.participants)
     ).all()
-    frontend_meetings = [_meeting_to_frontend(m, db) for m in meetings]
 
     meeting_ids = [m.id for m in meetings]
-    meeting_map = {m.id: m for m in meetings}
+    if not meeting_ids:
+        return DashboardOut(meetings=[], jockeys=[], drivers=[], recentResults=[], dashboardCards=DashboardCards(todayMeetings=0, activeJockeyChallenges=0, activeDriverChallenges=0, totalParticipants=0))
+
+    # Pre-load participants, prices, and results in batch
     all_participants = db.query(Participant).filter(
         Participant.meeting_id.in_(meeting_ids)
-    ).options(
-        joinedload(Participant.prices)
     ).all() if meeting_ids else []
     participant_map = {p.id: p for p in all_participants}
 
-    # Pre-load prices lookup
+    participants_by_meeting = {}
+    for p in all_participants:
+        participants_by_meeting.setdefault(p.meeting_id, []).append(p)
+
     all_prices = db.query(Price).filter(
         Price.meeting_id.in_(meeting_ids)
     ).all() if meeting_ids else []
     prices_by_participant = {}
     for pr in all_prices:
         prices_by_participant.setdefault(pr.participant_id, []).append(pr)
+
+    all_results = db.query(Result).filter(
+        Result.meeting_id.in_(meeting_ids),
+        Result.points_added > 0
+    ).order_by(desc(Result.timestamp)).all() if meeting_ids else []
+    results_by_meeting = {}
+    for r in all_results:
+        results_by_meeting.setdefault(r.meeting_id, []).append(r)
+
+    meeting_map = {m.id: m for m in meetings}
+    frontend_meetings = []
+    for m in meetings:
+        mtg_participants = participants_by_meeting.get(m.id, [])
+        mtg_results = (results_by_meeting.get(m.id, [])[:5])
+        frontend_meetings.append(_meeting_to_frontend(
+            m, db,
+            _participants=mtg_participants,
+            _results=mtg_results,
+            _participant_map=participant_map,
+        ))
 
     jockeys = []
     drivers = []
@@ -337,12 +370,8 @@ def get_dashboard(db: Session = Depends(get_db)):
         else:
             drivers.append(fp)
 
-    recent_results = db.query(Result).filter(
-        Result.meeting_id.in_(meeting_ids),
-        Result.points_added > 0
-    ).order_by(desc(Result.timestamp)).limit(30).all()
     race_results = []
-    for r in recent_results:
+    for r in (sorted(all_results, key=lambda x: x.timestamp or datetime.now(timezone.utc), reverse=True)[:30]):
         p = participant_map.get(r.participant_id)
         m = meeting_map.get(r.meeting_id)
         if p and m:
@@ -352,7 +381,7 @@ def get_dashboard(db: Session = Depends(get_db)):
             overlay = round((avg_bm - ai_price) / ai_price * 100, 1)
 
             minutes_ago = int(
-                (datetime.now(timezone.utc) - r.timestamp.replace(tzinfo=timezone.utc)).total_seconds() / 60
+                (datetime.now(timezone.utc) - (r.timestamp if r.timestamp and r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc))).total_seconds() / 60
             ) if r.timestamp else 0
 
             race_results.append(RaceResultOut(
@@ -374,7 +403,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     # Set projected winners per meeting
     meeting_best = {}
     for fp in jockeys + drivers:
-        if fp.meetingId not in meeting_best or fp.currentPoints >= meeting_best[fp.meetingId].currentPoints:
+        if fp.meetingId not in meeting_best or fp.currentPoints > meeting_best[fp.meetingId].currentPoints:
             meeting_best[fp.meetingId] = fp
     for fp in meeting_best.values():
         fp.isProjectedWinner = True
@@ -393,6 +422,39 @@ def get_dashboard(db: Session = Depends(get_db)):
     )
 
 
+DEFAULT_SETTINGS = {
+    "bookmakerWeight": 35.0,
+    "currentPointsWeight": 25.0,
+    "remainingRacesWeight": 20.0,
+    "completedRacesWeight": 10.0,
+    "priceMovementWeight": 10.0,
+    "valueThreshold": 10.0,
+}
+
+
+@router.get("/settings")
+def get_settings(db: Session = Depends(get_db)):
+    rows = db.query(FormulaSetting).all()
+    result = DEFAULT_SETTINGS.copy()
+    for row in rows:
+        result[row.id] = row.value
+    return FormulaSettingsOut(settings=result)
+
+
+@router.put("/settings")
+def put_settings(payload: FormulaSettingsOut, db: Session = Depends(get_db)):
+    for key, val in payload.settings.items():
+        if key not in DEFAULT_SETTINGS:
+            continue
+        existing = db.query(FormulaSetting).filter(FormulaSetting.id == key).first()
+        if existing:
+            existing.value = val
+        else:
+            db.add(FormulaSetting(id=key, value=val))
+    db.commit()
+    return {"status": "ok", "message": "Settings saved"}
+
+
 @router.post("/refresh")
 def refresh_data():
     from status_manager import refresh_meeting_status, scrape_all_bookmakers
@@ -402,8 +464,11 @@ def refresh_data():
         scrape_all_bookmakers()
         refresh_meeting_status()
         seed_database(db)
+        _cache.clear()
         return {"status": "ok", "message": "Data refreshed"}
     except Exception as e:
+        db.rollback()
+        _cache.clear()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()

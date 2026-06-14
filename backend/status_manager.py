@@ -6,26 +6,12 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus
+from time_utils import AU_TZ
 
-MIN_PRICE = 1.50
+from utils import weighted_shuffle, race_points
 
 _refresh_lock = threading.Lock()
 _scrape_lock = threading.Lock()
-
-def _weighted_shuffle(participants, db, meeting_id):
-    shuffled = list(participants)
-    weights = {}
-    for p in shuffled:
-        price_row = db.query(Price).filter(
-            Price.participant_id == p.id,
-            Price.bookmaker_name == "Ladbrokes",
-        ).first()
-        price = price_row.price if price_row else 3.0
-        weight = 1.0 / max(price, MIN_PRICE)
-        weight *= random.uniform(0.6, 1.4)
-        weights[p.id] = weight
-    shuffled.sort(key=lambda p: weights[p.id], reverse=True)
-    return shuffled
 
 from scrapers.base import fetch_single_race_results
 from seed_data import _get_real_race_positions
@@ -62,20 +48,74 @@ BOOKMAKER_SCRAPERS = [
 ]
 
 
+def _simulate_initial_races(meeting, participants, db):
+    """Simulate 2-6 races for a meeting that just went LIVE."""
+    initial = min(random.randint(2, 6), meeting.total_races)
+    meeting.completed_races = initial
+    cumulative_points = {p.id: 0 for p in participants}
+    race_counts = {p.id: 0 for p in participants}
+    for rn in range(1, initial + 1):
+        shuffled = weighted_shuffle(participants, db, meeting.id) if meeting.total_races > 0 else list(participants)
+        for pos, p in enumerate(shuffled, 1):
+            added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
+            cumulative_points[p.id] += added
+            race_counts[p.id] += 1
+            result = Result(
+                meeting_id=meeting.id,
+                participant_id=p.id,
+                final_points=cumulative_points[p.id],
+                position=pos,
+                race_number=rn,
+                points_added=added,
+                timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 5)),
+            )
+            db.add(result)
+    for p in participants:
+        p.current_points = cumulative_points[p.id]
+        p.completed_races = race_counts[p.id]
+        p.remaining_races = meeting.total_races - race_counts[p.id]
+
+
 def refresh_meeting_status():
     if not _refresh_lock.acquire(blocking=False):
         logger.info("Previous refresh still in progress, skipping")
         return
     try:
         logger.info("Refreshing meeting status...")
+        now_aus = datetime.now(AU_TZ)
         db = SessionLocal()
         meetings = db.query(Meeting).all()
         for meeting in meetings:
-            if meeting.status == MeetingStatus.UPCOMING.value and meeting.completed_races > 0:
-                meeting.status = MeetingStatus.LIVE.value
-                logger.info(f"Meeting {meeting.name} -> LIVE")
+            st = meeting.scheduled_time
+            if st is not None and st.tzinfo is None:
+                st = st.replace(tzinfo=AU_TZ)
+            scheduled_reached = st is not None and now_aus >= st
 
-            elif meeting.status == MeetingStatus.LIVE.value:
+            if meeting.status == MeetingStatus.UPCOMING.value:
+                if scheduled_reached:
+                    meeting.status = MeetingStatus.LIVE.value
+                    participants = db.query(Participant).filter(
+                        Participant.meeting_id == meeting.id
+                    ).all()
+                    _simulate_initial_races(meeting, participants, db)
+                    logger.info(f"Meeting {meeting.name} -> LIVE (scheduled time reached)")
+                elif not meeting.scheduled_time and meeting.completed_races > 0:
+                    meeting.status = MeetingStatus.LIVE.value
+                    logger.info(f"Meeting {meeting.name} -> LIVE (legacy fallback)")
+
+            if meeting.status == MeetingStatus.LIVE.value:
+                # Revert LIVE→UPCOMING if scheduled time hasn't arrived yet
+                if st is not None and not scheduled_reached:
+                    meeting.status = MeetingStatus.UPCOMING.value
+                    participants = db.query(Participant).filter(
+                        Participant.meeting_id == meeting.id
+                    ).all()
+                    for p in participants:
+                        p.current_points = 0
+                        p.completed_races = 0
+                        p.remaining_races = meeting.total_races
+                    logger.info(f"Meeting {meeting.name} -> UPCOMING (reverted, scheduled time not yet reached)")
+                    continue
                 participants = db.query(Participant).filter(
                     Participant.meeting_id == meeting.id
                 ).all()
@@ -95,7 +135,7 @@ def refresh_meeting_status():
 
                 if race_data is None:
                     # API failure - weighted shuffle fallback (for fully simulated meetings)
-                    shuffled = _weighted_shuffle(participants, db, meeting.id)
+                    shuffled = weighted_shuffle(participants, db, meeting.id)
                     for pos, p in enumerate(shuffled, 1):
                         added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
                         p.completed_races = next_race
@@ -126,7 +166,7 @@ def refresh_meeting_status():
                     if real_positions:
                         race_positions = [pos for _, pos in real_positions]
                         for p, pos in real_positions:
-                            added = _race_points(pos, race_positions)
+                            added = race_points(pos, race_positions)
                             p.completed_races += 1
                             p.remaining_races = meeting.total_races - p.completed_races
                             p.current_points += added

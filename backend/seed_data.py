@@ -5,25 +5,8 @@ import logging
 from sqlalchemy.orm import Session
 from models import Meeting, Participant, Price, Result, MeetingStatus, MeetingType
 from scrapers.base import LadbrokesAPIScraper, invalidate_cache
-from time_utils import today_aus
-
-MIN_PRICE = 1.50
-
-def _weighted_shuffle(participants, db, meeting_id):
-    """Sort participants by Ladbrokes price with randomness, so favorites perform better."""
-    shuffled = list(participants)
-    weights = {}
-    for p in shuffled:
-        price_row = db.query(Price).filter(
-            Price.participant_id == p.id,
-            Price.bookmaker_name == "Ladbrokes",
-        ).first()
-        price = price_row.price if price_row else 3.0
-        weight = 1.0 / max(price, MIN_PRICE)
-        weight *= random.uniform(0.6, 1.4)
-        weights[p.id] = weight
-    shuffled.sort(key=lambda p: weights[p.id], reverse=True)
-    return shuffled
+from time_utils import today_aus, AU_TZ
+from utils import compute_value_rating, compute_status, weighted_shuffle as utils_weighted_shuffle, race_points
 
 logger = logging.getLogger(__name__)
 
@@ -123,30 +106,6 @@ ALL_MEETINGS = JOCKEY_MEETINGS + DRIVER_MEETINGS
 BOOKMAKERS = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"]
 
 
-def _compute_value_rating(bookmaker_price: float, ai_price: float) -> str:
-    if bookmaker_price == 0 or ai_price == 0:
-        return "Neutral"
-    overlay = (bookmaker_price - ai_price) / ai_price * 100
-    if overlay > 15:
-        return "Strong Value"
-    elif overlay > 5:
-        return "Value"
-    elif overlay > -5:
-        return "Neutral"
-    else:
-        return "Avoid"
-
-
-def _compute_status(bookmaker_price: float, ai_price: float) -> str:
-    rating = _compute_value_rating(bookmaker_price, ai_price)
-    if rating in ("Strong Value", "Value"):
-        return "value"
-    elif rating == "Neutral":
-        return "neutral"
-    else:
-        return "avoid"
-
-
 def seed_database(db: Session):
     existing = db.query(Meeting).count()
     today = today_aus()
@@ -186,6 +145,7 @@ def seed_database(db: Session):
 def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
     now = datetime.now(timezone.utc)
     aus_date = today_aus()
+    now_aus = datetime.now(AU_TZ)
     counter = 0
     meeting_races_map = {}
 
@@ -197,6 +157,33 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
             participants = market.get("participants", [])
 
             total_races = market.get("total_races", 8)
+
+            def _parse_dt(s: str) -> datetime | None:
+                try:
+                    return datetime.fromisoformat(s)
+                except (ValueError, TypeError):
+                    pass
+                for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S",
+                            "%d/%m/%Y %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S.%f"):
+                    try:
+                        return datetime.strptime(s, fmt)
+                    except (ValueError, TypeError):
+                        continue
+                try:
+                    return datetime.fromtimestamp(int(s), tz=AU_TZ)
+                except (ValueError, TypeError, OSError):
+                    pass
+                return None
+
+            races = market.get("races", [])
+            scheduled = None
+            if races:
+                st = races[0].get("start_time", "")
+                if st:
+                    scheduled = _parse_dt(st)
+            if scheduled is None:
+                scheduled = now_aus + timedelta(hours=1 + counter)
+
             meeting = Meeting(
                 id=mid,
                 name=meeting_name,
@@ -205,10 +192,11 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                 type=mtype,
                 total_races=total_races,
                 completed_races=0,
+                scheduled_time=scheduled,
             )
             db.add(meeting)
             db.flush()
-            meeting_races_map[mid] = market.get("races", [])
+            meeting_races_map[mid] = races
 
             for i, p in enumerate(participants):
                 pid = f"{mid}_{p['name'].lower().replace(' ', '_')}"
@@ -241,8 +229,14 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
 
 def _seed_from_fallback(db: Session):
     aus_date = today_aus()
-    for meeting_data in ALL_MEETINGS:
-        now = datetime.now(timezone.utc)
+    now_utc = datetime.now(timezone.utc)
+    now_aus = datetime.now(AU_TZ)
+    # Assign staggered times relative to now: some past (live), some future (upcoming)
+    # Offsets in hours: -3, -1, +1, +3, +5, +7
+    time_offsets = [-3, -1, 1, 3, 5, 7]
+    for i, meeting_data in enumerate(ALL_MEETINGS):
+        offset_h = time_offsets[i] if i < len(time_offsets) else i * 2
+        scheduled = now_aus + timedelta(hours=offset_h)
         meeting = Meeting(
             id=meeting_data["id"],
             name=meeting_data["name"],
@@ -251,6 +245,7 @@ def _seed_from_fallback(db: Session):
             type=meeting_data["type"],
             total_races=meeting_data["total_races"],
             completed_races=0,
+            scheduled_time=scheduled,
         )
         db.add(meeting)
         db.flush()
@@ -283,7 +278,7 @@ def _seed_from_fallback(db: Session):
                     meeting_id=meeting.id,
                     bookmaker_name=bm,
                     price=bm_price,
-                    timestamp=now,
+                    timestamp=now_utc,
                 )
                 db.add(price)
 
@@ -324,6 +319,7 @@ def _get_real_race_positions(race_data: dict, participants: list):
 
 
 def _simulate_live_data(db: Session, meeting_races_map: dict = None):
+    now_aus = datetime.now(AU_TZ)
     meetings = db.query(Meeting).all()
     for meeting in meetings:
         participants = db.query(Participant).filter(
@@ -331,6 +327,20 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
         ).all()
 
         races_data = (meeting_races_map or {}).get(meeting.id, [])
+
+        # Skip meetings that haven't started yet
+        st = meeting.scheduled_time
+        if st is not None:
+            if st.tzinfo is None:
+                st = st.replace(tzinfo=AU_TZ)
+            if now_aus < st:
+                meeting.status = MeetingStatus.UPCOMING.value
+                for p in participants:
+                    p.current_points = 0
+                    p.completed_races = 0
+                    p.remaining_races = meeting.total_races
+                db.commit()
+                continue
 
         if races_data:
             # API-seeded meeting: determine completed races from real status
@@ -348,18 +358,6 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
 
         cumulative_points = {p.id: 0 for p in participants}
         race_counts = {p.id: 0 for p in participants}
-
-        def race_points(pos, all_pos=None):
-            if pos > 3:
-                return 0
-            base = {1: 3, 2: 2, 3: 1}[pos]
-            if not all_pos:
-                return base
-            count = sum(1 for p in all_pos if p == pos)
-            if count > 1:
-                total = sum({1: 3, 2: 2, 3: 1}.get(pos + i, 0) for i in range(count))
-                return total / count
-            return base
 
         if use_real:
             for race_info in sorted(completed, key=lambda x: x.get("race_number", 0)):
@@ -397,7 +395,7 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
                         db.add(result)
         else:
             for rn in range(1, initial + 1):
-                shuffled = _weighted_shuffle(participants, db, meeting.id) if meeting.total_races > 0 else list(participants)
+                shuffled = utils_weighted_shuffle(participants, db, meeting.id) if meeting.total_races > 0 else list(participants)
                 for pos, p in enumerate(shuffled, 1):
                     added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
                     cumulative_points[p.id] += added

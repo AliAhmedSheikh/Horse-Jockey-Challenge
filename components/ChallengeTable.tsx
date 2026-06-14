@@ -1,10 +1,9 @@
 "use client";
 
 import type { Participant } from "@/data/types";
+import { BOOKMAKERS } from "@/data/types";
 import { IconStar } from "@/data/icons";
 import ChallengeCard from "./ChallengeCard";
-
-const BOOKMAKER_NAMES = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"];
 
 interface ChallengeTableProps {
   participants: Participant[];
@@ -54,7 +53,7 @@ export default function ChallengeTable({
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Meeting
                 </th>
-                {BOOKMAKER_NAMES.map((bm) => (
+                {BOOKMAKERS.map((bm) => (
                   <th key={bm} className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     {bm}
                   </th>
@@ -116,7 +115,7 @@ export default function ChallengeTable({
                     <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
                       {p.meetingName}
                     </td>
-                    {BOOKMAKER_NAMES.map((bm) => (
+                    {BOOKMAKERS.map((bm) => (
                       <td key={bm} className="px-2 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
                         ${(p.bookmakerPrices?.[bm] ?? p.bookmakerPrice).toFixed(2)}
                       </td>

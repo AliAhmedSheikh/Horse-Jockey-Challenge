@@ -4,9 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import type { Meeting, Participant } from "@/data/types";
+import { BOOKMAKERS } from "@/data/types";
 import { IconUser, IconCar, IconStar, IconChevronRight } from "@/data/icons";
-
-const BOOKMAKER_NAMES = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"];
 
 const statusStyles: Record<string, string> = {
   Live: "badge-value",
@@ -31,7 +30,7 @@ export default function MeetingDetailPage() {
     fetcher,
     { refreshInterval: 30000 }
   );
-  const { data: participants } = useSWR<Participant[]>(
+  const { data: participants, isLoading: participantsLoading } = useSWR<Participant[]>(
     params.id ? `/api/meetings/${params.id}/participants` : null,
     fetcher,
     { refreshInterval: 30000 }
@@ -68,6 +67,7 @@ export default function MeetingDetailPage() {
   }
 
   const sorted = participants ? [...participants].sort((a, b) => b.currentPoints - a.currentPoints) : [];
+  const participantsEmpty = !participantsLoading && (!participants || participants.length === 0);
 
   return (
     <div className="page-transition space-y-6">
@@ -131,7 +131,7 @@ export default function MeetingDetailPage() {
               <tr className="bg-slate-50 dark:bg-slate-800/80">
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
-                {BOOKMAKER_NAMES.map((bm) => (
+                {BOOKMAKERS.map((bm) => (
                   <th key={bm} className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{bm}</th>
                 ))}
                 <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI Price</th>
@@ -141,7 +141,13 @@ export default function MeetingDetailPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
-              {sorted.length === 0 ? (
+              {participantsLoading ? (
+                <tr>
+                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                    Loading participants...
+                  </td>
+                </tr>
+              ) : participantsEmpty ? (
                 <tr>
                   <td colSpan={11} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     No participants loaded
@@ -162,7 +168,7 @@ export default function MeetingDetailPage() {
                       {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
                     </div>
                   </td>
-                  {BOOKMAKER_NAMES.map((bm) => (
+                  {BOOKMAKERS.map((bm) => (
                     <td key={bm} className="px-2 py-3 text-right">
                       <span className="text-sm font-semibold text-slate-900 dark:text-white">${(p.bookmakerPrices?.[bm] ?? p.bookmakerPrice).toFixed(2)}</span>
                     </td>
@@ -199,7 +205,7 @@ export default function MeetingDetailPage() {
                 </span>
               </div>
               <div className="grid grid-cols-5 gap-1.5 text-center mb-2">
-                {BOOKMAKER_NAMES.map((bm) => (
+                {BOOKMAKERS.map((bm) => (
                   <div key={bm} className="bg-white dark:bg-slate-800 rounded-lg p-1.5">
                     <p className="text-[8px] text-slate-500 dark:text-slate-400 truncate">{bm}</p>
                     <p className="text-xs font-bold text-slate-900 dark:text-white">${(p.bookmakerPrices?.[bm] ?? p.bookmakerPrice).toFixed(2)}</p>
@@ -236,7 +242,7 @@ export default function MeetingDetailPage() {
             <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
               <div className={`h-full rounded-full transition-all duration-500 ${
                 meeting.status === "Completed" ? "bg-blue-500" : meeting.status === "Live" ? "bg-emerald-500" : "bg-slate-400"
-              }`} style={{ width: `${(meeting.completedRaces / meeting.totalRaces) * 100}%` }} />
+              }`} style={{ width: `${meeting.totalRaces > 0 ? (meeting.completedRaces / meeting.totalRaces) * 100 : 0}%` }} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mt-4">
@@ -270,7 +276,7 @@ export default function MeetingDetailPage() {
           {meeting.latestUpdates.length > 0 ? (
             <div className="space-y-2">
               {meeting.latestUpdates.slice(0, 5).map((u, i) => (
-                <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-700/20">
+                <div key={`${u.participant}-${u.time}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-700/20">
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                     <span className="text-sm font-medium text-slate-900 dark:text-white">{u.participant}</span>

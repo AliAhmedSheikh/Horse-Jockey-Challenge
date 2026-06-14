@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -17,16 +19,26 @@ logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("Starting up...")
-    Base.metadata.create_all(bind=engine)
+async def _seed_background():
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _seed_sync)
 
+
+def _seed_sync():
     db = SessionLocal()
     try:
         seed_database(db)
     finally:
         db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Starting up...")
+    Base.metadata.create_all(bind=engine)
+
+    logger.info("Seeding database in background...")
+    asyncio.create_task(_seed_background())
 
     scheduler.add_job(
         refresh_meeting_status,
@@ -50,7 +62,7 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down...")
-    scheduler.shutdown(wait=False)
+    scheduler.shutdown(wait=True)
 
 
 app = FastAPI(
@@ -59,12 +71,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://jockey-driver-dashboard.vercel.app",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

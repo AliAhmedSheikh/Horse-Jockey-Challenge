@@ -56,7 +56,7 @@ class PriceOut(BaseModel):
 class ResultOut(BaseModel):
     id: int
     participant_id: str
-    final_points: int
+    final_points: float
     position: Optional[int]
 
 
@@ -83,6 +83,10 @@ class PodiumEntry(BaseModel):
     participant_name: str
     final_points: float
     position: int
+
+
+class FormulaSettingsOut(BaseModel):
+    settings: dict[str, float]
 
 
 class DashboardOut(BaseModel):

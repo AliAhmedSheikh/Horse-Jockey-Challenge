@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum as SAEnum, UniqueConstraint, Text
 from sqlalchemy.orm import relationship
 import enum
 
@@ -27,8 +27,9 @@ class Meeting(Base):
     type = Column(SAEnum(MeetingType), nullable=False)
     total_races = Column(Integer, default=0)
     completed_races = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    scheduled_time = Column(DateTime(timezone=True), nullable=True, default=None)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     participants = relationship("Participant", back_populates="meeting", cascade="all, delete-orphan")
     prices = relationship("Price", back_populates="meeting", cascade="all, delete-orphan")
@@ -44,7 +45,7 @@ class Participant(Base):
     current_points = Column(Float, default=0.0)
     completed_races = Column(Integer, default=0)
     remaining_races = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     meeting = relationship("Meeting", back_populates="participants")
     prices = relationship("Price", back_populates="participant", cascade="all, delete-orphan")
@@ -59,10 +60,14 @@ class Price(Base):
     meeting_id = Column(String, ForeignKey("meetings.id"), nullable=False)
     bookmaker_name = Column(String, nullable=False)
     price = Column(Float, nullable=False)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     participant = relationship("Participant", back_populates="prices")
     meeting = relationship("Meeting", back_populates="prices")
+
+    __table_args__ = (
+        UniqueConstraint("participant_id", "bookmaker_name", name="uix_participant_bookmaker"),
+    )
 
 
 class Result(Base):
@@ -75,7 +80,19 @@ class Result(Base):
     position = Column(Integer, nullable=True)
     race_number = Column(Integer, default=0)
     points_added = Column(Float, default=0.0)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     participant = relationship("Participant", back_populates="results")
     meeting = relationship("Meeting", back_populates="results")
+
+    __table_args__ = (
+        UniqueConstraint("meeting_id", "race_number", "participant_id", name="uix_meeting_race_participant"),
+    )
+
+
+class FormulaSetting(Base):
+    __tablename__ = "formula_settings"
+
+    id = Column(String, primary_key=True)
+    value = Column(Float, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

@@ -112,7 +112,7 @@ export default function DashboardPage() {
           icon={<IconUser className="w-5 h-5" />}
           trend={dashboardCards.activeJockeyChallenges > 0 ? "up" : "neutral"}
           trendLabel={dashboardCards.activeJockeyChallenges > 0 ? "Active" : "No active"}
-          onClick={() => router.push("/meetings")}
+          onClick={() => router.push("/jockey-challenges")}
         />
         <DataCard
           title="Driver Challenges"
@@ -121,7 +121,7 @@ export default function DashboardPage() {
           icon={<IconCar className="w-5 h-5" />}
           trend={dashboardCards.activeDriverChallenges > 0 ? "up" : "neutral"}
           trendLabel={dashboardCards.activeDriverChallenges > 0 ? "Active" : "No active"}
-          onClick={() => router.push("/meetings")}
+          onClick={() => router.push("/driver-challenges")}
         />
         <DataCard
           title="Total Participants"
