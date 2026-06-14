@@ -253,6 +253,9 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                             if new_price > 0:
                                 existing.price = new_price
                                 existing.timestamp = datetime.now(timezone.utc)
+                            elif existing.price <= 0:
+                                existing.price = 1.5
+                                existing.timestamp = datetime.now(timezone.utc)
                         else:
                             new_price = p_data.get("price", 0.0)
                             if new_price <= 0:
