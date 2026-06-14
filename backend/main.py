@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         refresh_meeting_status,
         "interval",
-        minutes=7,
+        seconds=30,
         id="refresh_status",
         name="Refresh meeting status",
         replace_existing=True,

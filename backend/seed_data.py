@@ -7,6 +7,24 @@ from models import Meeting, Participant, Price, Result, MeetingStatus, MeetingTy
 from scrapers.base import LadbrokesAPIScraper, invalidate_cache
 from time_utils import today_aus
 
+MIN_PRICE = 1.50
+
+def _weighted_shuffle(participants, db, meeting_id):
+    """Sort participants by Ladbrokes price with randomness, so favorites perform better."""
+    shuffled = list(participants)
+    weights = {}
+    for p in shuffled:
+        price_row = db.query(Price).filter(
+            Price.participant_id == p.id,
+            Price.bookmaker_name == "Ladbrokes",
+        ).first()
+        price = price_row.price if price_row else 3.0
+        weight = 1.0 / max(price, MIN_PRICE)
+        weight *= random.uniform(0.6, 1.4)
+        weights[p.id] = weight
+    shuffled.sort(key=lambda p: weights[p.id], reverse=True)
+    return shuffled
+
 logger = logging.getLogger(__name__)
 
 JOCKEY_MEETINGS = [
@@ -139,10 +157,16 @@ def seed_database(db: Session):
             return
         else:
             logger.info(f"Existing data is from a previous day, clearing and re-seeding for {today}")
-            db.query(Result).delete()
-            db.query(Price).delete()
-            db.query(Participant).delete()
-            db.query(Meeting).delete()
+            db.query(Result).filter(Result.meeting_id.in_(
+                db.query(Meeting.id).filter(Meeting.date != today)
+            )).delete(synchronize_session='fetch')
+            db.query(Price).filter(Price.meeting_id.in_(
+                db.query(Meeting.id).filter(Meeting.date != today)
+            )).delete(synchronize_session='fetch')
+            db.query(Participant).filter(Participant.meeting_id.in_(
+                db.query(Meeting.id).filter(Meeting.date != today)
+            )).delete(synchronize_session='fetch')
+            db.query(Meeting).filter(Meeting.date != today).delete()
             db.commit()
 
     logger.info("Seeding database with Ladbrokes API data...")
@@ -162,12 +186,13 @@ def seed_database(db: Session):
 def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
     now = datetime.now(timezone.utc)
     aus_date = today_aus()
-    meeting_id = 0
+    counter = 0
+    meeting_races_map = {}
 
     for market_list, mtype in [(api_jockey, "jockey"), (api_driver, "driver")]:
         for market in market_list:
-            meeting_id += 1
-            mid = f"m{meeting_id}"
+            counter += 1
+            mid = f"m{counter}"
             meeting_name = market["meeting_name"]
             participants = market.get("participants", [])
 
@@ -183,6 +208,7 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
             )
             db.add(meeting)
             db.flush()
+            meeting_races_map[mid] = market.get("races", [])
 
             for i, p in enumerate(participants):
                 pid = f"{mid}_{p['name'].lower().replace(' ', '_')}"
@@ -209,8 +235,8 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                     ))
 
     db.commit()
-    _simulate_live_data(db)
-    logger.info(f"Seeded {meeting_id} meetings from API data")
+    _simulate_live_data(db, meeting_races_map)
+    logger.info(f"Seeded {counter} meetings from API data")
 
 
 def _seed_from_fallback(db: Session):
@@ -266,39 +292,130 @@ def _seed_from_fallback(db: Session):
     _simulate_live_data(db)
 
 
-def _simulate_live_data(db: Session):
+def _get_real_race_positions(race_data: dict, participants: list):
+    """Map Ladbrokes race results to challenge participants.
+
+    Returns sorted list of (participant, position) or None if no real results.
+    """
+    if not race_data or race_data.get("status") not in ("Final", "Interim"):
+        return None
+
+    runner_map = {}
+    for runner in race_data.get("runners", []):
+        rn = runner.get("runner_number")
+        jn = (runner.get("jockey") or "").strip() or (runner.get("driver") or "").strip()
+        if rn and jn and jn.lower() not in ("unknown", "n/a", "not declared"):
+            runner_map[rn] = jn.strip().lower()
+
+    participant_map = {p.name.strip().lower(): p for p in participants}
+
+    placed = []
+    for res in race_data.get("results", []):
+        pos = res.get("position", 99)
+        jockey_name = runner_map.get(res.get("runner_number"))
+        if jockey_name and jockey_name in participant_map:
+            placed.append((participant_map[jockey_name], pos))
+
+    if not placed:
+        return None
+
+    placed.sort(key=lambda x: x[1])
+    return placed
+
+
+def _simulate_live_data(db: Session, meeting_races_map: dict = None):
     meetings = db.query(Meeting).all()
     for meeting in meetings:
-        meeting.status = MeetingStatus.LIVE.value
-        initial = min(random.randint(2, 6), meeting.total_races)
-        meeting.completed_races = initial
-
         participants = db.query(Participant).filter(
             Participant.meeting_id == meeting.id
         ).all()
 
-        cumulative_points = {p.id: 0 for p in participants}
+        races_data = (meeting_races_map or {}).get(meeting.id, [])
 
-        for rn in range(1, initial + 1):
-            shuffled = list(participants)
-            random.shuffle(shuffled)
-            for pos, p in enumerate(shuffled, 1):
-                added = max(1, 6 - pos)
-                cumulative_points[p.id] += added
-                result = Result(
-                    meeting_id=meeting.id,
-                    participant_id=p.id,
-                    final_points=cumulative_points[p.id],
-                    position=pos,
-                    race_number=rn,
-                    points_added=added,
-                    timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 30)),
-                )
-                db.add(result)
+        if races_data:
+            # API-seeded meeting: determine completed races from real status
+            completed = [r for r in races_data if r.get("status") in ("Final", "Interim")]
+            initial = len(completed)
+            use_real = True
+        else:
+            # Fallback meeting: random initial simulation
+            initial = min(random.randint(2, 6), meeting.total_races)
+            completed = []
+            use_real = False
+
+        meeting.status = MeetingStatus.LIVE.value
+        meeting.completed_races = initial
+
+        cumulative_points = {p.id: 0 for p in participants}
+        race_counts = {p.id: 0 for p in participants}
+
+        def race_points(pos, all_pos=None):
+            if pos > 3:
+                return 0
+            base = {1: 3, 2: 2, 3: 1}[pos]
+            if not all_pos:
+                return base
+            count = sum(1 for p in all_pos if p == pos)
+            if count > 1:
+                total = sum({1: 3, 2: 2, 3: 1}.get(pos + i, 0) for i in range(count))
+                return total / count
+            return base
+
+        if use_real:
+            for race_info in sorted(completed, key=lambda x: x.get("race_number", 0)):
+                rn = race_info.get("race_number")
+                real_positions = _get_real_race_positions(race_info, participants)
+                placed_ids = set()
+                if real_positions:
+                    race_positions = [pos for _, pos in real_positions]
+                    for p, pos in real_positions:
+                        added = race_points(pos, race_positions)
+                        cumulative_points[p.id] += added
+                        race_counts[p.id] += 1
+                        placed_ids.add(p.id)
+                        result = Result(
+                            meeting_id=meeting.id,
+                            participant_id=p.id,
+                            final_points=cumulative_points[p.id],
+                            position=pos,
+                            race_number=rn,
+                            points_added=added,
+                            timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 30)),
+                        )
+                        db.add(result)
+                for p in participants:
+                    if p.id not in placed_ids:
+                        result = Result(
+                            meeting_id=meeting.id,
+                            participant_id=p.id,
+                            final_points=cumulative_points[p.id],
+                            position=99,
+                            race_number=rn,
+                            points_added=0,
+                            timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 30)),
+                        )
+                        db.add(result)
+        else:
+            for rn in range(1, initial + 1):
+                shuffled = _weighted_shuffle(participants, db, meeting.id) if meeting.total_races > 0 else list(participants)
+                for pos, p in enumerate(shuffled, 1):
+                    added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
+                    cumulative_points[p.id] += added
+                    race_counts[p.id] += 1
+                    result = Result(
+                        meeting_id=meeting.id,
+                        participant_id=p.id,
+                        final_points=cumulative_points[p.id],
+                        position=pos,
+                        race_number=rn,
+                        points_added=added,
+                        timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 30)),
+                    )
+                    db.add(result)
 
         for p in participants:
             p.current_points = cumulative_points[p.id]
-            p.completed_races = initial
-            p.remaining_races = meeting.total_races - initial
+            p.completed_races = race_counts[p.id]
+            p.remaining_races = meeting.total_races - race_counts[p.id]
 
         db.commit()

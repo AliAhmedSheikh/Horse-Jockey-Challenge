@@ -69,7 +69,8 @@ def _meeting_to_frontend(meeting: Meeting, db: Session) -> MeetingOut:
     ]
 
     recent_results = db.query(Result).filter(
-        Result.meeting_id == meeting.id
+        Result.meeting_id == meeting.id,
+        Result.points_added > 0
     ).order_by(desc(Result.timestamp)).limit(5).all()
 
     latest_updates = []
@@ -112,7 +113,7 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
     overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
     remaining = meeting.total_races - p.completed_races if meeting else 0
     avg_per_race = p.current_points / max(p.completed_races, 1)
-    projected = p.current_points + int(avg_per_race * remaining)
+    projected = round(p.current_points + avg_per_race * remaining, 1)
     value_rating = _compute_value_rating(avg_bookmaker, ai_price)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
     return ParticipantOut(
@@ -136,7 +137,7 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
 
     remaining = meeting.total_races - p.completed_races if meeting else 0
     avg_per_race = p.current_points / max(p.completed_races, 1)
-    projected = p.current_points + int(avg_per_race * remaining)
+    projected = round(p.current_points + avg_per_race * remaining, 1)
 
     value_rating = _compute_value_rating(avg_bookmaker, ai_price)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
@@ -189,7 +190,7 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
 
     participants = db.query(Participant).filter(
         Participant.meeting_id == meeting_id
-    ).all()
+    ).order_by(desc(Participant.current_points)).all()
 
     result = [_participant_to_frontend(p, db) for p in participants]
     winner = max(result, key=lambda x: x.currentPoints) if result else None
@@ -306,7 +307,10 @@ def get_dashboard(db: Session = Depends(get_db)):
         else:
             drivers.append(fp)
 
-    recent_results = db.query(Result).order_by(desc(Result.timestamp)).limit(30).all()
+    recent_results = db.query(Result).filter(
+        Result.meeting_id.in_(meeting_ids),
+        Result.points_added > 0
+    ).order_by(desc(Result.timestamp)).limit(30).all()
     race_results = []
     for r in recent_results:
         p = participant_map.get(r.participant_id)
@@ -340,7 +344,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     # Set projected winners per meeting
     meeting_best = {}
     for fp in jockeys + drivers:
-        if fp.meetingId not in meeting_best or fp.currentPoints > meeting_best[fp.meetingId].currentPoints:
+        if fp.meetingId not in meeting_best or fp.currentPoints >= meeting_best[fp.meetingId].currentPoints:
             meeting_best[fp.meetingId] = fp
     for fp in meeting_best.values():
         fp.isProjectedWinner = True

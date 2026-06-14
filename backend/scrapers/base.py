@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 import httpx
 
 from time_utils import today_aus
@@ -38,7 +38,7 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
     try:
         r = client.get(
             f"{API_BASE}/racing/meetings",
-            params={"date_from": today, "date_to": today, "country": "AUS", "type": "T", "limit": 200},
+            params={"date_from": today, "date_to": today, "country": "AUS", "type": " ", "limit": 200},
         )
         if r.status_code != 200:
             _all_cache = ([], [])
@@ -67,36 +67,46 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
         challenge_type = "driver" if category == "H" else "jockey"
 
         seen = {}
-        for race in races[:2]:
-            if race.get("race_number", 0) == 0:
+        races_data = []
+        for race in races:
+            race_num = race.get("race_number", 0)
+            if race_num == 0:
                 continue
             try:
                 r2 = client.get(f"{API_BASE}/racing/events/{race['id']}")
                 if r2.status_code != 200:
                     continue
                 race_data = r2.json().get("data", {})
+                races_data.append({
+                    "race_number": race_num,
+                    "status": race_data.get("race", {}).get("status", ""),
+                    "results": race_data.get("results", []),
+                    "runners": race_data.get("runners", []),
+                })
                 for runner in race_data.get("runners", []):
                     if runner.get("is_scratched"):
                         continue
-                    name = (runner.get("jockey") or "").strip() or (runner.get("driver") or "").strip()
-                    if not name or name == "Unknown":
+                    jockey_name = (runner.get("jockey") or "").strip() or (runner.get("driver") or "").strip()
+                    if not jockey_name or jockey_name.lower() in ("unknown", "n/a", "not declared"):
                         continue
                     odds = runner.get("odds", {})
                     price = odds.get("fixed_win", 0)
-                    if name not in seen or price > seen[name]:
-                        seen[name] = price
+                    if jockey_name not in seen or price < seen[jockey_name]:
+                        seen[jockey_name] = price
             except Exception:
                 continue
 
         if seen:
             parts = [{"name": n, "price": p} for n, p in seen.items()]
             parts.sort(key=lambda x: x["price"] if x["price"] > 0 else 999)
+            total_racing_races = len([r for r in races if r.get("race_number", 0) > 0])
             market = {
                 "meeting_name": meeting_name,
                 "type": challenge_type,
                 "participants": parts,
                 "bookmaker": "Ladbrokes",
-                "total_races": len(races),
+                "total_races": total_racing_races,
+                "races": races_data,
             }
             if challenge_type == "driver":
                 driver_markets.append(market)
@@ -106,6 +116,51 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
     _all_cache = (jockey_markets, driver_markets)
     logger.info(f"Fetched {len(jockey_markets)} jockey and {len(driver_markets)} driver meetings")
     return _all_cache
+
+
+def fetch_single_race_results(meeting_name: str, race_number: int) -> Optional[Dict]:
+    """Fetch results for a specific race, bypassing the global cache.
+
+    Returns dict with status, results, runners or None if unavailable.
+    """
+    today = today_aus()
+    client = _get_client()
+    try:
+        r = client.get(
+            f"{API_BASE}/racing/meetings",
+            params={"date_from": today, "date_to": today, "country": "AUS", "type": " ", "limit": 200},
+        )
+        if r.status_code != 200:
+            return None
+        meetings = r.json().get("data", {}).get("meetings", [])
+    except Exception:
+        return None
+
+    race_id = None
+    for m in meetings:
+        if m.get("name", "").lower().strip() == meeting_name.lower().strip():
+            for race in m.get("races", []):
+                if race.get("race_number") == race_number:
+                    race_id = race.get("id")
+                    break
+            break
+
+    if not race_id:
+        return None
+
+    try:
+        r2 = client.get(f"{API_BASE}/racing/events/{race_id}")
+        if r2.status_code != 200:
+            return None
+        data = r2.json().get("data", {})
+        return {
+            "race_number": race_number,
+            "status": data.get("race", {}).get("status", ""),
+            "results": data.get("results", []),
+            "runners": data.get("runners", []),
+        }
+    except Exception:
+        return None
 
 
 class LadbrokesAPIScraper:

@@ -5,13 +5,13 @@ from datetime import datetime
 
 class LeaderboardEntry(BaseModel):
     name: str
-    points: int
+    points: float
     rank: int
 
 
 class LatestUpdate(BaseModel):
     participant: str
-    pointsAdded: int
+    pointsAdded: float
     time: str
 
 
@@ -39,8 +39,8 @@ class ParticipantOut(BaseModel):
     aiPrice: float
     overlayPercent: float
     valueRating: str
-    currentPoints: int
-    projectedFinalPoints: int
+    currentPoints: float
+    projectedFinalPoints: float
     status: str
     isProjectedWinner: bool
 
@@ -65,7 +65,7 @@ class RaceResultOut(BaseModel):
     meetingName: str
     raceNumber: int
     participant: str
-    pointsAdded: int
+    pointsAdded: float
     updatedAiPrice: float
     updatedOverlay: float
     timeUpdated: str
@@ -81,7 +81,7 @@ class DashboardCards(BaseModel):
 
 class PodiumEntry(BaseModel):
     participant_name: str
-    final_points: int
+    final_points: float
     position: int
 
 
