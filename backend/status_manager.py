@@ -86,6 +86,8 @@ def refresh_meeting_status():
                 next_race = meeting.completed_races + 1
                 if next_race > meeting.total_races:
                     meeting.status = MeetingStatus.FINISHED.value
+                    for p in participants:
+                        p.remaining_races = 0
                     logger.info(f"Meeting {meeting.name} -> FINISHED")
                     continue
 
@@ -142,6 +144,8 @@ def refresh_meeting_status():
                     # Non-placed participants get position=99, points_added=0
                     for p in participants:
                         if p.id not in placed_ids:
+                            p.completed_races += 1
+                            p.remaining_races = meeting.total_races - p.completed_races
                             result = Result(
                                 meeting_id=meeting.id,
                                 participant_id=p.id,
@@ -158,6 +162,8 @@ def refresh_meeting_status():
 
                 if next_race >= meeting.total_races:
                     meeting.status = MeetingStatus.FINISHED.value
+                    for p in participants:
+                        p.remaining_races = 0
                     logger.info(f"Meeting {meeting.name} -> FINISHED")
 
         db.commit()
