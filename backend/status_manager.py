@@ -102,10 +102,25 @@ def refresh_meeting_status():
                 elif not meeting.scheduled_time and meeting.completed_races > 0:
                     meeting.status = MeetingStatus.LIVE.value
                     logger.info(f"Meeting {meeting.name} -> LIVE (legacy fallback)")
+                elif meeting.scheduled_time:
+                    # Check API race 1 to see if meeting has already started
+                    race_data = fetch_single_race_results(meeting.name, 1)
+                    if race_data and race_data.get("status") in ("Final", "Interim"):
+                        meeting.status = MeetingStatus.LIVE.value
+                        participants = db.query(Participant).filter(
+                            Participant.meeting_id == meeting.id
+                        ).all()
+                        _simulate_initial_races(meeting, participants, db)
+                        logger.info(f"Meeting {meeting.name} -> LIVE (API race 1 completed)")
 
             if meeting.status == MeetingStatus.LIVE.value:
                 # Revert LIVE→UPCOMING if scheduled time hasn't arrived yet
+                # (only if API doesn't show race results either)
+                api_shows_results = False
                 if st is not None and not scheduled_reached:
+                    race_data = fetch_single_race_results(meeting.name, 1)
+                    api_shows_results = race_data and race_data.get("status") in ("Final", "Interim")
+                if st is not None and not scheduled_reached and not api_shows_results:
                     meeting.status = MeetingStatus.UPCOMING.value
                     participants = db.query(Participant).filter(
                         Participant.meeting_id == meeting.id

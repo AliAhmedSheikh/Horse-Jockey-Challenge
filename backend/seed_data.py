@@ -328,19 +328,29 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
 
         races_data = (meeting_races_map or {}).get(meeting.id, [])
 
-        # Skip meetings that haven't started yet
+        # Check if API race data shows any races already completed
+        api_has_results = any(
+            r.get("status") in ("Final", "Interim") for r in races_data
+        ) if races_data else False
+
+        # Determine if meeting should stay UPCOMING
         st = meeting.scheduled_time
         if st is not None:
             if st.tzinfo is None:
                 st = st.replace(tzinfo=AU_TZ)
-            if now_aus < st:
-                meeting.status = MeetingStatus.UPCOMING.value
-                for p in participants:
-                    p.current_points = 0
-                    p.completed_races = 0
-                    p.remaining_races = meeting.total_races
-                db.commit()
-                continue
+            time_upcoming = now_aus < st
+        else:
+            time_upcoming = False  # No scheduled time → legacy LIVE assumption
+        should_be_upcoming = not api_has_results and time_upcoming
+
+        if should_be_upcoming:
+            meeting.status = MeetingStatus.UPCOMING.value
+            for p in participants:
+                p.current_points = 0
+                p.completed_races = 0
+                p.remaining_races = meeting.total_races
+            db.commit()
+            continue
 
         if races_data:
             # API-seeded meeting: determine completed races from real status
