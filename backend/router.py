@@ -137,8 +137,13 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
     ai_price = _compute_ai_price(avg_bookmaker, p.current_points, p.completed_races, total_races)
     overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
     remaining = meeting.total_races - p.completed_races if meeting else 0
-    avg_per_race = p.current_points / max(p.completed_races, 1)
-    projected = round(p.current_points + avg_per_race * remaining, 1)
+    if p.completed_races == 0:
+        implied = 1.0 / max(avg_bookmaker, 1.01)
+        top3_prob = min(0.85, implied * 1.5)
+        projected = round(top3_prob * 2.0 * total_races, 1)
+    else:
+        avg_per_race = p.current_points / p.completed_races
+        projected = round(p.current_points + avg_per_race * remaining, 1)
     value_rating = compute_value_rating(avg_bookmaker, ai_price)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
     return ParticipantOut(
@@ -161,8 +166,13 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
     overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
 
     remaining = meeting.total_races - p.completed_races if meeting else 0
-    avg_per_race = p.current_points / max(p.completed_races, 1)
-    projected = round(p.current_points + avg_per_race * remaining, 1)
+    if p.completed_races == 0:
+        implied = 1.0 / max(avg_bookmaker, 1.01)
+        top3_prob = min(0.85, implied * 1.5)
+        projected = round(top3_prob * 2.0 * total, 1)
+    else:
+        avg_per_race = p.current_points / p.completed_races
+        projected = round(p.current_points + avg_per_race * remaining, 1)
 
     value_rating = compute_value_rating(avg_bookmaker, ai_price)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
