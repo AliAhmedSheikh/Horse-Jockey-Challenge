@@ -48,13 +48,43 @@ def _compute_status(bookmaker_price: float, ai_price: float) -> str:
         return "avoid"
 
 
-def _compute_ai_price(avg_bookmaker: float, completed_races: int, total_races: int) -> float:
+def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_races: int, total_races: int) -> float:
     if avg_bookmaker <= 0:
         return 3.0
+
+    if completed_races == 0:
+        return round(avg_bookmaker, 2)
+
     race_progress = completed_races / max(total_races, 1)
-    uncertainty = min(0.10, avg_bookmaker * 0.002)
-    discount = uncertainty * (1.0 - race_progress * 0.6)
-    return round(avg_bookmaker * (1.0 - discount), 2)
+
+    # Expected points per race based on bookmaker price (market expectation)
+    implied_prob = 1.0 / max(avg_bookmaker, 1.01)
+    top3_prob = min(0.85, implied_prob * 1.5)
+    expected_pts_per_race = top3_prob * 2.0
+
+    expected_points = expected_pts_per_race * completed_races
+    perf_ratio = current_points / max(expected_points, 0.01)
+    perf_ratio = max(0.2, min(5.0, perf_ratio))
+
+    # Confidence in performance signal grows as more races are completed
+    perf_confidence = min(0.7, race_progress * 0.8)
+
+    # Performance-adjusted price: outperforming → shorter, underperforming → longer
+    if perf_ratio > 1.0:
+        price_adj = 1.0 - (perf_ratio - 1.0) * 0.15
+    else:
+        price_adj = 1.0 + (1.0 - perf_ratio) * 0.25
+
+    performance_price = avg_bookmaker * max(1.01, price_adj)
+
+    # Blend bookmaker baseline with performance-adjusted price
+    ai_price = avg_bookmaker * (1 - perf_confidence) + performance_price * perf_confidence
+
+    # At full completion, price is purely performance-based
+    if race_progress >= 1.0:
+        ai_price = performance_price
+
+    return round(max(1.01, ai_price), 2)
 
 
 def _meeting_to_frontend(meeting: Meeting, db: Session) -> MeetingOut:
@@ -109,7 +139,7 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
     bookmaker_prices = [pr.price for pr in prices]
     avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
     total_races = meeting.total_races if meeting else 8
-    ai_price = _compute_ai_price(avg_bookmaker, p.completed_races, total_races)
+    ai_price = _compute_ai_price(avg_bookmaker, p.current_points, p.completed_races, total_races)
     overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
     remaining = meeting.total_races - p.completed_races if meeting else 0
     avg_per_race = p.current_points / max(p.completed_races, 1)
@@ -132,7 +162,7 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
     avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
 
     total = meeting.total_races if meeting else 8
-    ai_price = _compute_ai_price(avg_bookmaker, p.completed_races, total)
+    ai_price = _compute_ai_price(avg_bookmaker, p.current_points, p.completed_races, total)
     overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
 
     remaining = meeting.total_races - p.completed_races if meeting else 0
@@ -318,7 +348,7 @@ def get_dashboard(db: Session = Depends(get_db)):
         if p and m:
             prs = prices_by_participant.get(p.id, [])
             avg_bm = sum(pr.price for pr in prs) / len(prs) if prs else 3.0
-            ai_price = _compute_ai_price(avg_bm, p.completed_races, m.total_races)
+            ai_price = _compute_ai_price(avg_bm, p.current_points, p.completed_races, m.total_races)
             overlay = round((avg_bm - ai_price) / ai_price * 100, 1)
 
             minutes_ago = int(
