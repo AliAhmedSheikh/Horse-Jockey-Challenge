@@ -249,14 +249,19 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                             Price.bookmaker_name == bookmaker_name,
                         ).first()
                         if existing:
-                            existing.price = p_data.get("price", existing.price)
-                            existing.timestamp = datetime.now(timezone.utc)
+                            new_price = p_data.get("price", 0.0)
+                            if new_price > 0:
+                                existing.price = new_price
+                                existing.timestamp = datetime.now(timezone.utc)
                         else:
+                            new_price = p_data.get("price", 0.0)
+                            if new_price <= 0:
+                                new_price = 1.5
                             db.add(Price(
                                 participant_id=p.id,
                                 meeting_id=meeting.id,
                                 bookmaker_name=bookmaker_name,
-                                price=p_data.get("price", 0.0),
+                                price=new_price,
                                 timestamp=datetime.now(timezone.utc),
                             ))
                         break
