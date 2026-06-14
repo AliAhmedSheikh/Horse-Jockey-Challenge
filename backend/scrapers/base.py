@@ -96,6 +96,7 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                 "type": challenge_type,
                 "participants": parts,
                 "bookmaker": "Ladbrokes",
+                "total_races": len(races),
             }
             if challenge_type == "driver":
                 driver_markets.append(market)

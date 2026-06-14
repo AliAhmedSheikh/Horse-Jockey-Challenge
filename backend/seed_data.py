@@ -171,13 +171,14 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
             meeting_name = market["meeting_name"]
             participants = market.get("participants", [])
 
+            total_races = market.get("total_races", 8)
             meeting = Meeting(
                 id=mid,
                 name=meeting_name,
                 date=aus_date,
                 status=MeetingStatus.UPCOMING.value,
                 type=mtype,
-                total_races=8,
+                total_races=total_races,
                 completed_races=0,
             )
             db.add(meeting)
@@ -191,7 +192,7 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                     name=p["name"],
                     current_points=0,
                     completed_races=0,
-                    remaining_races=8,
+                    remaining_races=total_races,
                 )
                 db.add(participant)
                 db.flush()
@@ -269,7 +270,8 @@ def _simulate_live_data(db: Session):
     meetings = db.query(Meeting).all()
     for meeting in meetings:
         meeting.status = MeetingStatus.LIVE.value
-        meeting.completed_races = random.randint(2, 6)
+        initial = min(random.randint(2, 6), meeting.total_races)
+        meeting.completed_races = initial
 
         participants = db.query(Participant).filter(
             Participant.meeting_id == meeting.id
@@ -277,7 +279,7 @@ def _simulate_live_data(db: Session):
 
         cumulative_points = {p.id: 0 for p in participants}
 
-        for rn in range(1, meeting.completed_races + 1):
+        for rn in range(1, initial + 1):
             shuffled = list(participants)
             random.shuffle(shuffled)
             for pos, p in enumerate(shuffled, 1):
@@ -294,10 +296,9 @@ def _simulate_live_data(db: Session):
                 )
                 db.add(result)
 
-        # Update participant cumulative stats
         for p in participants:
             p.current_points = cumulative_points[p.id]
-            p.completed_races = meeting.completed_races
-            p.remaining_races = meeting.total_races - meeting.completed_races
+            p.completed_races = initial
+            p.remaining_races = meeting.total_races - initial
 
         db.commit()
