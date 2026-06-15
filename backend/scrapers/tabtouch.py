@@ -3,6 +3,7 @@ import re
 import json
 import time
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 import httpx
 import urllib3
@@ -157,39 +158,41 @@ class TABtouchScraper:
             meeting_id = mtg["meeting_id"]
             jockey_prices = {}
 
-            for race_info in mtg["races"]:
-                race_num = race_info["race_number"]
-                model = _fetch_race_model(meeting_id, date_str, race_num)
+            def _process_race(mid, ds, ri):
+                rn = ri["race_number"]
+                model = _fetch_race_model(mid, ds, rn)
                 if not model:
-                    continue
-
+                    return []
+                result = []
                 legs = model.get("pool", {}).get("legs", [])
                 for leg in legs:
-                    if leg.get("raceNumber") != race_num:
+                    if leg.get("raceNumber") != rn:
                         continue
-                    starters = leg.get("starters", [])
-                    for starter in starters:
+                    for starter in leg.get("starters", []):
                         if starter.get("scratched"):
                             continue
                         rider = (starter.get("rider") or "").strip()
                         if not rider or rider.lower() in ("unknown", "n/a", "not declared", ""):
                             continue
-                        # Remove apprentice claims like "(A2.0)", "(A)", "(A4.0)"
-                        rider_clean = re.sub(r'\s*\(.*?\)\s*$', '', rider).strip()
-                        if not rider_clean:
+                        rc = re.sub(r'\s*\(.*?\)\s*$', '', rider).strip()
+                        if not rc:
                             continue
-
                         try:
                             price = float(starter.get("winDiv", 0) or 0)
                         except (ValueError, TypeError):
                             continue
+                        if price > 0:
+                            result.append((rc, price))
+                return result
 
-                        if price <= 0:
-                            continue
-
-                        # Keep best (lowest) price per jockey
-                        if rider_clean not in jockey_prices or price < jockey_prices[rider_clean]:
-                            jockey_prices[rider_clean] = price
+            races = mtg["races"]
+            if races:
+                with ThreadPoolExecutor(max_workers=5) as ex:
+                    futs = {ex.submit(_process_race, meeting_id, date_str, ri): ri for ri in races}
+                    for f in as_completed(futs):
+                        for rc, price in f.result():
+                            if rc not in jockey_prices or price < jockey_prices[rc]:
+                                jockey_prices[rc] = price
 
             if jockey_prices:
                 participants = [

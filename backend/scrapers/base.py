@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple, Optional
 import httpx
 
@@ -79,42 +80,53 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
 
         seen = {}
         races_data = []
-        for race in races:
-            race_num = race.get("race_number", 0)
-            if race_num == 0:
-                continue
+
+        def _fetch_race(client, race):
+            rn = race.get("race_number", 0)
+            if rn == 0:
+                return None, []
             try:
                 r2 = client.get(f"{API_BASE}/racing/events/{race['id']}")
                 if r2.status_code != 200:
-                    continue
-                race_data = r2.json().get("data", {})
-                race_info = race_data.get("race", {})
-                start_time = (race_info.get("advertised_start_time") or
-                              race_info.get("start_time") or
-                              race_info.get("commence_time") or
-                              race_info.get("race_time") or
-                              race_info.get("time") or
-                              race_info.get("advertised_start") or "")
-                races_data.append({
-                    "race_number": race_num,
-                    "status": race_info.get("status", ""),
-                    "start_time": start_time,
-                    "results": race_data.get("results", []),
-                    "runners": race_data.get("runners", []),
-                })
-                for runner in race_data.get("runners", []):
+                    return None, []
+                data = r2.json().get("data", {})
+                ri = data.get("race", {})
+                st = (ri.get("advertised_start_time") or ri.get("start_time") or
+                      ri.get("commence_time") or ri.get("race_time") or
+                      ri.get("time") or ri.get("advertised_start") or "")
+                rd = {
+                    "race_number": rn,
+                    "status": ri.get("status", ""),
+                    "start_time": st,
+                    "results": data.get("results", []),
+                    "runners": data.get("runners", []),
+                }
+                jp = []
+                for runner in data.get("runners", []):
                     if runner.get("is_scratched"):
                         continue
-                    jockey_name = (runner.get("jockey") or "").strip() or (runner.get("driver") or "").strip()
-                    if not jockey_name or jockey_name.lower() in ("unknown", "n/a", "not declared"):
+                    nm = (runner.get("jockey") or "").strip() or (runner.get("driver") or "").strip()
+                    if not nm or nm.lower() in ("unknown", "n/a", "not declared"):
                         continue
-                    odds = runner.get("odds", {})
-                    price = odds.get("fixed_win", 0)
-                    if jockey_name not in seen or price < seen[jockey_name]:
-                        seen[jockey_name] = price
+                    pr = runner.get("odds", {}).get("fixed_win", 0)
+                    if pr > 0:
+                        jp.append((nm, pr))
+                return rd, jp
             except Exception as e:
                 logger.warning(f"Failed to fetch race {race.get('id')}: {e}")
-                continue
+                return None, []
+
+        valid = [r for r in races if r.get("race_number", 0) > 0]
+        if valid:
+            with ThreadPoolExecutor(max_workers=10) as ex:
+                futs = {ex.submit(_fetch_race, client, r): r for r in valid}
+                for f in as_completed(futs):
+                    rd, jp = f.result()
+                    if rd:
+                        races_data.append(rd)
+                        for nm, pr in jp:
+                            if nm not in seen or pr < seen[nm]:
+                                seen[nm] = pr
 
         if seen:
             parts = [{"name": n, "price": p} for n, p in seen.items()]
