@@ -115,9 +115,20 @@ def _derive_markets_via_horses(
             if not pe_race:
                 continue
             runners = race.get("runners", [])
-            results_data = race.get("results", [])
             rn_to_horse = {}
-            for res in results_data:
+            for runner in runners:
+                rn = runner.get("runner_number")
+                if rn is None:
+                    continue
+                cn = (runner.get("competitor_name") or runner.get("horse_name")
+                      or runner.get("horse") or "")
+                if not cn:
+                    comp = runner.get("competitor")
+                    if isinstance(comp, dict):
+                        cn = comp.get("name") or comp.get("competitor_name") or ""
+                if cn:
+                    rn_to_horse[rn] = cn.strip().lower()
+            for res in race.get("results", []):
                 rn = res.get("runner_number")
                 name = res.get("name", "").strip().lower()
                 if rn is not None and name:
@@ -149,11 +160,13 @@ def _derive_markets_via_horses(
                 for runner in race.get("runners", [])[:3]:
                     jn = _extract_jockey(runner)
                     rn = runner.get("runner_number")
-                    horse = ""
-                    for res in race.get("results", []):
-                        if res.get("runner_number") == rn:
-                            horse = res.get("name", "").strip().lower()
-                            break
+                    cn = (runner.get("competitor_name") or runner.get("horse_name")
+                          or runner.get("horse") or "")
+                    if not cn:
+                        comp = runner.get("competitor")
+                        if isinstance(comp, dict):
+                            cn = comp.get("name") or comp.get("competitor_name") or ""
+                    horse = cn.strip().lower() if cn else ""
                     pe_race = venue_data.get(race.get("race_number"), {})
                     in_pe = horse in pe_race if horse else False
                     pe_keys_found = list(pe_race.get(horse, {}).keys()) if horse and in_pe else []
