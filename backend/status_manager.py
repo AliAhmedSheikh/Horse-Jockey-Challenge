@@ -240,7 +240,7 @@ def scrape_all_bookmakers():
     logger.info("Starting bookmaker scrape cycle...")
     from scrapers.base import invalidate_cache
     from time_utils import today_aus
-    from models import Price
+    from models import Price, MeetingStatus
     invalidate_cache()
     db = SessionLocal()
     today = today_aus()
@@ -253,7 +253,17 @@ def scrape_all_bookmakers():
             logger.info("No meetings to update, skipping scrape")
             return
 
+        # Skip PE-based scrapers (TAB/Sportsbet/PointsBet) if no LIVE meetings
+        # They only return data for upcoming races — pointless for finished ones
+        has_live = any(
+            m.status == MeetingStatus.LIVE.value for m in meetings
+        )
+
         for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:
+            # Skip PE-based scrapers when nothing is live (PuntersEdge only returns upcoming)
+            if bm_name in ("TAB", "Sportsbet", "PointsBet") and not has_live:
+                logger.info(f"{bm_name}: skipping (no LIVE meetings)")
+                continue
             scraper = scraper_cls()
             try:
                 all_markets = []

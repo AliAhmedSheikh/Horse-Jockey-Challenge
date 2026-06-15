@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         scrape_all_bookmakers,
         "interval",
-        minutes=10,
+        seconds=120,
         id="scrape_bookmakers",
         name="Scrape bookmaker prices",
         replace_existing=True,
