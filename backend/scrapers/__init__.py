@@ -65,7 +65,7 @@ def _compute_venue_ratios(
         for horse_name_str, horse_prices in runners_data.items():
             if not isinstance(horse_prices, dict):
                 continue
-            lad_price = horse_prices.get("ladbrokes")
+            lad_price = horse_prices.get("ladbrokes_au")
             bp = None
             for pk in pe_keys:
                 bp = horse_prices.get(pk)
