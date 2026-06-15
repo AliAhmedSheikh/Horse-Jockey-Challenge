@@ -30,6 +30,11 @@ def _seed_sync():
         seed_database(db)
     finally:
         db.close()
+    # Run initial bookmaker scrape right after seeding to get prices ASAP
+    try:
+        scrape_all_bookmakers()
+    except Exception as e:
+        logger.error(f"Initial bookmaker scrape failed: {e}")
 
 
 @asynccontextmanager
