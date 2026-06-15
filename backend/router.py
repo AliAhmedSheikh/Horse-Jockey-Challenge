@@ -28,7 +28,7 @@ from schemas import (
 router = APIRouter()
 
 _cache = {}
-CACHE_TTL = 15
+CACHE_TTL = 30
 
 
 def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_races: int, total_races: int) -> float:
@@ -320,9 +320,15 @@ def _cached(key: str, ttl: int = CACHE_TTL):
             now = time.time()
             if key in _cache and now - _cache[key]["ts"] < ttl:
                 return _cache[key]["data"]
-            result = func(*args, **kwargs)
-            _cache[key] = {"data": result, "ts": now}
-            return result
+            try:
+                result = func(*args, **kwargs)
+                _cache[key] = {"data": result, "ts": now}
+                return result
+            except Exception:
+                # Serve stale cache if available (better than crashing)
+                if key in _cache:
+                    return _cache[key]["data"]
+                raise
         return wrapper
     return decorator
 
