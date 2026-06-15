@@ -231,6 +231,7 @@ def scrape_all_bookmakers():
     logger.info("Starting bookmaker scrape cycle...")
     from scrapers.base import invalidate_cache
     from time_utils import today_aus
+    from models import Price
     invalidate_cache()
     db = SessionLocal()
     today = today_aus()
@@ -239,6 +240,17 @@ def scrape_all_bookmakers():
             Meeting.date == today,
             Meeting.status.in_([MeetingStatus.LIVE.value, MeetingStatus.FINISHED.value])
         ).all()
+
+        # Delete stale Price records for today's meetings before re-scraping.
+        # Only scrapers that return data will recreate prices; failed/absent scrapers
+        # leave no stale entries behind.
+        if meetings:
+            meeting_ids = [m.id for m in meetings]
+            deleted = db.query(Price).filter(Price.meeting_id.in_(meeting_ids)).delete(synchronize_session=False)
+            if deleted:
+                logger.info(f"Cleared {deleted} stale Price records before scrape")
+            db.commit()
+
         if not meetings:
             logger.info("No meetings to update, skipping scrape")
             return
