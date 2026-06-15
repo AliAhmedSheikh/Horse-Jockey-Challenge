@@ -13,6 +13,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger = logging.getLogger(__name__)
 
 BASE = "https://www.tabtouch.com.au"
+
+# Australian state/territory abbreviations (case-insensitive suffix check on groundDescription)
+_AU_STATES = {"nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"}
+
+
+def _is_au_meeting(ground: str) -> bool:
+    suffix = ground.split(",")[-1].strip().lower() if "," in ground else ""
+    return suffix in _AU_STATES
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json, text/html, */*",
@@ -101,6 +109,8 @@ def _get_todays_meetings() -> List[Dict]:
                     continue
 
                 ground = race.get("groundDescription", "")
+                if not _is_au_meeting(ground):
+                    continue
                 meeting_name = ground.split(",")[0].strip() if "," in ground else ground
 
                 url_path = race.get("url", "")
