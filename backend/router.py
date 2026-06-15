@@ -1,4 +1,5 @@
 import functools
+import logging
 import time
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
@@ -26,6 +27,8 @@ from schemas import (
 )
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 _cache = {}
 CACHE_TTL = 30
@@ -324,10 +327,16 @@ def _cached(key: str, ttl: int = CACHE_TTL):
                 result = func(*args, **kwargs)
                 _cache[key] = {"data": result, "ts": now}
                 return result
-            except Exception:
-                # Serve stale cache if available (better than crashing)
+            except Exception as e:
+                logger.warning(f"Cache miss for '{key}', error: {e}")
+                # Serve stale cache if available (better than crashing/retry loop)
                 if key in _cache:
+                    logger.info(f"Serving stale '{key}' cache")
                     return _cache[key]["data"]
+                # No stale cache — return empty to avoid frontend retry loops
+                if key == "dashboard":
+                    from schemas import DashboardOut, DashboardCards
+                    return DashboardOut(meetings=[], jockeys=[], drivers=[], recentResults=[], dashboardCards=DashboardCards(todayMeetings=0, activeJockeyChallenges=0, activeDriverChallenges=0, totalParticipants=0))
                 raise
         return wrapper
     return decorator
