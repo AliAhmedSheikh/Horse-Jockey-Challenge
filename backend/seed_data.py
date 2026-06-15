@@ -103,8 +103,6 @@ DRIVER_MEETINGS = [
 
 ALL_MEETINGS = JOCKEY_MEETINGS + DRIVER_MEETINGS
 
-BOOKMAKERS = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"]
-
 
 def seed_database(db: Session):
     existing = db.query(Meeting).count()
@@ -211,14 +209,11 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                 db.add(participant)
                 db.flush()
 
-                for bm in ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"]:
-                    variation = 0.0 if bm == "Ladbrokes" else random.uniform(-0.12, 0.12)
-                    bm_price = round(max(p["price"] * (1 + variation), 1.5), 2)
-                    db.add(Price(
+                db.add(Price(
                         participant_id=pid,
                         meeting_id=mid,
-                        bookmaker_name=bm,
-                        price=bm_price,
+                        bookmaker_name="Ladbrokes",
+                        price=round(max(p["price"], 1.5), 2),
                         timestamp=now,
                     ))
 
@@ -268,19 +263,13 @@ def _seed_from_fallback(db: Session):
             db.add(participant)
             db.flush()
 
-            for bm in BOOKMAKERS:
-                bm_variation = random.uniform(-0.15, 0.15)
-                bm_price = round(bookmaker_price * (1 + bm_variation), 2)
-                if bm_price < 1.5:
-                    bm_price = 1.5 + random.uniform(0, 1)
-                price = Price(
+            db.add(Price(
                     participant_id=participant.id,
                     meeting_id=meeting.id,
-                    bookmaker_name=bm,
-                    price=bm_price,
+                    bookmaker_name="Ladbrokes",
+                    price=round(max(bookmaker_price, 1.5), 2),
                     timestamp=now_utc,
-                )
-                db.add(price)
+                ))
 
     db.commit()
 
