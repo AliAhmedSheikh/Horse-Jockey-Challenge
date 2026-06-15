@@ -3,12 +3,15 @@ from typing import List, Dict
 
 from scrapers.base import LadbrokesAPIScraper, _fetch_all_meetings
 from scrapers.puntersedge import PuntersEdgeScraper
+from scrapers.tabtouch import TABtouchScraper
 
 logger = logging.getLogger(__name__)
 
+# Map bookmaker names to PuntersEdge API keys (first found wins)
 PE_KEY_MAP = {
-    "TAB": "tab",
-    "PointsBet": "pointsbetau",
+    "TAB": ["tab"],
+    "PointsBet": ["pointsbetau"],
+    "Sportsbet": ["sportsbet", "sportsbet_au"],
 }
 
 
@@ -37,8 +40,8 @@ def _derive_markets(bookmaker_name: str) -> List[Dict]:
         pe.close()
     if not ratios:
         return []
-    pe_key = PE_KEY_MAP.get(bookmaker_name)
-    if not pe_key:
+    pe_keys = PE_KEY_MAP.get(bookmaker_name)
+    if not pe_keys:
         return []
 
     jockey, driver = _fetch_all_meetings()
@@ -58,14 +61,26 @@ def _derive_markets(bookmaker_name: str) -> List[Dict]:
                     break
         if not vr:
             continue
-        ratio = vr.get(pe_key)
-        if not ratio or ratio <= 0:
+        # Try each PE key variant, use the first one that has data
+        ratio = None
+        for pk in pe_keys:
+            r = vr.get(pk)
+            if r and r > 0:
+                ratio = r
+                break
+        if not ratio:
             continue
         market = dict(m)
         market["bookmaker"] = bookmaker_name
         market["participants"] = []
         for p in m.get("participants", []):
-            derived = round(max(p["price"] * ratio, 1.50), 2)
+            raw = p["price"] * ratio
+            derived = round(max(raw, 1.50), 2)
+            if derived <= 1.51 and raw < 1.50:
+                logger.warning(
+                    f"{bookmaker_name}: price floor applied for {p['name']} "
+                    f"(raw={raw:.2f}, ratio={ratio})"
+                )
             market["participants"].append({"name": p["name"], "price": derived})
         result.append(market)
     return result
@@ -100,25 +115,12 @@ class PointsBetScraper:
 
 
 class SportsbetScraper:
+    """Sportsbet prices derived via PuntersEdge venue ratios."""
     def __init__(self):
         self.name = "Sportsbet"
 
     def scrape_jockey_challenges(self) -> List[Dict]:
-        return []
-
-    def scrape_driver_challenges(self) -> List[Dict]:
-        return []
-
-    def close(self):
-        pass
-
-
-class TABtouchScraper:
-    def __init__(self):
-        self.name = "TABtouch"
-
-    def scrape_jockey_challenges(self) -> List[Dict]:
-        return []
+        return _derive_markets("Sportsbet")
 
     def scrape_driver_challenges(self) -> List[Dict]:
         return []

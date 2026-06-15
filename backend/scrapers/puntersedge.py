@@ -1,21 +1,24 @@
 import logging
 import os
 import time
+import threading
 from typing import Dict, List, Optional
 import httpx
 
 logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.puntersedge.online/v1"
-BOOKMAKER_KEYS = ["tab", "pointsbetau", "betright", "betr_au", "ladbrokes_au"]
+BOOKMAKER_KEYS = ["tab", "pointsbetau", "sportsbet", "betright", "betr_au", "ladbrokes_au"]
 CACHE_TTL = 120
+
+_shared_cache = None
+_shared_cache_time = 0
+_shared_cache_lock = threading.Lock()
 
 
 class PuntersEdgeScraper:
     def __init__(self):
         self.api_key = os.environ.get("PUNTERSEDGE_API_KEY", "")
-        self._cache = None
-        self._cache_time = 0
         self._client = httpx.Client(timeout=20)
         self.enabled = bool(self.api_key)
 
@@ -24,8 +27,9 @@ class PuntersEdgeScraper:
             return {}
 
         now = time.time()
-        if self._cache and now - self._cache_time < CACHE_TTL:
-            return self._cache
+        with _shared_cache_lock:
+            if _shared_cache is not None and now - _shared_cache_time < CACHE_TTL:
+                return _shared_cache
 
         try:
             r = self._client.get(
@@ -64,8 +68,9 @@ class PuntersEdgeScraper:
                     if prices:
                         result[venue][race_num][horse_name] = prices
 
-            self._cache = result
-            self._cache_time = time.time()
+            with _shared_cache_lock:
+                _shared_cache = result
+                _shared_cache_time = time.time()
             logger.info(
                 f"PuntersEdge: got {sum(len(r) for v in result.values() for r in v.values())} "
                 f"runner prices across {len(result)} venues"

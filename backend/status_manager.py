@@ -30,34 +30,6 @@ BOOKMAKER_SCRAPERS = [
 ]
 
 
-def _simulate_initial_races(meeting, participants, db):
-    """Simulate 2-6 races for a meeting that just went LIVE."""
-    initial = min(random.randint(2, 6), meeting.total_races)
-    meeting.completed_races = initial
-    cumulative_points = {p.id: 0 for p in participants}
-    race_counts = {p.id: 0 for p in participants}
-    for rn in range(1, initial + 1):
-        shuffled = weighted_shuffle(participants, db, meeting.id) if meeting.total_races > 0 else list(participants)
-        for pos, p in enumerate(shuffled, 1):
-            added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
-            cumulative_points[p.id] += added
-            race_counts[p.id] += 1
-            result = Result(
-                meeting_id=meeting.id,
-                participant_id=p.id,
-                final_points=cumulative_points[p.id],
-                position=pos,
-                race_number=rn,
-                points_added=added,
-                timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 5)),
-            )
-            db.add(result)
-    for p in participants:
-        p.current_points = cumulative_points[p.id]
-        p.completed_races = race_counts[p.id]
-        p.remaining_races = meeting.total_races - race_counts[p.id]
-
-
 def refresh_meeting_status():
     if not _refresh_lock.acquire(blocking=False):
         logger.info("Previous refresh still in progress, skipping")
@@ -74,25 +46,16 @@ def refresh_meeting_status():
             scheduled_reached = st is not None and now_aus >= st
 
             if meeting.status == MeetingStatus.UPCOMING.value:
-                if scheduled_reached:
+                if scheduled_reached or (not meeting.scheduled_time and meeting.completed_races > 0):
                     meeting.status = MeetingStatus.LIVE.value
-                    participants = db.query(Participant).filter(
-                        Participant.meeting_id == meeting.id
-                    ).all()
-                    _simulate_initial_races(meeting, participants, db)
-                    logger.info(f"Meeting {meeting.name} -> LIVE (scheduled time reached)")
-                elif not meeting.scheduled_time and meeting.completed_races > 0:
-                    meeting.status = MeetingStatus.LIVE.value
-                    logger.info(f"Meeting {meeting.name} -> LIVE (legacy fallback)")
+                    meeting.completed_races = 0
+                    logger.info(f"Meeting {meeting.name} -> LIVE")
                 elif meeting.scheduled_time:
                     # Check API race 1 to see if meeting has already started
                     race_data = fetch_single_race_results(meeting.name, 1)
                     if race_data and race_data.get("status") in ("Final", "Interim"):
                         meeting.status = MeetingStatus.LIVE.value
-                        participants = db.query(Participant).filter(
-                            Participant.meeting_id == meeting.id
-                        ).all()
-                        _simulate_initial_races(meeting, participants, db)
+                        meeting.completed_races = 0
                         logger.info(f"Meeting {meeting.name} -> LIVE (API race 1 completed)")
 
             if meeting.status == MeetingStatus.LIVE.value:
@@ -134,6 +97,17 @@ def refresh_meeting_status():
                     db.commit()
                     continue
 
+                # Recalculate participant state from confirmed Results (not participant table)
+                # This prevents double-counting if weighted-shuffle was used on a previous cycle
+                for p in participants:
+                    prev_results = db.query(Result).filter(
+                        Result.participant_id == p.id,
+                        Result.race_number < next_race,
+                    ).all()
+                    p.current_points = sum(r.points_added for r in prev_results)
+                    p.completed_races = len(set(r.race_number for r in prev_results if r.points_added > 0))
+                    p.remaining_races = meeting.total_races - p.completed_races
+
                 # Delete existing results for this race to handle re-runs cleanly
                 db.query(Result).filter(
                     Result.meeting_id == meeting.id,
@@ -143,25 +117,41 @@ def refresh_meeting_status():
                 race_data = fetch_single_race_results(meeting.name, next_race)
 
                 if race_data is None:
-                    # API failure - weighted shuffle fallback (for fully simulated meetings)
+                    # API failure - weighted shuffle fallback
+                    # Only select a random subset of participants (like real racing where
+                    # not every jockey has a ride in every race)
                     shuffled = weighted_shuffle(participants, db, meeting.id)
-                    for pos, p in enumerate(shuffled, 1):
-                        added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
-                        p.completed_races = next_race
-                        p.remaining_races = meeting.total_races - next_race
-                        p.current_points += added
-                        result = Result(
-                            meeting_id=meeting.id,
-                            participant_id=p.id,
-                            final_points=p.current_points,
-                            position=pos,
-                            race_number=next_race,
-                            points_added=added,
-                            timestamp=datetime.now(timezone.utc),
-                        )
-                        db.add(result)
+                    riders = min(len(shuffled), random.randint(3, max(3, meeting.total_races)))
+                    for pos in range(1, len(shuffled) + 1):
+                        p = shuffled[pos - 1]
+                        if pos <= riders:
+                            added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
+                            p.completed_races += 1
+                            p.remaining_races = meeting.total_races - p.completed_races
+                            p.current_points += added
+                            result = Result(
+                                meeting_id=meeting.id,
+                                participant_id=p.id,
+                                final_points=p.current_points,
+                                position=pos,
+                                race_number=next_race,
+                                points_added=added,
+                                timestamp=datetime.now(timezone.utc),
+                            )
+                            db.add(result)
+                        else:
+                            result = Result(
+                                meeting_id=meeting.id,
+                                participant_id=p.id,
+                                final_points=p.current_points,
+                                position=99,
+                                race_number=next_race,
+                                points_added=0,
+                                timestamp=datetime.now(timezone.utc),
+                            )
+                            db.add(result)
                     meeting.completed_races = next_race
-                    logger.info(f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} (weighted shuffle)")
+                    logger.info(f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} ({riders} riders, weighted shuffle)")
                 else:
                     status = race_data.get("status", "")
                     if status not in ("Final", "Interim"):
@@ -169,7 +159,20 @@ def refresh_meeting_status():
                         logger.info(f"Meeting {meeting.name} - Race {next_race} not ready (status={status})")
                         continue
 
-                    real_positions = _get_real_race_positions(race_data, participants) if race_data else None
+                    pids = [p.id for p in participants]
+                    price_rows = db.query(Price).filter(
+                        Price.participant_id.in_(pids),
+                        Price.bookmaker_name == "Ladbrokes",
+                    ).all()
+                    price_map = {pr.participant_id: pr.price for pr in price_rows}
+                    real_positions = _get_real_race_positions(race_data, participants, price_map) if race_data else None
+
+                    if real_positions is None and race_data.get("results"):
+                        logger.warning(
+                            f"Meeting {meeting.name} - Race {next_race}: API has {len(race_data.get('results',[]))} "
+                            f"results but still could not match via any strategy. Skipping."
+                        )
+                        continue
 
                     placed_ids = set()
                     if real_positions:
@@ -190,11 +193,9 @@ def refresh_meeting_status():
                                 timestamp=datetime.now(timezone.utc),
                             )
                             db.add(result)
-                    # Non-placed participants get position=99, points_added=0
+                    # Non-placed participants: no runner in this race, so no completed_races increment
                     for p in participants:
                         if p.id not in placed_ids:
-                            p.completed_races += 1
-                            p.remaining_races = meeting.total_races - p.completed_races
                             result = Result(
                                 meeting_id=meeting.id,
                                 participant_id=p.id,
@@ -238,21 +239,11 @@ def scrape_all_bookmakers():
     try:
         meetings = db.query(Meeting).filter(
             Meeting.date == today,
-            Meeting.status.in_([MeetingStatus.LIVE.value, MeetingStatus.FINISHED.value])
         ).all()
 
         if not meetings:
             logger.info("No meetings to update, skipping scrape")
             return
-
-        # Delete ALL Price records for today's meetings regardless of status.
-        # Stale data from previous deploys (or scrapers that no longer return data)
-        # must not persist. Only scrapers that return data will recreate prices.
-        meeting_ids = [m.id for m in meetings]
-        deleted = db.query(Price).filter(Price.meeting_id.in_(meeting_ids)).delete(synchronize_session=False)
-        if deleted:
-            logger.info(f"Cleared {deleted} stale Price records before scrape")
-        db.commit()
 
         for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:
             scraper = scraper_cls()
@@ -290,41 +281,55 @@ def scrape_all_bookmakers():
 def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
     from models import Price
 
+    # Delete existing prices for this bookmaker before inserting fresh data
+    meeting_ids = [m.id for m in meetings]
+    deleted = db.query(Price).filter(
+        Price.meeting_id.in_(meeting_ids),
+        Price.bookmaker_name == bookmaker_name,
+    ).delete(synchronize_session=False)
+    if deleted:
+        logger.info(f"Cleared {deleted} stale {bookmaker_name} prices")
+
+    unmatched_meetings = []
     for market in markets:
         meeting_name = normalise_name(market.get("meeting_name", ""))
         matching = [
             m for m in meetings
             if normalise_name(m.name) == meeting_name or meeting_name in normalise_name(m.name) or normalise_name(m.name) in meeting_name
         ]
+        if not matching:
+            unmatched_meetings.append(market.get("meeting_name", "?"))
         for meeting in matching:
             participants = db.query(Participant).filter(
                 Participant.meeting_id == meeting.id
             ).all()
+            unmatched_participants = []
             for p_data in market.get("participants", []):
                 p_name = p_data.get("name", "")
+                matched = False
                 for p in participants:
                     if names_match(p.name, p_name):
-                        existing = db.query(Price).filter(
-                            Price.participant_id == p.id,
-                            Price.bookmaker_name == bookmaker_name,
-                        ).first()
-                        if existing:
-                            new_price = p_data.get("price", 0.0)
-                            if new_price > 0:
-                                existing.price = new_price
-                                existing.timestamp = datetime.now(timezone.utc)
-                            elif existing.price <= 0:
-                                existing.price = 1.5
-                                existing.timestamp = datetime.now(timezone.utc)
-                        else:
-                            new_price = p_data.get("price", 0.0)
-                            if new_price <= 0:
-                                new_price = 1.5
-                            db.add(Price(
-                                participant_id=p.id,
-                                meeting_id=meeting.id,
-                                bookmaker_name=bookmaker_name,
-                                price=new_price,
-                                timestamp=datetime.now(timezone.utc),
-                            ))
+                        new_price = p_data.get("price", 0.0)
+                        if new_price <= 0:
+                            new_price = 1.5
+                        db.add(Price(
+                            participant_id=p.id,
+                            meeting_id=meeting.id,
+                            bookmaker_name=bookmaker_name,
+                            price=new_price,
+                            timestamp=datetime.now(timezone.utc),
+                        ))
+                        matched = True
                         break
+                if not matched:
+                    unmatched_participants.append(p_name)
+            if unmatched_participants:
+                logger.warning(
+                    f"{bookmaker_name} / {market.get('meeting_name', '?')}: "
+                    f"{len(unmatched_participants)} participants unmatched: {unmatched_participants[:5]}"
+                )
+
+    if unmatched_meetings:
+        logger.warning(
+            f"{bookmaker_name}: {len(unmatched_meetings)} meetings unmatched: {unmatched_meetings[:5]}"
+        )

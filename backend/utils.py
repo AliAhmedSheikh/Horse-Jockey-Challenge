@@ -45,22 +45,62 @@ def normalise_name(name: str) -> str:
 
 
 def names_match(a: str, b: str) -> bool:
+    if not a or not b:
+        return False
+    # Strip parenthetical apprentice claims like "(a2.0)", "(a)" before matching
+    a = re.sub(r'\s*\([^)]*\)\s*', ' ', a)
+    b = re.sub(r'\s*\([^)]*\)\s*', ' ', b)
+
     na = normalise_name(a)
     nb = normalise_name(b)
+    if not na or not nb:
+        return False
     if na == nb:
         return True
-    wa = set(na.split())
-    wb = set(nb.split())
-    if len(wa & wb) >= min(len(wa), len(wb), 2):
+    wa = na.split()
+    wb = nb.split()
+    set_a = set(wa)
+    set_b = set(wb)
+    if len(set_a & set_b) >= min(len(set_a), len(set_b), 2):
+        return True
+
+    # Handle initials: "a faragher" should match "alan faragher"
+    # Expand single-letter words if they match the first letter of a word in the other name
+    def _expand_initials(words, other_set):
+        expanded = set(words)
+        for w in words:
+            if len(w) == 1:
+                for other in other_set:
+                    if other.startswith(w):
+                        expanded.add(other)
+        return expanded
+
+    expanded_a = _expand_initials(wa, set_b)
+    expanded_b = _expand_initials(wb, set_a)
+    if len(expanded_a & expanded_b) >= min(len(expanded_a), len(expanded_b), 2):
         return True
     return False
 
 
-def compute_value_rating(bookmaker_price: float, ai_price: float) -> str:
+def names_lastname_fallback(a: str, b: str) -> bool:
+    """Last-resort matching: check if last names match.
+    Handles cases where API returns a different first-name variant."""
+    a = re.sub(r'\s*\([^)]*\)\s*', ' ', a)
+    b = re.sub(r'\s*\([^)]*\)\s*', ' ', b)
+    na = normalise_name(a)
+    nb = normalise_name(b)
+    wa = na.split()
+    wb = nb.split()
+    if not wa or not wb:
+        return False
+    return wa[-1] == wb[-1]
+
+
+def compute_value_rating(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0) -> str:
     if bookmaker_price == 0 or ai_price == 0:
         return "Neutral"
     overlay = (bookmaker_price - ai_price) / ai_price * 100
-    if overlay > 15:
+    if overlay > strong_value_threshold:
         return "Strong Value"
     elif overlay > 5:
         return "Value"
@@ -70,8 +110,8 @@ def compute_value_rating(bookmaker_price: float, ai_price: float) -> str:
         return "Avoid"
 
 
-def compute_status(bookmaker_price: float, ai_price: float) -> str:
-    rating = compute_value_rating(bookmaker_price, ai_price)
+def compute_status(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0) -> str:
+    rating = compute_value_rating(bookmaker_price, ai_price, strong_value_threshold)
     if rating in ("Strong Value", "Value"):
         return "value"
     elif rating == "Neutral":

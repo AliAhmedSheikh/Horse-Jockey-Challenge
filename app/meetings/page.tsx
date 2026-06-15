@@ -60,7 +60,7 @@ export default function MeetingsPage() {
     );
   }
 
-  if (error) {
+  if (error || meetingsError) {
     return (
       <div className="page-transition text-center py-20">
         <p className="text-slate-500 dark:text-slate-400">Failed to load meetings. Is the backend running?</p>

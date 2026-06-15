@@ -130,7 +130,13 @@ def _meeting_to_frontend(meeting: Meeting, db: Session,
     )
 
 
-def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting], prices: List) -> ParticipantOut:
+def _load_value_threshold(db: Session) -> float:
+    from models import FormulaSetting
+    row = db.query(FormulaSetting).filter(FormulaSetting.id == "valueThreshold").first()
+    return row.value if row else DEFAULT_SETTINGS.get("valueThreshold", 15.0)
+
+
+def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting], prices: List, value_threshold: float = 15.0) -> ParticipantOut:
     bookmaker_prices = [pr.price for pr in prices]
     avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
     total_races = meeting.total_races if meeting else 8
@@ -144,17 +150,17 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
     else:
         avg_per_race = p.current_points / p.completed_races
         projected = round(p.current_points + avg_per_race * remaining, 1)
-    value_rating = compute_value_rating(avg_bookmaker, ai_price)
+    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
     return ParticipantOut(
         id=p.id, name=p.name, meetingName=meeting.name if meeting else "", meetingId=p.meeting_id,
         bookmakerPrice=round(avg_bookmaker, 2), bookmakerPrices=bookmaker_prices_dict, aiPrice=ai_price, overlayPercent=overlay,
         valueRating=value_rating, currentPoints=p.current_points, projectedFinalPoints=projected,
-        status=compute_status(avg_bookmaker, ai_price), isProjectedWinner=False,
+        status=compute_status(avg_bookmaker, ai_price, value_threshold), isProjectedWinner=False,
     )
 
 
-def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
+def _participant_to_frontend(p: Participant, db: Session, value_threshold: float = 15.0) -> ParticipantOut:
     prices = db.query(Price).filter(Price.participant_id == p.id).all()
     meeting = db.query(Meeting).filter(Meeting.id == p.meeting_id).first()
 
@@ -174,7 +180,7 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
         avg_per_race = p.current_points / p.completed_races
         projected = round(p.current_points + avg_per_race * remaining, 1)
 
-    value_rating = compute_value_rating(avg_bookmaker, ai_price)
+    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
 
     return ParticipantOut(
@@ -189,7 +195,7 @@ def _participant_to_frontend(p: Participant, db: Session) -> ParticipantOut:
         valueRating=value_rating,
         currentPoints=p.current_points,
         projectedFinalPoints=projected,
-        status=compute_status(avg_bookmaker, ai_price),
+        status=compute_status(avg_bookmaker, ai_price, value_threshold),
         isProjectedWinner=False,
     )
 
@@ -227,7 +233,8 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
         Participant.meeting_id == meeting_id
     ).order_by(desc(Participant.current_points)).all()
 
-    result = [_participant_to_frontend(p, db) for p in participants]
+    value_threshold = _load_value_threshold(db)
+    result = [_participant_to_frontend(p, db, value_threshold) for p in participants]
     winner = max(result, key=lambda x: x.currentPoints) if result else None
     for r in result:
         r.isProjectedWinner = (r.id == winner.id) if winner else False
@@ -371,10 +378,11 @@ def get_dashboard(db: Session = Depends(get_db)):
 
     jockeys = []
     drivers = []
+    value_threshold = _load_value_threshold(db)
     for p in all_participants:
         meeting = meeting_map.get(p.meeting_id)
         prs = prices_by_participant.get(p.id, [])
-        fp = _participant_to_frontend_with_data(p, meeting, prs)
+        fp = _participant_to_frontend_with_data(p, meeting, prs, value_threshold)
         if meeting and meeting.type == "jockey":
             jockeys.append(fp)
         else:

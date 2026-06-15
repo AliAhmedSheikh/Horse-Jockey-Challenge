@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum as SAEnum, UniqueConstraint, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum as SAEnum, UniqueConstraint, Text, Index
 from sqlalchemy.orm import relationship
 import enum
 
@@ -19,6 +19,10 @@ class MeetingType(str, enum.Enum):
 
 class Meeting(Base):
     __tablename__ = "meetings"
+    __table_args__ = (
+        Index("ix_meeting_date", "date"),
+        Index("ix_meeting_date_status", "date", "status"),
+    )
 
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
@@ -38,6 +42,9 @@ class Meeting(Base):
 
 class Participant(Base):
     __tablename__ = "participants"
+    __table_args__ = (
+        Index("ix_participant_meeting_id", "meeting_id"),
+    )
 
     id = Column(String, primary_key=True)
     meeting_id = Column(String, ForeignKey("meetings.id"), nullable=False)
@@ -67,6 +74,8 @@ class Price(Base):
 
     __table_args__ = (
         UniqueConstraint("participant_id", "bookmaker_name", name="uix_participant_bookmaker"),
+        Index("ix_price_meeting_id", "meeting_id"),
+        Index("ix_price_participant_id", "participant_id"),
     )
 
 
@@ -87,6 +96,8 @@ class Result(Base):
 
     __table_args__ = (
         UniqueConstraint("meeting_id", "race_number", "participant_id", name="uix_meeting_race_participant"),
+        Index("ix_result_meeting_id", "meeting_id"),
+        Index("ix_result_timestamp", "timestamp"),
     )
 
 

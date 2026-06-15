@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 from typing import List, Dict, Tuple, Optional
 import httpx
 
@@ -12,11 +13,13 @@ API_HEADERS = {
     "From": "dev@racing-dashboard.local",
     "X-Partner": "JockeyDriverDashboard",
 }
+CACHE_TTL = 120
 
 _client_lock = threading.Lock()
 _cache_lock = threading.Lock()
 _shared_client = None
 _all_cache = None
+_all_cache_time = 0.0
 
 
 def _get_client():
@@ -29,15 +32,17 @@ def _get_client():
 
 
 def invalidate_cache():
-    global _all_cache
+    global _all_cache, _all_cache_time
     with _cache_lock:
         _all_cache = None
+        _all_cache_time = 0.0
 
 
 def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
-    global _all_cache
+    global _all_cache, _all_cache_time
+    now = time.time()
     with _cache_lock:
-        if _all_cache is not None:
+        if _all_cache is not None and now - _all_cache_time < CACHE_TTL:
             return _all_cache
 
     today = today_aus()
@@ -107,7 +112,8 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                     price = odds.get("fixed_win", 0)
                     if jockey_name not in seen or price < seen[jockey_name]:
                         seen[jockey_name] = price
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to fetch race {race.get('id')}: {e}")
                 continue
 
         if seen:
@@ -127,7 +133,9 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
             else:
                 jockey_markets.append(market)
 
-    _all_cache = (jockey_markets, driver_markets)
+    with _cache_lock:
+        _all_cache = (jockey_markets, driver_markets)
+        _all_cache_time = time.time()
     logger.info(f"Fetched {len(jockey_markets)} jockey and {len(driver_markets)} driver meetings")
     return _all_cache
 
@@ -147,7 +155,8 @@ def fetch_single_race_results(meeting_name: str, race_number: int) -> Optional[D
         if r.status_code != 200:
             return None
         meetings = r.json().get("data", {}).get("meetings", [])
-    except Exception:
+    except Exception as e:
+        logger.warning(f"fetch_single_race_results: failed to fetch meetings list: {e}")
         return None
 
     race_id = None
@@ -160,11 +169,17 @@ def fetch_single_race_results(meeting_name: str, race_number: int) -> Optional[D
             break
 
     if not race_id:
+        available = [m.get("name", "?") for m in meetings[:10]]
+        logger.warning(
+            f"fetch_single_race_results: meeting '{meeting_name}' race {race_number} not found. "
+            f"Available meetings: {available}"
+        )
         return None
 
     try:
         r2 = client.get(f"{API_BASE}/racing/events/{race_id}")
         if r2.status_code != 200:
+            logger.warning(f"fetch_single_race_results: event {race_id} returned {r2.status_code}")
             return None
         data = r2.json().get("data", {})
         return {
@@ -173,7 +188,8 @@ def fetch_single_race_results(meeting_name: str, race_number: int) -> Optional[D
             "results": data.get("results", []),
             "runners": data.get("runners", []),
         }
-    except Exception:
+    except Exception as e:
+        logger.warning(f"fetch_single_race_results: failed to fetch event {race_id}: {e}")
         return None
 
 

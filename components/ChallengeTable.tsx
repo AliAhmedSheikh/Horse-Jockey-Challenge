@@ -45,6 +45,17 @@ export default function ChallengeTable({
       <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700/50">
         <div className="overflow-x-auto">
           <table className="w-full">
+            <colgroup>
+              <col />
+              <col className="w-[100px]" />
+              {BOOKMAKERS.map(bm => <col key={bm} className="w-[72px]" />)}
+              <col className="w-[72px]" />
+              <col className="w-[64px]" />
+              <col className="w-[64px]" />
+              <col className="w-[60px]" />
+              <col className="w-[80px]" />
+              <col className="w-[60px]" />
+            </colgroup>
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/80">
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -54,26 +65,26 @@ export default function ChallengeTable({
                   Meeting
                 </th>
                 {BOOKMAKERS.map((bm) => (
-                  <th key={bm} className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <th key={bm} className="text-center px-1 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     {bm}
                   </th>
                 ))}
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  AI Price
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  AI
                 </th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Overlay
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Ovl
                 </th>
-                <th className="text-center px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <th className="text-center px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Value
                 </th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Points
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Pts
                 </th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Proj. Final
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Proj
                 </th>
-                <th className="text-center px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <th className="text-center px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Status
                 </th>
               </tr>
@@ -118,23 +129,23 @@ export default function ChallengeTable({
                     {BOOKMAKERS.map((bm) => {
                       const bp = p.bookmakerPrices?.[bm];
                       return (
-                        <td key={bm} className="px-2 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
+                        <td key={bm} className="px-1 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
                           {bp != null ? `$${bp.toFixed(2)}` : "—"}
                         </td>
                       );
                     })}
-                    <td className="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
+                    <td className="px-2 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
                       ${p.aiPrice.toFixed(2)}
                     </td>
                     <td
-                      className={`px-4 py-3 text-sm font-semibold text-right ${
+                      className={`px-2 py-3 text-sm font-semibold text-right ${
                         isPositive ? "text-emerald-500" : "text-red-500"
                       }`}
                     >
                       {isPositive ? "+" : ""}
                       {p.overlayPercent.toFixed(1)}%
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-2 py-3 text-center">
                       <span
                         className={`text-xs font-semibold ${
                           p.valueRating === "Strong Value"
@@ -149,13 +160,13 @@ export default function ChallengeTable({
                         {p.valueRating}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
+                    <td className="px-2 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
                       {p.currentPoints}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 text-right">
+                    <td className="px-2 py-3 text-sm text-slate-600 dark:text-slate-300 text-right">
                       {p.projectedFinalPoints}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-2 py-3 text-center">
                       {statusBadge(p.status)}
                     </td>
                   </tr>

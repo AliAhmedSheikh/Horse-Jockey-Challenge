@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from models import Meeting, Participant, Price, Result, MeetingStatus, MeetingType
 from scrapers.base import LadbrokesAPIScraper, invalidate_cache
 from time_utils import today_aus, AU_TZ
-from utils import normalise_name, names_match, compute_value_rating, compute_status, weighted_shuffle as utils_weighted_shuffle, race_points
+from utils import normalise_name, names_match, names_lastname_fallback, compute_value_rating, compute_status, weighted_shuffle as utils_weighted_shuffle, race_points
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +136,11 @@ def seed_database(db: Session):
     if api_jockey or api_driver:
         _seed_from_api(db, api_jockey, api_driver)
     else:
-        logger.warning("API returned no data, using fallback seed data")
+        logger.critical(
+            "LADBROKES API RETURNED NO DATA — USING HARDCODED FALLBACK. "
+            "All data shown is SYNTHETIC (fake meetings, fake participants, fake prices). "
+            "Check network connectivity and API availability."
+        )
         _seed_from_fallback(db)
 
 
@@ -276,28 +280,199 @@ def _seed_from_fallback(db: Session):
     _simulate_live_data(db)
 
 
-def _get_real_race_positions(race_data: dict, participants: list):
+def _get_real_race_positions(race_data: dict, participants: list, price_map: dict = None):
     if not race_data or race_data.get("status") not in ("Final", "Interim"):
         return None
 
+    # Strategy 1: Build runner_map from all available jockey name fields
     runner_map = {}
+    competitor_map = {}
     for runner in race_data.get("runners", []):
         rn = runner.get("runner_number")
-        jn = (runner.get("jockey") or "").strip() or (runner.get("driver") or "").strip()
-        if rn and jn and jn.lower() not in ("unknown", "n/a", "not declared"):
-            runner_map[rn] = jn.strip()
+        # Try multiple field names APIs may use
+        jn = (
+            runner.get("jockey") or
+            runner.get("rider") or
+            runner.get("jockey_name") or
+            runner.get("driver") or
+            runner.get("driver_name") or
+            ""
+        )
+        jn = jn.strip()
+        if rn and jn and jn.lower() not in ("unknown", "n/a", "not declared", ""):
+            runner_map[rn] = jn
+        # Also store competitor/horse name for fallback matching
+        cn = runner.get("competitor_name") or runner.get("horse_name") or runner.get("horse") or ""
+        if not cn:
+            comp = runner.get("competitor")
+            if isinstance(comp, dict):
+                cn = comp.get("name") or comp.get("competitor_name") or ""
+        if rn and cn:
+            competitor_map[rn] = cn.strip()
 
+    # Strategy 2: Match by jockey name
     placed = []
+    used_pids = set()
+    unmatched_results = []
+
+    def _try_match(candidate_name, pos):
+        """Try to match a candidate jockey name to any unmatched participant."""
+        if not candidate_name:
+            return None
+        candidate_name = candidate_name.strip()
+        for p in participants:
+            if p.id in used_pids:
+                continue
+            if names_match(p.name, candidate_name):
+                placed.append((p, pos))
+                used_pids.add(p.id)
+                return p
+        # Last-name fallback
+        for p in participants:
+            if p.id in used_pids:
+                continue
+            if names_lastname_fallback(p.name, candidate_name):
+                placed.append((p, pos))
+                used_pids.add(p.id)
+                return p
+        return None
+
+    def _extract_jockey_from_runner(runner):
+        """Extract jockey name from a runner dict, trying all possible fields."""
+        for field in ("jockey", "rider", "jockey_name", "driver", "driver_name"):
+            val = runner.get(field)
+            if val and val.strip():
+                return val.strip()
+        return None
+
+    def _extract_jockey_from_result(res):
+        """Extract jockey name from a result dict (competitor nested data)."""
+        comp = res.get("competitor") if isinstance(res.get("competitor"), dict) else {}
+        for field in ("jockey", "rider", "driver", "name"):
+            val = comp.get(field)
+            if val and val.strip():
+                return val.strip()
+        for field in ("jockey", "rider", "driver"):
+            val = res.get(field)
+            if val and val.strip():
+                return val.strip()
+        return None
+
+    # Normalise runner_number types to avoid string vs int mismatches
+    def _norm_rn(val):
+        if val is None:
+            return None
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            return str(val).strip()
+
+    # Build runner_map with normalised keys
+    runner_map_norm = {}
+    competitor_map_norm = {}
+    raw_runners = []
+    for runner in race_data.get("runners", []):
+        raw_rn = runner.get("runner_number")
+        rn = _norm_rn(raw_rn)
+        if rn is None:
+            continue
+        jn = _extract_jockey_from_runner(runner)
+        if jn and jn.lower() not in ("unknown", "n/a", "not declared", ""):
+            runner_map_norm[rn] = jn
+        cn = runner.get("competitor_name") or runner.get("horse_name") or runner.get("horse") or ""
+        if not cn:
+            comp = runner.get("competitor")
+            if isinstance(comp, dict):
+                cn = comp.get("name") or comp.get("competitor_name") or ""
+        if cn:
+            competitor_map_norm[rn] = cn.strip()
+        raw_runners.append(runner)
+
     for res in race_data.get("results", []):
         pos = res.get("position", 99)
-        runner_name = runner_map.get(res.get("runner_number"))
+        raw_rn = res.get("runner_number")
+        rn = _norm_rn(raw_rn)
+        runner_name = runner_map_norm.get(rn) if rn is not None else None
         if runner_name:
-            for p in participants:
-                if names_match(p.name, runner_name):
-                    placed.append((p, pos))
+            if not _try_match(runner_name, pos):
+                unmatched_results.append((rn, pos, runner_name, "runner_map"))
+        else:
+            # runner_number not in runner_map — try to find jockey name from raw runners
+            resolved_name = None
+            for runner in raw_runners:
+                if _norm_rn(runner.get("runner_number")) == rn:
+                    resolved_name = _extract_jockey_from_runner(runner)
                     break
+            if resolved_name:
+                if not _try_match(resolved_name, pos):
+                    unmatched_results.append((rn, pos, resolved_name, "raw_runner"))
+            else:
+                # Try competitor data from result itself
+                resolved_name = _extract_jockey_from_result(res)
+                if resolved_name:
+                    if not _try_match(resolved_name, pos):
+                        unmatched_results.append((rn, pos, resolved_name, "result_competitor"))
+                else:
+                    unmatched_results.append((rn, pos, None, "no_name"))
 
+    # Strategy 3: Retry unmatched results using competitor/horse name as fallback
+    if unmatched_results:
+        retry_count = 0
+        for rn, pos, name, source in list(unmatched_results):
+            if name:
+                # Already tried matching above and failed — try last-name only
+                for p in participants:
+                    if p.id in used_pids:
+                        continue
+                    if names_lastname_fallback(p.name, name):
+                        placed.append((p, pos))
+                        used_pids.add(p.id)
+                        retry_count += 1
+                        unmatched_results = [u for u in unmatched_results if u[1] != pos]
+                        break
+            else:
+                # No name at all — try competitor (horse) name
+                horse_name = competitor_map_norm.get(rn)
+                if horse_name:
+                    for p in participants:
+                        if p.id in used_pids:
+                            continue
+                        # Last resort: match horse name parts to participant name
+                        horse_parts = set(horse_name.lower().split())
+                        pname_parts = set(p.name.lower().split())
+                        if horse_parts & pname_parts:
+                            placed.append((p, pos))
+                            used_pids.add(p.id)
+                            retry_count += 1
+                            unmatched_results = [u for u in unmatched_results if u[1] != pos]
+                            break
+        if retry_count:
+            logger.warning(
+                f"Race {race_data.get('race_number', '?')}: "
+                f"Retry matched {retry_count} more participants"
+            )
+
+    # Log summary of any remaining unmatched results
+    if unmatched_results:
+        logger.warning(
+            f"Race {race_data.get('race_number', '?')}: "
+            f"Matched {len(placed)}/{len(race_data.get('results',[]))} results, "
+            f"{len(unmatched_results)} still unmatched: "
+            f"{[(r[1], r[2], r[3]) for r in unmatched_results[:5]]}"
+        )
+
+    if placed:
+        placed.sort(key=lambda x: x[1])
+        return placed
+
+    # Strategy 4: Price-order fallback removed — awarding phantom podiums to
+    # cheapest participants is misleading. Always return None if no real match.
     if not placed:
+        logger.warning(
+            f"Race {race_data.get('race_number', '?')}: "
+            f"Could not match any of {len(race_data.get('results',[]))} results "
+            f"to {len(participants)} participants."
+        )
         return None
 
     placed.sort(key=lambda x: x[1])
@@ -342,7 +517,7 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
         if races_data:
             # API-seeded meeting: determine completed races from real status
             completed = [r for r in races_data if r.get("status") in ("Final", "Interim")]
-            initial = len(completed)
+            initial = max((r.get("race_number", 0) for r in completed), default=0)
             use_real = True
         else:
             # Fallback meeting: random initial simulation
@@ -358,11 +533,21 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
 
         cumulative_points = {p.id: 0 for p in participants}
         race_counts = {p.id: 0 for p in participants}
+        price_map = {}
+        try:
+            pids = [p.id for p in participants]
+            price_rows = db.query(Price).filter(
+                Price.participant_id.in_(pids),
+                Price.bookmaker_name == "Ladbrokes",
+            ).all()
+            price_map = {pr.participant_id: pr.price for pr in price_rows}
+        except Exception as e:
+            logger.warning(f"Could not load price_map for meeting {meeting.name}: {e}")
 
         if use_real:
             for race_info in sorted(completed, key=lambda x: x.get("race_number", 0)):
                 rn = race_info.get("race_number")
-                real_positions = _get_real_race_positions(race_info, participants)
+                real_positions = _get_real_race_positions(race_info, participants, price_map)
                 placed_ids = set()
                 if real_positions:
                     race_positions = [pos for _, pos in real_positions]
@@ -396,19 +581,29 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
         else:
             for rn in range(1, initial + 1):
                 shuffled = utils_weighted_shuffle(participants, db, meeting.id) if meeting.total_races > 0 else list(participants)
+                riders = min(len(shuffled), random.randint(3, max(3, meeting.total_races)))
                 for pos, p in enumerate(shuffled, 1):
-                    added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
-                    cumulative_points[p.id] += added
-                    race_counts[p.id] += 1
-                    result = Result(
-                        meeting_id=meeting.id,
-                        participant_id=p.id,
-                        final_points=cumulative_points[p.id],
-                        position=pos,
-                        race_number=rn,
-                        points_added=added,
-                        timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 30)),
-                    )
+                    if pos <= riders:
+                        added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
+                        cumulative_points[p.id] += added
+                        race_counts[p.id] += 1
+                        result = Result(
+                            meeting_id=meeting.id,
+                            participant_id=p.id,
+                            final_points=cumulative_points[p.id],
+                            position=pos,
+                            race_number=rn,
+                            points_added=added,
+                        )
+                    else:
+                        result = Result(
+                            meeting_id=meeting.id,
+                            participant_id=p.id,
+                            final_points=cumulative_points[p.id],
+                            position=99,
+                            race_number=rn,
+                            points_added=0,
+                        )
                     db.add(result)
 
         for p in participants:

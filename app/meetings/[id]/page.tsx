@@ -130,19 +130,28 @@ export default function MeetingDetailPage() {
           )}
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700/50">
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700/50">
           <table className="w-full">
+            <colgroup>
+              <col className="w-8" />
+              <col />
+              {BOOKMAKERS.map(bm => <col key={bm} className="w-[72px]" />)}
+              <col className="w-[72px]" />
+              <col className="w-[72px]" />
+              <col className="w-[64px]" />
+              <col className="w-[64px]" />
+            </colgroup>
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/80">
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
                 {BOOKMAKERS.map((bm) => (
-                  <th key={bm} className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{bm}</th>
+                  <th key={bm} className="text-center px-1 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{bm}</th>
                 ))}
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI Price</th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Overlay</th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Points</th>
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI</th>
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ovl</th>
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pts</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
@@ -176,23 +185,23 @@ export default function MeetingDetailPage() {
                   {BOOKMAKERS.map((bm) => {
                     const bp = p.bookmakerPrices?.[bm];
                     return (
-                      <td key={bm} className="px-2 py-3 text-right">
+                      <td key={bm} className="px-1 py-3 text-right">
                         <span className="text-sm font-semibold text-slate-900 dark:text-white">{bp != null ? `$${bp.toFixed(2)}` : "—"}</span>
                       </td>
                     );
                   })}
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-2 py-3 text-right">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-2 py-3 text-right">
                     <span className={`text-sm font-semibold ${p.overlayPercent > 0 ? "text-emerald-500" : "text-red-500"}`}>
                       {p.overlayPercent > 0 ? "+" : ""}{p.overlayPercent.toFixed(1)}%
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-2 py-3 text-right">
                     <span className={`text-sm font-semibold ${valueRatingColor(p.valueRating)}`}>{p.valueRating}</span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-2 py-3 text-right">
                     <span className="text-sm font-bold text-slate-900 dark:text-white">{p.currentPoints}</span>
                   </td>
                 </tr>
@@ -212,13 +221,13 @@ export default function MeetingDetailPage() {
                   {p.overlayPercent > 0 ? "+" : ""}{p.overlayPercent.toFixed(1)}%
                 </span>
               </div>
-              <div className="grid grid-cols-5 gap-1.5 text-center mb-2">
+              <div className="grid grid-cols-5 gap-1 text-center mb-2">
                 {BOOKMAKERS.map((bm) => {
                   const bp = p.bookmakerPrices?.[bm];
                   return (
-                    <div key={bm} className="bg-white dark:bg-slate-800 rounded-lg p-1.5">
-                      <p className="text-[8px] text-slate-500 dark:text-slate-400 truncate">{bm}</p>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">{bp != null ? `$${bp.toFixed(2)}` : "—"}</p>
+                    <div key={bm} className="bg-white dark:bg-slate-800 rounded-lg p-1 min-h-[44px] flex flex-col items-center justify-center">
+                      <p className="text-[8px] text-slate-500 dark:text-slate-400 truncate w-full leading-tight">{bm}</p>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">{bp != null ? `$${bp.toFixed(2)}` : "—"}</p>
                     </div>
                   );
                 })}
