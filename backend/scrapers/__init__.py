@@ -7,6 +7,8 @@ from scrapers.tabtouch import TABtouchScraper
 
 logger = logging.getLogger(__name__)
 
+from utils import MIN_PRICE, MAX_PRICE
+
 # Map bookmaker names to PuntersEdge API keys (first found wins)
 PE_KEY_MAP = {
     "TAB": ["tab"],
@@ -18,13 +20,12 @@ PE_KEY_MAP = {
 class LadbrokesScraper:
     def __init__(self):
         self.name = "Ladbrokes"
-        self._api = LadbrokesAPIScraper()
 
     def scrape_jockey_challenges(self) -> List[Dict]:
-        return self._api.fetch_jockey_challenge_meetings()
+        return []
 
     def scrape_driver_challenges(self) -> List[Dict]:
-        return self._api.fetch_driver_challenge_meetings()
+        return []
 
     def close(self):
         pass
@@ -137,7 +138,7 @@ def _derive_markets_via_horses(
                 for pk in pe_keys:
                     bp = horse_prices.get(pk)
                     if bp and bp > 0:
-                        price = round(max(bp, 1.50), 2)
+                        price = round(max(MIN_PRICE, min(MAX_PRICE, bp)), 2)
                         if jn not in jockey_prices or price < jockey_prices[jn]:
                             jockey_prices[jn] = price
                         break
@@ -220,7 +221,7 @@ def _derive_markets_via_ratios(
                 if not lad_price or lad_price <= 0:
                     continue
                 try:
-                    derived_price = round(max(float(lad_price) * ratio, 1.50), 2)
+                    derived_price = round(max(MIN_PRICE, min(MAX_PRICE, float(lad_price) * ratio)), 2)
                 except (ValueError, TypeError):
                     continue
                 if jn not in jockey_prices or derived_price < jockey_prices[jn]:
@@ -244,7 +245,7 @@ def _derive_markets(bookmaker_name: str) -> List[Dict]:
     try:
         pe_prices = pe.fetch_prices()
     except Exception as e:
-        logger.error(f"{bookmaker_name}: PuntersEdge fetch_prices failed: {e}")
+        logger.error(f"{bookmaker_name}: PuntersEdge fetch_prices failed: {e}", exc_info=True)
         return []
     finally:
         pe.close()

@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 import httpx
 import urllib3
+from bs4 import BeautifulSoup
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -14,13 +15,10 @@ logger = logging.getLogger(__name__)
 
 BASE = "https://www.tabtouch.com.au"
 
-# Australian state/territory abbreviations (case-insensitive suffix check on groundDescription)
-_AU_STATES = {"nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"}
 
 
-def _is_au_meeting(ground: str) -> bool:
-    suffix = ground.split(",")[-1].strip().lower() if "," in ground else ""
-    return suffix in _AU_STATES
+
+_NON_AU_PATTERN = re.compile(r'\s+-\s+\w{2,4}\s*$')
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json, text/html, */*",
@@ -81,62 +79,67 @@ def _fetch_race_model(meeting_code: str, date_str: str, race_num: int) -> dict:
 
 
 def _get_todays_meetings() -> List[Dict]:
-    """Get all horse and harness meetings from TABtouch."""
-    url = f"{BASE}/api/raceinfo/nextraces"
+    """Get all AU horse and harness meetings from TABtouch racing page."""
+    from time_utils import today_aus
+    date_str = today_aus()
+    url = f"{BASE}/racing/{date_str}"
     try:
         client = _get_client()
         r = client.get(url)
         if r.status_code != 200:
-            logger.warning(f"TABtouch nextraces returned {r.status_code}")
+            logger.warning(f"TABtouch racing page returned {r.status_code}")
             return []
 
-        races = r.json()
+        soup = BeautifulSoup(r.text, 'html.parser')
+        table = soup.find('table')
+        if not table:
+            logger.warning("TABtouch racing page: no table found")
+            return []
+
+        rows = table.find_all('tr')
         meetings = {}
-        for race in races:
-                # Skip dogs
-                if race.get("isDogs"):
-                    continue
-                # Determine type
-                if race.get("isRaces"):
-                    mtype = "jockey"
-                elif race.get("isTrots"):
-                    mtype = "driver"
-                else:
-                    continue
+        for row in rows[1:]:
+            cells = row.find_all('td')
+            if len(cells) < 7:
+                continue
+            code = cells[2].get_text(strip=True)
+            meeting_id = cells[3].get_text(strip=True)
+            meeting_name = cells[4].get_text(strip=True)
+            race_num_str = cells[5].get_text(strip=True)
 
-                meeting_id = race.get("meetingId", "").lower()
-                if not meeting_id:
-                    continue
+            if code == "Horse Race":
+                mtype = "jockey"
+            elif code == "Harness Race":
+                mtype = "driver"
+            else:
+                continue
 
-                ground = race.get("groundDescription", "")
-                if not _is_au_meeting(ground):
-                    continue
-                meeting_name = ground.split(",")[0].strip() if "," in ground else ground
+            if _NON_AU_PATTERN.search(meeting_name):
+                continue
 
-                url_path = race.get("url", "")
-                try:
-                    race_num = int(url_path.rsplit("/", 1)[-1])
-                except (ValueError, IndexError):
-                    race_num = 0
+            try:
+                race_num = int(race_num_str)
+            except ValueError:
+                continue
+            if race_num <= 0:
+                continue
 
-                if meeting_id not in meetings:
-                    meetings[meeting_id] = {
-                        "meeting_name": meeting_name,
-                        "meeting_id": meeting_id.upper(),
-                        "type": mtype,
-                        "races": [],
-                        "seen": set(),
-                    }
-                elif meetings[meeting_id]["type"] != mtype:
-                    # If same meeting has both horse and harness (shouldn't happen), keep first
-                    pass
+            if meeting_id not in meetings:
+                meetings[meeting_id] = {
+                    "meeting_name": meeting_name,
+                    "meeting_id": meeting_id,
+                    "type": mtype,
+                    "races": [],
+                    "seen": set(),
+                }
+            elif meetings[meeting_id]["type"] != mtype:
+                continue
 
-                if race_num and race_num not in meetings[meeting_id]["seen"]:
-                    meetings[meeting_id]["races"].append({
-                        "race_number": race_num,
-                        "url": url_path,
-                    })
-                    meetings[meeting_id]["seen"].add(race_num)
+            if race_num not in meetings[meeting_id]["seen"]:
+                meetings[meeting_id]["races"].append({
+                    "race_number": race_num,
+                })
+                meetings[meeting_id]["seen"].add(race_num)
 
         result = []
         for mid, info in meetings.items():
@@ -144,7 +147,7 @@ def _get_todays_meetings() -> List[Dict]:
             result.append(info)
         return result
     except Exception as e:
-        logger.warning(f"TABtouch nextraces error: {e}")
+        logger.warning(f"TABtouch racing page error: {e}")
         return []
 
 

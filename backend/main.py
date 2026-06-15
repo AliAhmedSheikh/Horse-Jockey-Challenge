@@ -3,6 +3,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -17,6 +18,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
+
+
+def _keep_alive():
+    port = os.environ.get("PORT", "8000")
+    external_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    if external_url:
+        url = external_url
+    else:
+        url = f"http://localhost:{port}"
+    try:
+        httpx.get(url, timeout=10)
+    except Exception:
+        pass
 
 
 async def _seed_background():
@@ -34,7 +48,8 @@ def _seed_sync():
     try:
         scrape_all_bookmakers()
     except Exception as e:
-        logger.error(f"Initial bookmaker scrape failed: {e}")
+        logger.error(f"Initial bookmaker scrape failed: {e}", exc_info=True)
+
 
 
 @asynccontextmanager
@@ -59,6 +74,14 @@ async def lifespan(app: FastAPI):
         seconds=120,
         id="scrape_bookmakers",
         name="Scrape bookmaker prices",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _keep_alive,
+        "interval",
+        seconds=300,
+        id="keep_alive",
+        name="Keep-alive ping",
         replace_existing=True,
     )
     scheduler.start()
@@ -91,3 +114,8 @@ app.include_router(router, tags=["meetings"])
 @app.get("/")
 def root():
     return {"status": "ok", "message": "Jockey & Driver Challenge API"}
+
+
+@app.get("/ping")
+def ping():
+    return {"pong": True}

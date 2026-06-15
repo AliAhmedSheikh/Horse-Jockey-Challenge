@@ -6,6 +6,7 @@ from typing import List, Dict, Tuple, Optional
 import httpx
 
 from time_utils import today_aus
+from utils import MIN_PRICE, MAX_PRICE
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
             return ([], [])
         meetings = r.json().get("data", {}).get("meetings", [])
     except Exception as e:
-        logger.error(f"Failed to fetch meetings: {e}, will retry on next request")
+        logger.error(f"Failed to fetch meetings: {e}, will retry on next request", exc_info=True)
         return ([], [])
 
     jockey_markets = []
@@ -103,14 +104,19 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                 }
                 jp = []
                 for runner in data.get("runners", []):
-                    if runner.get("is_scratched"):
+                    if runner.get("is_scratched", False):
                         continue
-                    nm = (runner.get("jockey") or "").strip() or (runner.get("driver") or "").strip()
-                    if not nm or nm.lower() in ("unknown", "n/a", "not declared"):
+                    jockey = (runner.get("jockey") or "").strip()
+                    if not jockey:
                         continue
-                    pr = runner.get("odds", {}).get("fixed_win", 0)
-                    if pr > 0:
-                        jp.append((nm, pr))
+                    odds = runner.get("odds", {})
+                    try:
+                        win_price = float(odds.get("fixed_win", 0) or 0)
+                    except (ValueError, TypeError):
+                        continue
+                    if win_price > 0:
+                        win_price = max(MIN_PRICE, min(MAX_PRICE, win_price))
+                        jp.append((jockey, win_price))
                 return rd, jp
             except Exception as e:
                 logger.warning(f"Failed to fetch race {race.get('id')}: {e}")
@@ -130,7 +136,7 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
 
         if seen:
             parts = [{"name": n, "price": p} for n, p in seen.items()]
-            parts.sort(key=lambda x: x["price"] if x["price"] > 0 else 999)
+            parts.sort(key=lambda x: x["price"] if x["price"] > 0 else float('inf'))
             total_racing_races = len([r for r in races if r.get("race_number", 0) > 0])
             market = {
                 "meeting_name": meeting_name,

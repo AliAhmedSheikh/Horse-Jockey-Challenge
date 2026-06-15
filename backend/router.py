@@ -11,7 +11,7 @@ from sqlalchemy import desc, func
 from database import get_db, SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus, FormulaSetting
 from time_utils import today_aus
-from utils import compute_value_rating, compute_status
+from utils import compute_value_rating, compute_status, MIN_PRICE
 from schemas import (
     MeetingOut,
     ParticipantOut,
@@ -44,7 +44,7 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
     race_progress = completed_races / max(total_races, 1)
 
     # Expected points per race based on bookmaker price (market expectation)
-    implied_prob = 1.0 / max(avg_bookmaker, 1.01)
+    implied_prob = 1.0 / max(avg_bookmaker, MIN_PRICE)
     top3_prob = min(0.85, implied_prob * 1.5)
     expected_pts_per_race = top3_prob * 2.0
 
@@ -70,7 +70,7 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
     if race_progress >= 1.0:
         ai_price = performance_price
 
-    return round(max(1.01, ai_price), 2)
+    return round(max(MIN_PRICE, ai_price), 2)
 
 
 def _meeting_to_frontend(meeting: Meeting, db: Session,
@@ -292,7 +292,7 @@ def get_meeting_podium(meeting_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Meeting not found")
 
     max_race = db.query(func.max(Result.race_number)).filter(Result.meeting_id == meeting_id).scalar()
-    if not max_race:
+    if max_race is None:
         return []
 
     rows = db.query(Result, Participant).join(

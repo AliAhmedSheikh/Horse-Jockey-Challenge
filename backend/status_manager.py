@@ -34,6 +34,7 @@ def refresh_meeting_status():
     if not _refresh_lock.acquire(blocking=False):
         logger.info("Previous refresh still in progress, skipping")
         return
+    db = None
     try:
         logger.info("Refreshing meeting status...")
         now_aus = datetime.now(AU_TZ)
@@ -226,10 +227,12 @@ def refresh_meeting_status():
 
                 db.commit()
     except Exception as e:
-        logger.error(f"Status refresh failed: {e}")
-        db.rollback()
+        logger.error(f"Status refresh failed: {e}", exc_info=True)
+        if db:
+            db.rollback()
     finally:
-        db.close()
+        if db:
+            db.close()
         _refresh_lock.release()
 
 
@@ -238,13 +241,11 @@ def scrape_all_bookmakers():
         logger.info("Previous scrape still in progress, skipping")
         return
     logger.info("Starting bookmaker scrape cycle...")
-    from scrapers.base import invalidate_cache
-    from time_utils import today_aus
-    from models import Price, MeetingStatus
     invalidate_cache()
-    db = SessionLocal()
+    db = None
     today = today_aus()
     try:
+        db = SessionLocal()
         meetings = db.query(Meeting).filter(
             Meeting.date == today,
         ).all()
@@ -253,19 +254,24 @@ def scrape_all_bookmakers():
             logger.info("No meetings to update, skipping scrape")
             return
 
-        # Skip PE-based scrapers (TAB/Sportsbet/PointsBet) if no LIVE meetings
-        # They only return data for upcoming races — pointless for finished ones
         has_live = any(
             m.status == MeetingStatus.LIVE.value for m in meetings
         )
 
+        meeting_ids = [m.id for m in meetings]
+
         for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:
-            # Skip PE-based scrapers when nothing is live (PuntersEdge only returns upcoming)
             if bm_name in ("TAB", "Sportsbet", "PointsBet") and not has_live:
                 logger.info(f"{bm_name}: skipping (no LIVE meetings)")
                 continue
             scraper = scraper_cls()
             try:
+                # Clear old prices for this bookmaker unconditionally
+                db.query(Price).filter(
+                    Price.meeting_id.in_(meeting_ids),
+                    Price.bookmaker_name == bm_name,
+                ).delete(synchronize_session=False)
+
                 all_markets = []
                 for method_name in methods:
                     method = getattr(scraper, method_name, None)
@@ -281,32 +287,30 @@ def scrape_all_bookmakers():
                 if all_markets:
                     _update_prices_from_markets(db, meetings, all_markets, bm_name)
                     logger.info(f"{bm_name}: prices updated for {len(meetings)} meetings")
+                else:
+                    logger.info(f"{bm_name}: no markets returned, cleared old prices")
+
+                db.commit()
             except Exception as e:
-                logger.warning(f"{bm_name} scrape failed: {e}")
+                logger.warning(f"{bm_name} scrape failed: {e}, rolling back")
+                db.rollback()
             finally:
                 scraper.close()
 
-        db.commit()
     except Exception as e:
-        logger.error(f"Bookmaker scrape cycle failed: {e}")
-        db.rollback()
+        logger.error(f"Bookmaker scrape cycle failed: {e}", exc_info=True)
+        if db:
+            db.rollback()
     finally:
-        db.close()
+        if db:
+            db.close()
         _scrape_lock.release()
     logger.info("Bookmaker scrape cycle complete")
 
 
 def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
     from models import Price
-
-    # Delete existing prices for this bookmaker before inserting fresh data
-    meeting_ids = [m.id for m in meetings]
-    deleted = db.query(Price).filter(
-        Price.meeting_id.in_(meeting_ids),
-        Price.bookmaker_name == bookmaker_name,
-    ).delete(synchronize_session=False)
-    if deleted:
-        logger.info(f"Cleared {deleted} stale {bookmaker_name} prices")
+    from utils import MIN_PRICE, MAX_PRICE
 
     unmatched_meetings = []
     for market in markets:
@@ -324,12 +328,20 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
             unmatched_participants = []
             for p_data in market.get("participants", []):
                 p_name = p_data.get("name", "")
+                try:
+                    new_price = float(p_data.get("price", 0) or 0)
+                except (ValueError, TypeError):
+                    continue
+                if not p_name or new_price <= 0:
+                    continue
+                new_price = round(max(MIN_PRICE, min(MAX_PRICE, new_price)), 2)
                 matched = False
                 for p in participants:
                     if names_match(p.name, p_name):
-                        new_price = p_data.get("price", 0.0)
-                        if new_price <= 0:
-                            new_price = 1.5
+                        db.query(Price).filter(
+                            Price.participant_id == p.id,
+                            Price.bookmaker_name == bookmaker_name,
+                        ).delete()
                         db.add(Price(
                             participant_id=p.id,
                             meeting_id=meeting.id,

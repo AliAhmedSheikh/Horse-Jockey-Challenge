@@ -8,6 +8,8 @@ import httpx
 logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.puntersedge.online/v1"
+
+from utils import MIN_PRICE, MAX_PRICE
 BOOKMAKER_KEYS = ["tab", "pointsbetau", "sportsbet", "betright", "betr_au", "ladbrokes_au"]
 CACHE_TTL = 120
 
@@ -63,9 +65,12 @@ class PuntersEdgeScraper:
                     prices = {}
                     for bk in runner.get("bookmakers", []):
                         key = bk.get("key", "")
-                        win_price = bk.get("win_price")
-                        if key and win_price and win_price > 0:
-                            prices[key] = win_price
+                        try:
+                            win_price = float(bk.get("win_price", 0) or 0)
+                        except (ValueError, TypeError):
+                            continue
+                        if key and win_price > 0:
+                            prices[key] = max(MIN_PRICE, min(MAX_PRICE, win_price))
                     if prices:
                         result[venue][race_num][horse_name] = prices
 

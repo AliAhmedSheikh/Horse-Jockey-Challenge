@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from models import Price
 
 MIN_PRICE = 1.50
+MAX_PRICE = 100.0
 
 
 def weighted_shuffle(participants, db: Session, meeting_id: str):
@@ -28,7 +29,7 @@ def race_points(pos, all_positions=None):
     if pos > 3:
         return 0
     base = {1: 3, 2: 2, 3: 1}[pos]
-    if not all_positions:
+    if all_positions is None:
         return base
     count = sum(1 for p in all_positions if p == pos)
     if count > 1:
@@ -97,7 +98,7 @@ def names_lastname_fallback(a: str, b: str) -> bool:
 
 
 def compute_value_rating(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0) -> str:
-    if bookmaker_price == 0 or ai_price == 0:
+    if bookmaker_price <= 0 or ai_price <= 0:
         return "Neutral"
     overlay = (bookmaker_price - ai_price) / ai_price * 100
     if overlay > strong_value_threshold:

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from models import Meeting, Participant, Price, Result, MeetingStatus, MeetingType
 from scrapers.base import LadbrokesAPIScraper, invalidate_cache
 from time_utils import today_aus, AU_TZ
-from utils import normalise_name, names_match, names_lastname_fallback, compute_value_rating, compute_status, weighted_shuffle as utils_weighted_shuffle, race_points
+from utils import normalise_name, names_match, names_lastname_fallback, compute_value_rating, compute_status, weighted_shuffle as utils_weighted_shuffle, race_points, MIN_PRICE, MAX_PRICE
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +217,7 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                         participant_id=pid,
                         meeting_id=mid,
                         bookmaker_name="Ladbrokes",
-                        price=round(max(p["price"], 1.5), 2),
+                        price=round(max(MIN_PRICE, min(MAX_PRICE, p["price"])), 2),
                         timestamp=now,
                     ))
 
@@ -271,7 +271,7 @@ def _seed_from_fallback(db: Session):
                     participant_id=participant.id,
                     meeting_id=meeting.id,
                     bookmaker_name="Ladbrokes",
-                    price=round(max(bookmaker_price, 1.5), 2),
+                    price=round(max(MIN_PRICE, min(MAX_PRICE, bookmaker_price)), 2),
                     timestamp=now_utc,
                 ))
 
@@ -284,39 +284,11 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
     if not race_data or race_data.get("status") not in ("Final", "Interim"):
         return None
 
-    # Strategy 1: Build runner_map from all available jockey name fields
-    runner_map = {}
-    competitor_map = {}
-    for runner in race_data.get("runners", []):
-        rn = runner.get("runner_number")
-        # Try multiple field names APIs may use
-        jn = (
-            runner.get("jockey") or
-            runner.get("rider") or
-            runner.get("jockey_name") or
-            runner.get("driver") or
-            runner.get("driver_name") or
-            ""
-        )
-        jn = jn.strip()
-        if rn and jn and jn.lower() not in ("unknown", "n/a", "not declared", ""):
-            runner_map[rn] = jn
-        # Also store competitor/horse name for fallback matching
-        cn = runner.get("competitor_name") or runner.get("horse_name") or runner.get("horse") or ""
-        if not cn:
-            comp = runner.get("competitor")
-            if isinstance(comp, dict):
-                cn = comp.get("name") or comp.get("competitor_name") or ""
-        if rn and cn:
-            competitor_map[rn] = cn.strip()
-
-    # Strategy 2: Match by jockey name
     placed = []
     used_pids = set()
     unmatched_results = []
 
     def _try_match(candidate_name, pos):
-        """Try to match a candidate jockey name to any unmatched participant."""
         if not candidate_name:
             return None
         candidate_name = candidate_name.strip()
@@ -327,7 +299,6 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
                 placed.append((p, pos))
                 used_pids.add(p.id)
                 return p
-        # Last-name fallback
         for p in participants:
             if p.id in used_pids:
                 continue
@@ -338,7 +309,6 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
         return None
 
     def _extract_jockey_from_runner(runner):
-        """Extract jockey name from a runner dict, trying all possible fields."""
         for field in ("jockey", "rider", "jockey_name", "driver", "driver_name"):
             val = runner.get(field)
             if val and val.strip():
@@ -346,7 +316,6 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
         return None
 
     def _extract_jockey_from_result(res):
-        """Extract jockey name from a result dict (competitor nested data)."""
         comp = res.get("competitor") if isinstance(res.get("competitor"), dict) else {}
         for field in ("jockey", "rider", "driver", "name"):
             val = comp.get(field)
@@ -358,7 +327,6 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
                 return val.strip()
         return None
 
-    # Normalise runner_number types to avoid string vs int mismatches
     def _norm_rn(val):
         if val is None:
             return None
@@ -367,7 +335,6 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
         except (ValueError, TypeError):
             return str(val).strip()
 
-    # Build runner_map with normalised keys
     runner_map_norm = {}
     competitor_map_norm = {}
     raw_runners = []

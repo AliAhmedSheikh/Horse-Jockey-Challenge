@@ -130,7 +130,7 @@ export default function MeetingDetailPage() {
           )}
         </div>
 
-          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700/50">
+          <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700/50">
           <table className="w-full">
             <colgroup>
               <col className="w-8" />
