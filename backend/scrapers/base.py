@@ -114,9 +114,12 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                         win_price = float(odds.get("fixed_win", 0) or 0)
                     except (ValueError, TypeError):
                         continue
+                    # Harness runners often have fixed_win=0 — still include with MIN_PRICE
                     if win_price > 0:
                         win_price = max(MIN_PRICE, min(MAX_PRICE, win_price))
-                        jp.append((jockey, win_price))
+                    else:
+                        win_price = MIN_PRICE
+                    jp.append((jockey, win_price))
                 return rd, jp
             except Exception as e:
                 logger.warning(f"Failed to fetch race {race.get('id')}: {e}")

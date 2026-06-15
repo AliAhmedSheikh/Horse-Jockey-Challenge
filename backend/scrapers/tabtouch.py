@@ -8,6 +8,7 @@ from typing import List, Dict
 import httpx
 import urllib3
 from bs4 import BeautifulSoup
+from utils import MIN_PRICE
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -185,7 +186,7 @@ class TABtouchScraper:
                         if starter.get("scratched"):
                             continue
                         rider = (starter.get("rider") or "").strip()
-                        if not rider or rider.lower() in ("unknown", "n/a", "not declared", ""):
+                        if not rider or rider.lower() in ("unknown", "n/a", "not declared", "n.r", "nr", "not riding", "scratching", ""):
                             continue
                         rc = re.sub(r'\s*\(.*?\)\s*$', '', rider).strip()
                         if not rc:
@@ -196,6 +197,8 @@ class TABtouchScraper:
                             continue
                         if price > 0:
                             result.append((rc, price))
+                        else:
+                            result.append((rc, MIN_PRICE))
                 return result
 
             races = mtg["races"]
