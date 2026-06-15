@@ -26,6 +26,7 @@ class PuntersEdgeScraper:
         if not self.enabled:
             return {}
 
+        global _shared_cache, _shared_cache_time
         now = time.time()
         with _shared_cache_lock:
             if _shared_cache is not None and now - _shared_cache_time < CACHE_TTL:
