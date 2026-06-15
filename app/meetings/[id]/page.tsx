@@ -146,7 +146,7 @@ export default function MeetingDetailPage() {
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
                 {BOOKMAKERS.map((bm) => (
-                  <th key={bm} className="text-center px-1 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{bm}</th>
+                   <th key={bm} className="text-center px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">{bm}</th>
                 ))}
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI</th>
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ovl</th>
@@ -185,7 +185,7 @@ export default function MeetingDetailPage() {
                   {BOOKMAKERS.map((bm) => {
                     const bp = p.bookmakerPrices?.[bm];
                     return (
-                      <td key={bm} className="px-1 py-3 text-right">
+                      <td key={bm} className="px-2 py-3 text-right">
                         <span className="text-sm font-semibold text-slate-900 dark:text-white">{bp != null ? `$${bp.toFixed(2)}` : "—"}</span>
                       </td>
                     );

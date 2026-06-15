@@ -48,7 +48,7 @@ export default function ChallengeTable({
             <colgroup>
               <col />
               <col className="w-[100px]" />
-              {BOOKMAKERS.map(bm => <col key={bm} className="w-[72px]" />)}
+              {BOOKMAKERS.map(bm => <col key={bm} className="w-[80px]" />)}
               <col className="w-[72px]" />
               <col className="w-[64px]" />
               <col className="w-[64px]" />
@@ -65,7 +65,7 @@ export default function ChallengeTable({
                   Meeting
                 </th>
                 {BOOKMAKERS.map((bm) => (
-                  <th key={bm} className="text-center px-1 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <th key={bm} className="text-center px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     {bm}
                   </th>
                 ))}
@@ -129,7 +129,7 @@ export default function ChallengeTable({
                     {BOOKMAKERS.map((bm) => {
                       const bp = p.bookmakerPrices?.[bm];
                       return (
-                        <td key={bm} className="px-1 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
+                        <td key={bm} className="px-2 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
                           {bp != null ? `$${bp.toFixed(2)}` : "—"}
                         </td>
                       );
