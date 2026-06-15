@@ -246,7 +246,7 @@ def scrape_all_bookmakers():
             logger.info("No meetings to update, skipping scrape")
             return
 
-        def _scrape_one(bm_name, scraper_cls, methods):
+        for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:
             scraper = scraper_cls()
             try:
                 all_markets = []
@@ -263,20 +263,11 @@ def scrape_all_bookmakers():
 
                 if all_markets:
                     _update_prices_from_markets(db, meetings, all_markets, bm_name)
+                    logger.info(f"{bm_name}: prices updated for {len(meetings)} meetings")
             except Exception as e:
                 logger.warning(f"{bm_name} scrape failed: {e}")
             finally:
                 scraper.close()
-            return bm_name, bool(all_markets)
-
-        with ThreadPoolExecutor(max_workers=5) as ex:
-            futs = {ex.submit(_scrape_one, bm, sc, mt): bm for bm, sc, mt in BOOKMAKER_SCRAPERS}
-            for f in as_completed(futs):
-                bm, ok = f.result()
-                if ok:
-                    logger.info(f"{bm} scrape completed")
-                else:
-                    logger.warning(f"{bm} returned no data")
 
         db.commit()
     except Exception as e:
