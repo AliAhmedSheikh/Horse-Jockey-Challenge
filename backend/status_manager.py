@@ -2,7 +2,6 @@ import logging
 import re
 import random
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy.orm import Session
