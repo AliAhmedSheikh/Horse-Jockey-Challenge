@@ -1,4 +1,5 @@
 import logging
+import re
 import random
 import threading
 from datetime import datetime, timezone, timedelta
@@ -8,43 +9,24 @@ from database import SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus
 from time_utils import AU_TZ
 
-from utils import weighted_shuffle, race_points
+from utils import weighted_shuffle, race_points, normalise_name, names_match
 
 _refresh_lock = threading.Lock()
 _scrape_lock = threading.Lock()
 
 from scrapers.base import fetch_single_race_results
 from seed_data import _get_real_race_positions
+from scrapers import LadbrokesScraper, TABScraper, SportsbetScraper, PointsBetScraper, TABtouchScraper
 
-from scrapers import (
-    LadbrokesScraper,
-    TABScraper,
-    SportsbetScraper,
-    PointsBetScraper,
-    TABtouchScraper,
-)
-
-def _race_points(pos, all_positions=None):
-    """3-2-1 scoring with dead heat sharing per official TAB rules."""
-    if pos > 3:
-        return 0
-    base = {1: 3, 2: 2, 3: 1}[pos]
-    if not all_positions:
-        return base
-    count = sum(1 for p in all_positions if p == pos)
-    if count > 1:
-        total = sum({1: 3, 2: 2, 3: 1}.get(pos + i, 0) for i in range(count))
-        return total / count
-    return base
 
 logger = logging.getLogger(__name__)
 
 BOOKMAKER_SCRAPERS = [
     ("Ladbrokes", LadbrokesScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
-    ("TAB", TABScraper, ["scrape_daily_challenge_meetings"]),
-    ("Sportsbet", SportsbetScraper, ["scrape_challenge_prices"]),
-    ("PointsBet", PointsBetScraper, ["scrape_challenge_markets"]),
-    ("TABtouch", TABtouchScraper, ["scrape_challenge_markets"]),
+    ("TAB", TABScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
+    ("Sportsbet", SportsbetScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
+    ("PointsBet", PointsBetScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
+    ("TABtouch", TABtouchScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
 ]
 
 
@@ -129,7 +111,12 @@ def refresh_meeting_status():
                         p.current_points = 0
                         p.completed_races = 0
                         p.remaining_races = meeting.total_races
+                    # Delete stale results when reverting to UPCOMING
+                    db.query(Result).filter(
+                        Result.meeting_id == meeting.id
+                    ).delete()
                     logger.info(f"Meeting {meeting.name} -> UPCOMING (reverted, scheduled time not yet reached)")
+                    db.commit()
                     continue
                 participants = db.query(Participant).filter(
                     Participant.meeting_id == meeting.id
@@ -144,7 +131,14 @@ def refresh_meeting_status():
                     for p in participants:
                         p.remaining_races = 0
                     logger.info(f"Meeting {meeting.name} -> FINISHED")
+                    db.commit()
                     continue
+
+                # Delete existing results for this race to handle re-runs cleanly
+                db.query(Result).filter(
+                    Result.meeting_id == meeting.id,
+                    Result.race_number == next_race,
+                ).delete()
 
                 race_data = fetch_single_race_results(meeting.name, next_race)
 
@@ -221,7 +215,7 @@ def refresh_meeting_status():
                         p.remaining_races = 0
                     logger.info(f"Meeting {meeting.name} -> FINISHED")
 
-        db.commit()
+                db.commit()
     except Exception as e:
         logger.error(f"Status refresh failed: {e}")
         db.rollback()
@@ -286,19 +280,19 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
     from models import Price
 
     for market in markets:
-        meeting_name = market.get("meeting_name", "").lower()
+        meeting_name = normalise_name(market.get("meeting_name", ""))
         matching = [
             m for m in meetings
-            if m.name.lower() == meeting_name
+            if normalise_name(m.name) == meeting_name or meeting_name in normalise_name(m.name) or normalise_name(m.name) in meeting_name
         ]
         for meeting in matching:
             participants = db.query(Participant).filter(
                 Participant.meeting_id == meeting.id
             ).all()
             for p_data in market.get("participants", []):
-                p_name = p_data.get("name", "").strip().lower()
+                p_name = p_data.get("name", "")
                 for p in participants:
-                    if p.name.strip().lower() == p_name:
+                    if names_match(p.name, p_name):
                         existing = db.query(Price).filter(
                             Price.participant_id == p.id,
                             Price.bookmaker_name == bookmaker_name,

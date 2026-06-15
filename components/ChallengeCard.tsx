@@ -1,10 +1,10 @@
 "use client";
 
-import type { Participant } from "@/data/types";
+import { BOOKMAKERS, type Participant } from "@/data/types";
 import { IconStar, IconTrendingUp } from "@/data/icons";
 import Link from "next/link";
 
-const BOOKMAKER_NAMES = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"];
+const BOOKMAKER_NAMES = BOOKMAKERS;
 
 interface ChallengeCardProps {
   participant: Participant;
@@ -85,7 +85,7 @@ export default function ChallengeCard({
                 {bm}
               </p>
               <p className="text-xs font-semibold text-slate-900 dark:text-white mt-0.5">
-                ${(participant.bookmakerPrices?.[bm] ?? participant.bookmakerPrice).toFixed(2)}
+                {participant.bookmakerPrices?.[bm] != null ? `$${participant.bookmakerPrices[bm].toFixed(2)}` : "—"}
               </p>
             </div>
           ))}

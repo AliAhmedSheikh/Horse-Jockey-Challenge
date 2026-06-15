@@ -8,6 +8,11 @@ import DataCard from "@/components/DataCard";
 import ChallengeTable from "@/components/ChallengeTable";
 import { IconCalendar, IconUser, IconCar, IconChevronRight, IconTrendingUp } from "@/data/icons";
 
+const statusLabels: Record<string, string> = {
+  Live: "Live",
+  "Not Started": "Upcoming",
+  Completed: "Completed",
+};
 const statusStyles: Record<string, string> = {
   Live: "badge-value",
   "Not Started": "badge-upcoming",
@@ -195,7 +200,7 @@ export default function MeetingsPage() {
                       {m.name}
                     </h3>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className={statusStyles[m.status]}>{m.status}</span>
+                      <span className={statusStyles[m.status]}>{statusLabels[m.status] || m.status}</span>
                       <span className="text-[10px] text-slate-400">{m.type} Challenge</span>
                     </div>
                   </div>

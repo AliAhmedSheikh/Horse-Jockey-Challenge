@@ -115,11 +115,14 @@ export default function ChallengeTable({
                     <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
                       {p.meetingName}
                     </td>
-                    {BOOKMAKERS.map((bm) => (
-                      <td key={bm} className="px-2 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
-                        ${(p.bookmakerPrices?.[bm] ?? p.bookmakerPrice).toFixed(2)}
-                      </td>
-                    ))}
+                    {BOOKMAKERS.map((bm) => {
+                      const bp = p.bookmakerPrices?.[bm];
+                      return (
+                        <td key={bm} className="px-2 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
+                          {bp != null ? `$${bp.toFixed(2)}` : "—"}
+                        </td>
+                      );
+                    })}
                     <td className="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
                       ${p.aiPrice.toFixed(2)}
                     </td>

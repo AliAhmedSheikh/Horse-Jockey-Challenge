@@ -28,7 +28,7 @@ export default function DataCard({
   return (
     <div
       onClick={onClick}
-      className={`relative group p-4 md:p-5 rounded-xl border transition-all duration-200 cursor-pointer ${
+      className={`relative group p-4 md:p-5 rounded-xl border transition-all duration-200 ${onClick ? "cursor-pointer" : ""} ${
         accent
           ? "bg-gradient-to-br from-amber-500/10 to-orange-600/5 border-amber-500/20 dark:border-amber-500/20"
           : "bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/50"

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from models import Meeting, Participant, Price, Result, MeetingStatus, MeetingType
 from scrapers.base import LadbrokesAPIScraper, invalidate_cache
 from time_utils import today_aus, AU_TZ
-from utils import compute_value_rating, compute_status, weighted_shuffle as utils_weighted_shuffle, race_points
+from utils import normalise_name, names_match, compute_value_rating, compute_status, weighted_shuffle as utils_weighted_shuffle, race_points
 
 logger = logging.getLogger(__name__)
 
@@ -277,10 +277,6 @@ def _seed_from_fallback(db: Session):
 
 
 def _get_real_race_positions(race_data: dict, participants: list):
-    """Map Ladbrokes race results to challenge participants.
-
-    Returns sorted list of (participant, position) or None if no real results.
-    """
     if not race_data or race_data.get("status") not in ("Final", "Interim"):
         return None
 
@@ -289,16 +285,17 @@ def _get_real_race_positions(race_data: dict, participants: list):
         rn = runner.get("runner_number")
         jn = (runner.get("jockey") or "").strip() or (runner.get("driver") or "").strip()
         if rn and jn and jn.lower() not in ("unknown", "n/a", "not declared"):
-            runner_map[rn] = jn.strip().lower()
-
-    participant_map = {p.name.strip().lower(): p for p in participants}
+            runner_map[rn] = jn.strip()
 
     placed = []
     for res in race_data.get("results", []):
         pos = res.get("position", 99)
-        jockey_name = runner_map.get(res.get("runner_number"))
-        if jockey_name and jockey_name in participant_map:
-            placed.append((participant_map[jockey_name], pos))
+        runner_name = runner_map.get(res.get("runner_number"))
+        if runner_name:
+            for p in participants:
+                if names_match(p.name, runner_name):
+                    placed.append((p, pos))
+                    break
 
     if not placed:
         return None
@@ -338,6 +335,7 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
                 p.current_points = 0
                 p.completed_races = 0
                 p.remaining_races = meeting.total_races
+            db.query(Result).filter(Result.meeting_id == meeting.id).delete()
             db.commit()
             continue
 
@@ -354,6 +352,9 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
 
         meeting.status = MeetingStatus.LIVE.value
         meeting.completed_races = initial
+
+        # Delete any stale results before re-creating
+        db.query(Result).filter(Result.meeting_id == meeting.id).delete()
 
         cumulative_points = {p.id: 0 for p in participants}
         race_counts = {p.id: 0 for p in participants}

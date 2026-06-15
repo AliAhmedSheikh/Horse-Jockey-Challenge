@@ -23,7 +23,7 @@ class Meeting(Base):
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
     date = Column(String, nullable=False)
-    status = Column(String, default=MeetingStatus.UPCOMING.value)
+    status = Column(SAEnum(MeetingStatus), default=MeetingStatus.UPCOMING.value)
     type = Column(SAEnum(MeetingType), nullable=False)
     total_races = Column(Integer, default=0)
     completed_races = Column(Integer, default=0)

@@ -7,6 +7,11 @@ import type { Meeting, Participant } from "@/data/types";
 import { BOOKMAKERS } from "@/data/types";
 import { IconUser, IconCar, IconStar, IconChevronRight } from "@/data/icons";
 
+const statusLabels: Record<string, string> = {
+  Live: "Live",
+  "Not Started": "Upcoming",
+  Completed: "Completed",
+};
 const statusStyles: Record<string, string> = {
   Live: "badge-value",
   "Not Started": "badge-upcoming",
@@ -92,7 +97,7 @@ export default function MeetingDetailPage() {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{meeting.name}</h1>
-                <span className={statusStyles[meeting.status]}>{meeting.status}</span>
+                <span className={statusStyles[meeting.status]}>{statusLabels[meeting.status] || meeting.status}</span>
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{meeting.type} Challenge</p>
             </div>
@@ -168,11 +173,14 @@ export default function MeetingDetailPage() {
                       {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
                     </div>
                   </td>
-                  {BOOKMAKERS.map((bm) => (
-                    <td key={bm} className="px-2 py-3 text-right">
-                      <span className="text-sm font-semibold text-slate-900 dark:text-white">${(p.bookmakerPrices?.[bm] ?? p.bookmakerPrice).toFixed(2)}</span>
-                    </td>
-                  ))}
+                  {BOOKMAKERS.map((bm) => {
+                    const bp = p.bookmakerPrices?.[bm];
+                    return (
+                      <td key={bm} className="px-2 py-3 text-right">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">{bp != null ? `$${bp.toFixed(2)}` : "—"}</span>
+                      </td>
+                    );
+                  })}
                   <td className="px-4 py-3 text-right">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</span>
                   </td>
@@ -205,12 +213,15 @@ export default function MeetingDetailPage() {
                 </span>
               </div>
               <div className="grid grid-cols-5 gap-1.5 text-center mb-2">
-                {BOOKMAKERS.map((bm) => (
-                  <div key={bm} className="bg-white dark:bg-slate-800 rounded-lg p-1.5">
-                    <p className="text-[8px] text-slate-500 dark:text-slate-400 truncate">{bm}</p>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">${(p.bookmakerPrices?.[bm] ?? p.bookmakerPrice).toFixed(2)}</p>
-                  </div>
-                ))}
+                {BOOKMAKERS.map((bm) => {
+                  const bp = p.bookmakerPrices?.[bm];
+                  return (
+                    <div key={bm} className="bg-white dark:bg-slate-800 rounded-lg p-1.5">
+                      <p className="text-[8px] text-slate-500 dark:text-slate-400 truncate">{bm}</p>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">{bp != null ? `$${bp.toFixed(2)}` : "—"}</p>
+                    </div>
+                  );
+                })}
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">

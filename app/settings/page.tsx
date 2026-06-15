@@ -243,7 +243,7 @@ export default function SettingsPage() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={handleReset} className="btn-secondary">
+            <button onClick={() => apiData?.settings && setValues(apiData.settings)} className="btn-secondary">
               Cancel
             </button>
             <button onClick={handleSave} className="btn-primary">

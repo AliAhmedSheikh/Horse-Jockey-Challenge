@@ -58,7 +58,7 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
     else:
         price_adj = 1.0 + (1.0 - perf_ratio) * 0.25
 
-    performance_price = avg_bookmaker * max(1.01, price_adj)
+    performance_price = avg_bookmaker * max(0.5, price_adj)
 
     # Blend bookmaker baseline with performance-adjusted price
     ai_price = avg_bookmaker * (1 - perf_confidence) + performance_price * perf_confidence
