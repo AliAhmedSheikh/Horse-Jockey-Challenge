@@ -111,13 +111,6 @@ def seed_database(db: Session):
         today_count = db.query(Meeting).filter(Meeting.date == today).count()
         if today_count > 0:
             logger.info(f"Database already has {today_count} meetings for today ({today})")
-            # Clear stale Price records that may have been created by old/dead scrapers
-            deleted = db.query(Price).filter(Price.meeting_id.in_(
-                db.query(Meeting.id).filter(Meeting.date == today)
-            )).delete(synchronize_session='fetch')
-            if deleted:
-                logger.info(f"Cleared {deleted} stale today-Price records before re-seed")
-            db.commit()
             return
         else:
             logger.info(f"Existing data is from a previous day, clearing and re-seeding for {today}")
