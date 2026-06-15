@@ -241,19 +241,18 @@ def scrape_all_bookmakers():
             Meeting.status.in_([MeetingStatus.LIVE.value, MeetingStatus.FINISHED.value])
         ).all()
 
-        # Delete stale Price records for today's meetings before re-scraping.
-        # Only scrapers that return data will recreate prices; failed/absent scrapers
-        # leave no stale entries behind.
-        if meetings:
-            meeting_ids = [m.id for m in meetings]
-            deleted = db.query(Price).filter(Price.meeting_id.in_(meeting_ids)).delete(synchronize_session=False)
-            if deleted:
-                logger.info(f"Cleared {deleted} stale Price records before scrape")
-            db.commit()
-
         if not meetings:
             logger.info("No meetings to update, skipping scrape")
             return
+
+        # Delete ALL Price records for today's meetings regardless of status.
+        # Stale data from previous deploys (or scrapers that no longer return data)
+        # must not persist. Only scrapers that return data will recreate prices.
+        meeting_ids = [m.id for m in meetings]
+        deleted = db.query(Price).filter(Price.meeting_id.in_(meeting_ids)).delete(synchronize_session=False)
+        if deleted:
+            logger.info(f"Cleared {deleted} stale Price records before scrape")
+        db.commit()
 
         for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:
             scraper = scraper_cls()
