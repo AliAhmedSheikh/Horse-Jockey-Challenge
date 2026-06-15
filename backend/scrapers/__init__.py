@@ -22,10 +22,12 @@ class LadbrokesScraper:
         self.name = "Ladbrokes"
 
     def scrape_jockey_challenges(self) -> List[Dict]:
-        return []
+        jockey, _ = _fetch_all_meetings()
+        return jockey
 
     def scrape_driver_challenges(self) -> List[Dict]:
-        return []
+        _, driver = _fetch_all_meetings()
+        return driver
 
     def close(self):
         pass
