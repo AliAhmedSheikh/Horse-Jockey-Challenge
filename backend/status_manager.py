@@ -14,7 +14,7 @@ from utils import weighted_shuffle, race_points, normalise_name, names_match
 _refresh_lock = threading.Lock()
 _scrape_lock = threading.Lock()
 
-from scrapers.base import fetch_single_race_results
+from scrapers.base import fetch_single_race_results, invalidate_cache
 from seed_data import _get_real_race_positions, seed_database
 from scrapers import LadbrokesScraper, TABScraper, SportsbetScraper, PointsBetScraper, TABtouchScraper
 
