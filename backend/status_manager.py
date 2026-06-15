@@ -9,7 +9,7 @@ from database import SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus
 from time_utils import AU_TZ, today_aus
 
-from utils import weighted_shuffle, race_points, normalise_name, names_match
+from utils import weighted_shuffle, race_points, normalise_name, names_match, MIN_PRICE, MAX_PRICE
 
 _refresh_lock = threading.Lock()
 _scrape_lock = threading.Lock()
@@ -308,9 +308,58 @@ def scrape_all_bookmakers():
     logger.info("Bookmaker scrape cycle complete")
 
 
+def _add_dynamic_meetings(db, unmatched_names, markets, bookmaker_name):
+    from models import MeetingStatus, MeetingType
+    now_aus = datetime.now(AU_TZ)
+    for market in markets:
+        mn = normalise_name(market.get("meeting_name", ""))
+        if mn not in [normalise_name(u) for u in unmatched_names]:
+            continue
+        existing = db.query(Meeting).filter(normalise_name(Meeting.name) == mn).first()
+        if existing:
+            continue
+        mtype = MeetingType.DRIVER.value if market.get("type") == "driver" else MeetingType.JOCKEY.value
+        mid = f"dyn_{mtype}_{mn.replace(' ', '_')}"
+        scheduled = now_aus + timedelta(hours=1)
+        meeting = Meeting(
+            id=mid,
+            name=market["meeting_name"],
+            date=today_aus(),
+            status=MeetingStatus.UPCOMING.value,
+            type=mtype,
+            total_races=market.get("total_races", 8),
+            completed_races=0,
+            scheduled_time=scheduled,
+        )
+        db.add(meeting)
+        db.flush()
+        for p_data in market.get("participants", []):
+            p_name = p_data.get("name", "").strip()
+            if not p_name:
+                continue
+            pid = f"{mid}_{p_name.lower().replace(' ', '_')}"
+            db.add(Participant(
+                id=pid, meeting_id=mid, name=p_name,
+                current_points=0, completed_races=0, remaining_races=meeting.total_races,
+            ))
+            db.flush()
+            db.add(Price(
+                participant_id=pid, meeting_id=mid,
+                bookmaker_name=bookmaker_name,
+                price=round(max(MIN_PRICE, min(MAX_PRICE, float(p_data.get("price", 0) or 0))), 2),
+                timestamp=datetime.now(timezone.utc),
+            ))
+        logger.info(f"Added dynamic meeting '{market['meeting_name']}' from {bookmaker_name}")
+    db.commit()
+
+
 def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
     from models import Price
-    from utils import MIN_PRICE, MAX_PRICE
+
+    _NON_RIDER_RE = re.compile(
+        r'^(n\.?r\.?|not\s+(riding|declared)|scratched|n\.?d\.?|late\s+scratching|reserve|emergency|unknown)\s*$',
+        re.IGNORECASE
+    )
 
     unmatched_meetings = []
     for market in markets:
@@ -325,14 +374,14 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
             participants = db.query(Participant).filter(
                 Participant.meeting_id == meeting.id
             ).all()
-            unmatched_participants = []
+            added_count = 0
             for p_data in market.get("participants", []):
-                p_name = p_data.get("name", "")
+                p_name = p_data.get("name", "").strip()
                 try:
                     new_price = float(p_data.get("price", 0) or 0)
                 except (ValueError, TypeError):
                     continue
-                if not p_name or new_price <= 0:
+                if not p_name or new_price <= 0 or _NON_RIDER_RE.match(p_name):
                     continue
                 new_price = round(max(MIN_PRICE, min(MAX_PRICE, new_price)), 2)
                 matched = False
@@ -352,14 +401,35 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                         matched = True
                         break
                 if not matched:
-                    unmatched_participants.append(p_name)
-            if unmatched_participants:
-                logger.warning(
+                    # Dynamically add participant not in seed data
+                    pid = f"{meeting.id}_{p_name.lower().replace(' ', '_')}"
+                    new_p = Participant(
+                        id=pid,
+                        meeting_id=meeting.id,
+                        name=p_name,
+                        current_points=0,
+                        completed_races=0,
+                        remaining_races=meeting.total_races,
+                    )
+                    db.add(new_p)
+                    db.flush()
+                    participants.append(new_p)
+                    db.add(Price(
+                        participant_id=pid,
+                        meeting_id=meeting.id,
+                        bookmaker_name=bookmaker_name,
+                        price=new_price,
+                        timestamp=datetime.now(timezone.utc),
+                    ))
+                    added_count += 1
+            if added_count:
+                logger.info(
                     f"{bookmaker_name} / {market.get('meeting_name', '?')}: "
-                    f"{len(unmatched_participants)} participants unmatched: {unmatched_participants[:5]}"
+                    f"added {added_count} new participant(s)"
                 )
 
     if unmatched_meetings:
-        logger.warning(
-            f"{bookmaker_name}: {len(unmatched_meetings)} meetings unmatched: {unmatched_meetings[:5]}"
+        logger.info(
+            f"{bookmaker_name}: {len(unmatched_meetings)} meetings added dynamically"
         )
+        _add_dynamic_meetings(db, unmatched_meetings, markets, bookmaker_name)
