@@ -276,7 +276,7 @@ def _derive_markets(bookmaker_name: str) -> List[Dict]:
         )
         return result
 
-    # Fallback: venue-wide ratios
+    # Fallback 1: venue-wide ratios
     logger.info(
         f"{bookmaker_name}: per-horse matching yielded no markets, "
         f"trying venue-ratio fallback"
@@ -286,8 +286,25 @@ def _derive_markets(bookmaker_name: str) -> List[Dict]:
         logger.info(
             f"{bookmaker_name}: {len(result)} markets via venue-ratio fallback"
         )
+        return result
+
+    # Fallback 2: use Ladbrokes prices directly (real prices, not bookmaker-specific)
+    logger.info(
+        f"{bookmaker_name}: no PuntersEdge-derived markets, "
+        f"falling back to Ladbrokes prices"
+    )
+    result = []
+    for m in markets:
+        if m.get("participants"):
+            market = dict(m)
+            market["bookmaker"] = bookmaker_name
+            result.append(market)
+    if result:
+        logger.info(
+            f"{bookmaker_name}: {len(result)} markets from Ladbrokes fallback"
+        )
     else:
-        logger.warning(f"{bookmaker_name}: no markets from any method")
+        logger.warning(f"{bookmaker_name}: no markets from any source")
     return result
 
 
