@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus
-from time_utils import AU_TZ
+from time_utils import AU_TZ, today_aus
 
 from utils import weighted_shuffle, race_points, normalise_name, names_match
 
@@ -15,7 +15,7 @@ _refresh_lock = threading.Lock()
 _scrape_lock = threading.Lock()
 
 from scrapers.base import fetch_single_race_results
-from seed_data import _get_real_race_positions
+from seed_data import _get_real_race_positions, seed_database
 from scrapers import LadbrokesScraper, TABScraper, SportsbetScraper, PointsBetScraper, TABtouchScraper
 
 
@@ -38,6 +38,14 @@ def refresh_meeting_status():
         logger.info("Refreshing meeting status...")
         now_aus = datetime.now(AU_TZ)
         db = SessionLocal()
+
+        # Auto-seed if no meetings exist for today (handles day transitions)
+        today = today_aus()
+        today_count = db.query(Meeting).filter(Meeting.date == today).count()
+        if today_count == 0:
+            logger.info("No meetings for today — running auto-seed")
+            seed_database(db)
+
         meetings = db.query(Meeting).all()
         for meeting in meetings:
             st = meeting.scheduled_time
