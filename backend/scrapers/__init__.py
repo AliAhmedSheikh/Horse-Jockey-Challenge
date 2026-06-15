@@ -89,9 +89,22 @@ def _derive_markets_via_horses(
         venue = m.get("meeting_name", "")
         pe_venue = _find_venue_key(pe_prices, venue)
         if not pe_venue:
+            logger.info(
+                f"{bookmaker_name}: venue '{venue}' not found in PuntersEdge "
+                f"(available: {list(pe_prices.keys())[:10]})"
+            )
             continue
         venue_data = pe_prices[pe_venue]
+        pe_race_nums = set(venue_data.keys())
         races = m.get("races", [])
+        lad_race_nums = set(r.get("race_number") for r in races)
+        matching_race_nums = pe_race_nums & lad_race_nums
+
+        logger.info(
+            f"{bookmaker_name} @ '{venue}': PE races={sorted(pe_race_nums)}, "
+            f"Lad races={sorted(lad_race_nums)}, matching={sorted(matching_race_nums)}"
+        )
+
         jockey_prices = {}
         jockey_skipped = 0
 
@@ -129,6 +142,28 @@ def _derive_markets_via_horses(
                             jockey_prices[jn] = price
                         break
 
+        if not jockey_prices:
+            # Log why — sample a runner to show mismatch
+            for race in races[:2]:
+                for runner in race.get("runners", [])[:3]:
+                    jn = _extract_jockey(runner)
+                    rn = runner.get("runner_number")
+                    horse = ""
+                    for res in race.get("results", []):
+                        if res.get("runner_number") == rn:
+                            horse = res.get("name", "").strip().lower()
+                            break
+                    pe_race = venue_data.get(race.get("race_number"), {})
+                    in_pe = horse in pe_race if horse else False
+                    pe_keys_found = list(pe_race.get(horse, {}).keys()) if horse and in_pe else []
+                    logger.info(
+                        f"  sample jockey='{jn}' rn={rn} horse='{horse}' "
+                        f"in_PE={in_pe} PE_keys={pe_keys_found} "
+                        f"bookmaker_keys={pe_keys}"
+                    )
+                    break
+                break
+
         for p in m.get("participants", []):
             if p["name"] not in jockey_prices:
                 jockey_skipped += 1
@@ -162,6 +197,12 @@ def _derive_markets_via_ratios(
         venue_data = pe_prices[pe_venue]
         race_ratios = _compute_venue_ratios(venue_data, pe_keys, bookmaker_name)
         if not race_ratios:
+            pe_race_nums = set(venue_data.keys())
+            lad_races = set(r.get("race_number") for r in m.get("races", []))
+            logger.info(
+                f"{bookmaker_name} fallback @ '{venue}': no ratios computed. "
+                f"PE races={sorted(pe_race_nums)} Lad races={sorted(lad_races)}"
+            )
             continue
         races = m.get("races", [])
         jockey_prices = {}
