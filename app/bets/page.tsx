@@ -3,17 +3,30 @@
 import { useState, useEffect, useCallback } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
-import type { Bet, BetStats } from "@/data/types";
+import type { Bet, BetStats, Meeting, Participant } from "@/data/types";
 import { IconPlus, IconTrash, IconRefresh, IconTrendingUp, IconTrendingDown } from "@/data/icons";
+
+const SELECT_STYLE = "mt-1 w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent";
+const INPUT_STYLE = "mt-1 w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent";
 
 export default function BetsPage() {
   const { data: bets, mutate: mutateBets } = useSWR<Bet[]>("/api/bets", fetcher, { refreshInterval: 30000 });
   const { data: stats, mutate: mutateStats } = useSWR<BetStats>("/api/bets/stats", fetcher, { refreshInterval: 30000 });
+  const { data: meetings } = useSWR<Meeting[]>("/api/meetings", fetcher, { refreshInterval: 60000 });
 
   const [showForm, setShowForm] = useState(false);
   const [editingBet, setEditingBet] = useState<Bet | null>(null);
-  const [form, setForm] = useState({ participantName: "", meetingName: "", stake: "", odds: "", betType: "win" });
   const [filter, setFilter] = useState<"all" | "pending" | "won" | "lost">("all");
+
+  const [selectedMeetingId, setSelectedMeetingId] = useState("");
+  const [selectedParticipantId, setSelectedParticipantId] = useState("");
+  const [manualName, setManualName] = useState("");
+  const [stake, setStake] = useState("");
+  const [odds, setOdds] = useState("");
+  const [betType, setBetType] = useState("win");
+
+  const [meetingParticipants, setMeetingParticipants] = useState<Participant[]>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
 
   const refreshData = useCallback(() => {
     mutateBets();
@@ -26,38 +39,103 @@ export default function BetsPage() {
     return () => window.removeEventListener("storage", handleStorage);
   }, [refreshData]);
 
+  // Fetch participants when meeting changes
+  useEffect(() => {
+    if (!selectedMeetingId) {
+      setMeetingParticipants([]);
+      setSelectedParticipantId("");
+      return;
+    }
+    setLoadingParticipants(true);
+    setSelectedParticipantId("");
+    setOdds("");
+    fetch(`/api/meetings/${selectedMeetingId}/participants`)
+      .then((r) => r.json())
+      .then((data: Participant[]) => {
+        setMeetingParticipants(data);
+        setLoadingParticipants(false);
+      })
+      .catch(() => setLoadingParticipants(false));
+  }, [selectedMeetingId]);
+
+  // Auto-fill odds when participant is selected
+  useEffect(() => {
+    if (!selectedParticipantId) { setOdds(""); return; }
+    const p = meetingParticipants.find((x) => x.id === selectedParticipantId);
+    if (p?.bookmakerPrice) setOdds(String(p.bookmakerPrice));
+  }, [selectedParticipantId, meetingParticipants]);
+
+  const sortedMeetings = [...(meetings || [])].sort((a, b) => {
+    const statusOrder: Record<string, number> = { "Not Started": 0, "In Progress": 1, "Completed": 2 };
+    return (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3);
+  });
+
+  const getParticipantName = () => {
+    if (selectedParticipantId) {
+      const p = meetingParticipants.find((x) => x.id === selectedParticipantId);
+      return p?.name || manualName;
+    }
+    return manualName;
+  };
+
+  const getMeetingName = () => {
+    const m = meetings?.find((x) => x.id === selectedMeetingId);
+    return m?.name || "Manual Bet";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.participantName || !form.stake || !form.odds) return;
+    const pname = getParticipantName();
+    if (!pname || !stake || !odds) return;
     try {
       if (editingBet) {
         await fetch(`/api/bets/${editingBet.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stake: parseFloat(form.stake), odds: parseFloat(form.odds) }),
+          body: JSON.stringify({ stake: parseFloat(stake), odds: parseFloat(odds) }),
         });
       } else {
         await fetch("/api/bets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            participantId: "manual",
-            meetingId: "manual",
-            participantName: form.participantName,
-            meetingName: form.meetingName || "Manual Bet",
-            betType: form.betType,
-            stake: parseFloat(form.stake),
-            odds: parseFloat(form.odds),
+            participantId: selectedParticipantId || "manual",
+            meetingId: selectedMeetingId || "manual",
+            participantName: pname,
+            meetingName: getMeetingName(),
+            betType,
+            stake: parseFloat(stake),
+            odds: parseFloat(odds),
           }),
         });
       }
-      setForm({ participantName: "", meetingName: "", stake: "", odds: "", betType: "win" });
-      setEditingBet(null);
-      setShowForm(false);
+      resetForm();
       refreshData();
-    } catch (err) {
+    } catch {
       alert("Failed to save bet");
     }
+  };
+
+  const resetForm = () => {
+    setShowForm(false);
+    setEditingBet(null);
+    setSelectedMeetingId("");
+    setSelectedParticipantId("");
+    setManualName("");
+    setStake("");
+    setOdds("");
+    setBetType("win");
+  };
+
+  const startEdit = (bet: Bet) => {
+    setEditingBet(bet);
+    setShowForm(true);
+    setSelectedMeetingId("");
+    setSelectedParticipantId("");
+    setManualName(bet.participantName);
+    setStake(String(bet.stake));
+    setOdds(String(bet.odds));
+    setBetType(bet.betType);
   };
 
   const handleSettle = async (betId: number, result: "won" | "lost" | "void") => {
@@ -92,7 +170,7 @@ export default function BetsPage() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Bet Tracker</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Track your bets, P&L and ROI</p>
         </div>
-        <button onClick={() => { setShowForm(!showForm); setEditingBet(null); setForm({ participantName: "", meetingName: "", stake: "", odds: "", betType: "win" }); }} className="btn-primary flex items-center gap-2">
+        <button onClick={() => { setShowForm(!showForm); setEditingBet(null); resetForm(); }} className="btn-primary flex items-center gap-2">
           <IconPlus className="w-4 h-4" />
           <span className="hidden sm:inline">Add Bet</span>
         </button>
@@ -103,30 +181,52 @@ export default function BetsPage() {
           <h2 className="text-sm font-bold text-slate-900 dark:text-white">{editingBet ? "Edit Bet" : "New Bet"}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Participant Name</label>
-              <input type="text" value={form.participantName} onChange={(e) => setForm({ ...form, participantName: e.target.value })} className="mt-1 w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="e.g. James McDonald" required />
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Meeting</label>
+              <select value={selectedMeetingId} onChange={(e) => setSelectedMeetingId(e.target.value)} className={SELECT_STYLE}>
+                <option value="">Select a meeting...</option>
+                {sortedMeetings.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.type}) — {m.status}</option>
+                ))}
+              </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Meeting</label>
-              <input type="text" value={form.meetingName} onChange={(e) => setForm({ ...form, meetingName: e.target.value })} className="mt-1 w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="e.g. Randwick" />
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Participant</label>
+              {selectedMeetingId ? (
+                <select value={selectedParticipantId} onChange={(e) => setSelectedParticipantId(e.target.value)} className={SELECT_STYLE} disabled={loadingParticipants}>
+                  <option value="">{loadingParticipants ? "Loading..." : "Select a participant..."}</option>
+                  {meetingParticipants.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}{p.bookmakerPrice ? ` (${p.bookmakerPrice})` : ""}</option>
+                  ))}
+                </select>
+              ) : (
+                <input type="text" value={manualName} onChange={(e) => setManualName(e.target.value)} className={INPUT_STYLE} placeholder="Or type a name manually..." />
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Bet Type</label>
+              <select value={betType} onChange={(e) => setBetType(e.target.value)} className={SELECT_STYLE}>
+                <option value="win">Win</option>
+                <option value="place">Place</option>
+                <option value="each-way">Each Way</option>
+              </select>
             </div>
             <div>
               <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Stake ($)</label>
-              <input type="number" step="0.01" min="0.01" value={form.stake} onChange={(e) => setForm({ ...form, stake: e.target.value })} className="mt-1 w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="10.00" required />
+              <input type="number" step="0.01" min="0.01" value={stake} onChange={(e) => setStake(e.target.value)} className={INPUT_STYLE} placeholder="10.00" required />
             </div>
             <div>
               <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Odds</label>
-              <input type="number" step="0.01" min="1.01" value={form.odds} onChange={(e) => setForm({ ...form, odds: e.target.value })} className="mt-1 w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="3.50" required />
+              <input type="number" step="0.01" min="1.01" value={odds} onChange={(e) => setOdds(e.target.value)} className={INPUT_STYLE} placeholder="Auto-filled from participant price" required />
             </div>
           </div>
-          {form.stake && form.odds && (
+          {stake && odds && (
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Potential return: <span className="font-semibold text-amber-500">${(parseFloat(form.stake) * parseFloat(form.odds)).toFixed(2)}</span>
+              Potential return: <span className="font-semibold text-amber-500">${(parseFloat(stake) * parseFloat(odds)).toFixed(2)}</span>
             </p>
           )}
           <div className="flex items-center gap-3">
             <button type="submit" className="btn-primary">{editingBet ? "Update Bet" : "Place Bet"}</button>
-            <button type="button" onClick={() => { setShowForm(false); setEditingBet(null); }} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={resetForm} className="btn-secondary">Cancel</button>
           </div>
         </form>
       )}
@@ -215,6 +315,9 @@ export default function BetsPage() {
                             <button onClick={() => handleSettle(bet.id, "void")} className="px-2 py-1 text-[10px] font-semibold rounded bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-500/10 dark:text-slate-400">Void</button>
                           </>
                         )}
+                        <button onClick={() => startEdit(bet)} className="px-2 py-1 text-[10px] font-semibold rounded bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-400">
+                          <IconRefresh className="w-3 h-3" />
+                        </button>
                         <button onClick={() => handleDelete(bet.id)} className="px-2 py-1 text-[10px] font-semibold rounded bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400">
                           <IconTrash className="w-3 h-3" />
                         </button>
