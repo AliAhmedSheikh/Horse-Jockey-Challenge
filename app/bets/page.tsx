@@ -12,7 +12,7 @@ const INPUT_STYLE = "mt-1 w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border 
 export default function BetsPage() {
   const { data: bets, mutate: mutateBets } = useSWR<Bet[]>("/api/bets", fetcher, { refreshInterval: 30000 });
   const { data: stats, mutate: mutateStats } = useSWR<BetStats>("/api/bets/stats", fetcher, { refreshInterval: 30000 });
-  const { data: meetings } = useSWR<Meeting[]>("/api/meetings", fetcher, { refreshInterval: 60000 });
+  const { data: meetings } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 60000 });
 
   const [showForm, setShowForm] = useState(false);
   const [editingBet, setEditingBet] = useState<Bet | null>(null);
@@ -170,7 +170,7 @@ export default function BetsPage() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Bet Tracker</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Track your bets, P&L and ROI</p>
         </div>
-        <button onClick={() => { setShowForm(!showForm); setEditingBet(null); resetForm(); }} className="btn-primary flex items-center gap-2">
+        <button onClick={() => { setEditingBet(null); setSelectedMeetingId(""); setSelectedParticipantId(""); setManualName(""); setStake(""); setOdds(""); setBetType("win"); setShowForm(true); }} className="btn-primary flex items-center gap-2">
           <IconPlus className="w-4 h-4" />
           <span className="hidden sm:inline">Add Bet</span>
         </button>
