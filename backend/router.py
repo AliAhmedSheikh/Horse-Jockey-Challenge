@@ -318,21 +318,23 @@ def get_meeting_podium(meeting_id: str, db: Session = Depends(get_db)):
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
-    max_race = db.query(func.max(Result.race_number)).filter(Result.meeting_id == meeting_id).scalar()
-    if max_race is None:
-        return []
-
-    rows = db.query(Result, Participant).join(
+    rows = db.query(
+        Participant.name,
+        func.sum(Result.points_added).label("total_points"),
+    ).join(
         Participant, Result.participant_id == Participant.id
     ).filter(
         Result.meeting_id == meeting_id,
-        Result.race_number == max_race,
-        Result.position.in_([1, 2, 3]),
-    ).order_by(asc(Result.position)).all()
+        Result.points_added > 0,
+    ).group_by(
+        Result.participant_id
+    ).order_by(
+        desc(func.sum(Result.points_added))
+    ).limit(3).all()
 
     return [
-        PodiumEntry(participant_name=p.name, final_points=r.points_added, position=r.position)
-        for r, p in rows
+        PodiumEntry(participant_name=name, final_points=round(total or 0, 1), position=i + 1)
+        for i, (name, total) in enumerate(rows)
     ]
 
 
