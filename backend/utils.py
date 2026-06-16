@@ -40,46 +40,110 @@ def race_points(pos, all_positions=None):
 
 def normalise_name(name: str) -> str:
     n = name.lower().strip()
+    n = n.replace("-", " ")
     n = re.sub(r"[^a-z0-9\s]", " ", n)
     n = re.sub(r"\s+", " ", n).strip()
     return n
 
 
+def _strip_parens(name: str) -> str:
+    return re.sub(r'\s*\([^)]*\)\s*', ' ', name).strip()
+
+
+def _name_words(name: str) -> list:
+    """Return normalised word list from a name, with hyphens split."""
+    cleaned = _strip_parens(name)
+    return normalise_name(cleaned).split()
+
+
 def names_match(a: str, b: str) -> bool:
     if not a or not b:
         return False
-    # Strip parenthetical apprentice claims like "(a2.0)", "(a)" before matching
-    a = re.sub(r'\s*\([^)]*\)\s*', ' ', a)
-    b = re.sub(r'\s*\([^)]*\)\s*', ' ', b)
 
-    na = normalise_name(a)
-    nb = normalise_name(b)
-    if not na or not nb:
+    wa = _name_words(a)
+    wb = _name_words(b)
+    if not wa or not wb:
         return False
-    if na == nb:
+
+    # Exact match after normalisation
+    if wa == wb:
         return True
-    wa = na.split()
-    wb = nb.split()
+
+    # Build word sets (handles reorder like "Green Egerton" == "Egerton Green")
     set_a = set(wa)
     set_b = set(wb)
-    if len(set_a & set_b) >= min(len(set_a), len(set_b), 2):
+    overlap = set_a & set_b
+
+    # Require matching words to cover a meaningful portion of both names
+    # At least 2 matching words AND at least 70% of the shorter name's words
+    max_words = max(len(set_a), len(set_b))
+    min_words = min(len(set_a), len(set_b))
+    if min_words >= 2 and len(overlap) >= 2:
+        # Require 70%+ of the shorter name to match
+        if len(overlap) / min_words >= 0.70:
+            # Also require overlap covers at least 75% of the longer name
+            if len(overlap) / max_words >= 0.75:
+                return True
+
+    # Compound surname shorthand: if shorter name is a subset of longer name's words
+    # AND shorter name doesn't contain the first word of the longer name,
+    # it's likely a shorthand (e.g. "Egerton Green" for "Dylan Egerton-Green")
+    if set_a.issubset(set_b) or set_b.issubset(set_a):
+        shorter_words = wa if len(wa) <= len(wb) else wb
+        longer_words = wb if len(wa) <= len(wb) else wa
+        longer_first = longer_words[0]
+        if longer_first not in shorter_words:
+            # Shorter name doesn't contain first name of longer → shorthand
+            return True
+
+    # Handle hyphenated compound surnames: try concatenation variants
+    # "EgertonGreen" should match "Egerton Green"
+    full_a = "".join(wa)
+    full_b = "".join(wb)
+    if full_a == full_b:
         return True
 
-    # Handle initials: "a faragher" should match "alan faragher"
-    # Expand single-letter words if they match the first letter of a word in the other name
-    def _expand_initials(words, other_set):
+    # Also check if removing spaces from one variant matches a hyphen variant
+    no_space_a = "".join(wa)
+    no_space_b = "".join(wb)
+    if no_space_a == no_space_b:
+        return True
+
+    # Handle initials: "d egerton green" should match "dylan egerton green"
+    def _expand_initials(words, all_other_words):
         expanded = set(words)
         for w in words:
             if len(w) == 1:
-                for other in other_set:
-                    if other.startswith(w):
-                        expanded.add(other)
+                for ow in all_other_words:
+                    if ow.startswith(w) and len(ow) > 1:
+                        expanded.add(ow)
         return expanded
 
-    expanded_a = _expand_initials(wa, set_b)
-    expanded_b = _expand_initials(wb, set_a)
-    if len(expanded_a & expanded_b) >= min(len(expanded_a), len(expanded_b), 2):
+    # Handle initials: "d egerton green" should match "dylan egerton green"
+    # Only apply if one name actually has an initial (single-letter word)
+    has_initial_a = any(len(w) == 1 for w in wa)
+    has_initial_b = any(len(w) == 1 for w in wb)
+    if has_initial_a or has_initial_b:
+        exp_a = _expand_initials(wa, set_b)
+        exp_b = _expand_initials(wb, set_a)
+        overlap3 = exp_a & exp_b
+        if len(overlap3) >= min(len(exp_a), len(exp_b), 2):
+            return True
+
+    # Compound surname with initials: "egerton-green d" should match "dylan egerton green"
+    # Check if one set has compound parts that span multiple words in the other
+    compound_a = "".join(sorted(wa))
+    compound_b = "".join(sorted(wb))
+    if compound_a == compound_b:
         return True
+
+    # Last-name fallback: requires last name >= 5 chars AND at least one other word match
+    # AND the shorter name must have >= 3 words (prevents "Dylan Green" matching "Dylan Egerton-Green")
+    if wa[-1] == wb[-1] and len(wa[-1]) >= 5:
+        other_overlap = (set_a - {wa[-1]}) & (set_b - {wb[-1]})
+        if other_overlap and (min(len(wa), len(wb)) >= 3 or len(other_overlap) >= 2):
+            return True
+
     return False
 
 
@@ -94,7 +158,8 @@ def names_lastname_fallback(a: str, b: str) -> bool:
     wb = nb.split()
     if not wa or not wb:
         return False
-    return wa[-1] == wb[-1]
+    # Last name must be at least 3 chars to avoid false positives
+    return len(wa[-1]) >= 3 and len(wb[-1]) >= 3 and wa[-1] == wb[-1]
 
 
 def compute_value_rating(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0) -> str:

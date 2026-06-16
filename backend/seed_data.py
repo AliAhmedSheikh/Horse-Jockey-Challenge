@@ -311,7 +311,7 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
     used_pids = set()
     unmatched_results = []
 
-    def _try_match(candidate_name, pos):
+    def _try_match(candidate_name, pos, debug_context=""):
         if not candidate_name:
             return None
         candidate_name = candidate_name.strip()
@@ -332,21 +332,22 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
         return None
 
     def _extract_jockey_from_runner(runner):
-        for field in ("jockey", "rider", "jockey_name", "driver", "driver_name"):
+        for field in ("jockey", "rider", "jockey_name", "driver", "driver_name",
+                       "licence_name", "person_name", "athlete_name"):
             val = runner.get(field)
-            if val and val.strip():
+            if val and isinstance(val, str) and val.strip():
                 return val.strip()
         return None
 
     def _extract_jockey_from_result(res):
         comp = res.get("competitor") if isinstance(res.get("competitor"), dict) else {}
-        for field in ("jockey", "rider", "driver", "name"):
+        for field in ("jockey", "rider", "driver", "name", "jockey_name", "driver_name"):
             val = comp.get(field)
-            if val and val.strip():
+            if val and isinstance(val, str) and val.strip():
                 return val.strip()
         for field in ("jockey", "rider", "driver"):
             val = res.get(field)
-            if val and val.strip():
+            if val and isinstance(val, str) and val.strip():
                 return val.strip()
         return None
 
@@ -378,39 +379,52 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
             competitor_map_norm[rn] = cn.strip()
         raw_runners.append(runner)
 
+    race_number = race_data.get("race_number", "?")
+
     for res in race_data.get("results", []):
         pos = res.get("position", 99)
         raw_rn = res.get("runner_number")
         rn = _norm_rn(raw_rn)
         runner_name = runner_map_norm.get(rn) if rn is not None else None
         if runner_name:
-            if not _try_match(runner_name, pos):
+            if not _try_match(runner_name, pos, f"runner_map(rn={rn})"):
                 unmatched_results.append((rn, pos, runner_name, "runner_map"))
+                logger.warning(
+                    f"Race {race_number}: Could not match API name '{runner_name}' "
+                    f"(rn={rn}, pos={pos}) to any seeded participant"
+                )
         else:
-            # runner_number not in runner_map — try to find jockey name from raw runners
             resolved_name = None
             for runner in raw_runners:
                 if _norm_rn(runner.get("runner_number")) == rn:
                     resolved_name = _extract_jockey_from_runner(runner)
                     break
             if resolved_name:
-                if not _try_match(resolved_name, pos):
+                if not _try_match(resolved_name, pos, f"raw_runner(rn={rn})"):
                     unmatched_results.append((rn, pos, resolved_name, "raw_runner"))
+                    logger.warning(
+                        f"Race {race_number}: Could not match raw runner name '{resolved_name}' "
+                        f"(rn={rn}, pos={pos}) to any seeded participant"
+                    )
             else:
-                # Try competitor data from result itself
                 resolved_name = _extract_jockey_from_result(res)
                 if resolved_name:
-                    if not _try_match(resolved_name, pos):
+                    if not _try_match(resolved_name, pos, f"result_competitor(rn={rn})"):
                         unmatched_results.append((rn, pos, resolved_name, "result_competitor"))
+                        logger.warning(
+                            f"Race {race_number}: Could not match result name '{resolved_name}' "
+                            f"(rn={rn}, pos={pos}) to any seeded participant"
+                        )
                 else:
                     unmatched_results.append((rn, pos, None, "no_name"))
+                    logger.warning(
+                        f"Race {race_number}: No jockey/driver name found for rn={rn}, pos={pos}"
+                    )
 
-    # Strategy 3: Retry unmatched results using competitor/horse name as fallback
     if unmatched_results:
         retry_count = 0
         for rn, pos, name, source in list(unmatched_results):
             if name:
-                # Already tried matching above and failed — try last-name only
                 for p in participants:
                     if p.id in used_pids:
                         continue
@@ -418,55 +432,44 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
                         placed.append((p, pos))
                         used_pids.add(p.id)
                         retry_count += 1
-                        unmatched_results = [u for u in unmatched_results if u[1] != pos]
+                        unmatched_results = [u for u in unmatched_results if u != (rn, pos, name, source)]
                         break
             else:
-                # No name at all — try competitor (horse) name
                 horse_name = competitor_map_norm.get(rn)
                 if horse_name:
                     for p in participants:
                         if p.id in used_pids:
                             continue
-                        # Last resort: match horse name parts to participant name
                         horse_parts = set(horse_name.lower().split())
                         pname_parts = set(p.name.lower().split())
                         if horse_parts & pname_parts:
                             placed.append((p, pos))
                             used_pids.add(p.id)
                             retry_count += 1
-                            unmatched_results = [u for u in unmatched_results if u[1] != pos]
+                            unmatched_results = [u for u in unmatched_results if u != (rn, pos, name, source)]
                             break
         if retry_count:
-            logger.warning(
-                f"Race {race_data.get('race_number', '?')}: "
-                f"Retry matched {retry_count} more participants"
+            logger.info(
+                f"Race {race_number}: Retry matched {retry_count} more participants"
             )
 
-    # Log summary of any remaining unmatched results
     if unmatched_results:
+        api_names = [(r[1], r[2]) for r in unmatched_results if r[2]]
+        seeded_names = [p.name for p in participants if p.id not in used_pids]
         logger.warning(
-            f"Race {race_data.get('race_number', '?')}: "
-            f"Matched {len(placed)}/{len(race_data.get('results',[]))} results, "
-            f"{len(unmatched_results)} still unmatched: "
-            f"{[(r[1], r[2], r[3]) for r in unmatched_results[:5]]}"
+            f"Race {race_number}: {len(unmatched_results)} unmatched results: "
+            f"api_names={api_names[:5]}, available_seeded={seeded_names[:5]}"
         )
 
     if placed:
         placed.sort(key=lambda x: x[1])
         return placed
 
-    # Strategy 4: Price-order fallback removed — awarding phantom podiums to
-    # cheapest participants is misleading. Always return None if no real match.
-    if not placed:
-        logger.warning(
-            f"Race {race_data.get('race_number', '?')}: "
-            f"Could not match any of {len(race_data.get('results',[]))} results "
-            f"to {len(participants)} participants."
-        )
-        return None
-
-    placed.sort(key=lambda x: x[1])
-    return placed
+    logger.warning(
+        f"Race {race_number}: Could not match any of {len(race_data.get('results',[]))} results "
+        f"to {len(participants)} participants."
+    )
+    return None
 
 
 def _simulate_live_data(db: Session, meeting_races_map: dict = None):

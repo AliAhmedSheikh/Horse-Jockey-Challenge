@@ -827,3 +827,117 @@ def get_bet_stats(db: Session = Depends(get_db)):
         pendingCount=pending_count,
         winRate=round(win_rate, 1),
     )
+
+
+@router.get("/audit")
+def run_audit(db: Session = Depends(get_db)):
+    """Comprehensive audit: check all meetings for data integrity issues."""
+    issues = []
+    meetings = db.query(Meeting).filter(
+        Meeting.status.in_([MeetingStatus.LIVE.value, MeetingStatus.FINISHED.value])
+    ).all()
+
+    for meeting in meetings:
+        participants = db.query(Participant).filter(
+            Participant.meeting_id == meeting.id
+        ).all()
+        results = db.query(Result).filter(
+            Result.meeting_id == meeting.id
+        ).order_by(Result.race_number, Result.position).all()
+
+        p_map = {p.id: p for p in participants}
+
+        # 1. Check participant points sum against result records
+        for p in participants:
+            result_sum = sum(
+                r.points_added for r in results
+                if r.participant_id == p.id and r.points_added > 0
+            )
+            if abs(result_sum - p.current_points) > 0.01:
+                issues.append({
+                    "meeting": meeting.name,
+                    "meetingId": meeting.id,
+                    "type": "points_mismatch",
+                    "participant": p.name,
+                    "participantId": p.id,
+                    "detail": f"DB points={p.current_points}, sum(results)={result_sum}",
+                    "severity": "high",
+                })
+
+        # 2. Check for duplicate positions in same race (multiple 1st places)
+        for race_num in range(1, meeting.completed_races + 1):
+            race_results = [r for r in results if r.race_number == race_num]
+            pos_counts = {}
+            for r in race_results:
+                if r.position < 99:
+                    pos_counts[r.position] = pos_counts.get(r.position, 0) + 1
+            for pos, count in pos_counts.items():
+                if count > 1 and pos <= 3:
+                    names = [p_map[r.participant_id].name for r in race_results if r.position == pos and r.participant_id in p_map]
+                    issues.append({
+                        "meeting": meeting.name,
+                        "meetingId": meeting.id,
+                        "type": "duplicate_position",
+                        "detail": f"Race {race_num}: {count} participants in position {pos}: {names}",
+                        "severity": "medium",
+                    })
+
+        # 3. Check for unmatched participants (0 points in all completed races)
+        for p in participants:
+            race_results = [r for r in results if r.participant_id == p.id]
+            if meeting.completed_races > 0 and len(race_results) == 0:
+                issues.append({
+                    "meeting": meeting.name,
+                    "meetingId": meeting.id,
+                    "type": "no_results",
+                    "participant": p.name,
+                    "detail": f"No result records at all for {meeting.completed_races} completed races",
+                    "severity": "high",
+                })
+            elif meeting.completed_races > 0:
+                placed_races = [r for r in race_results if r.points_added > 0]
+                unplaced_races = [r for r in race_results if r.position == 99]
+                if len(unplaced_races) >= meeting.completed_races * 0.5 and meeting.completed_races >= 3:
+                    issues.append({
+                        "meeting": meeting.name,
+                        "meetingId": meeting.id,
+                        "type": "frequent_unmatched",
+                        "participant": p.name,
+                        "detail": f"Unmatched in {len(unplaced_races)}/{len(race_results)} races (possible name matching issue)",
+                        "severity": "high",
+                    })
+
+        # 4. Check total result count vs expected
+        expected_results = meeting.completed_races * len(participants)
+        actual_results = len(results)
+        if actual_results != expected_results and expected_results > 0:
+            issues.append({
+                "meeting": meeting.name,
+                "meetingId": meeting.id,
+                "type": "result_count_mismatch",
+                "detail": f"Expected {expected_results} results ({meeting.completed_races} races x {len(participants)} participants), got {actual_results}",
+                "severity": "medium",
+            })
+
+        # 5. Check for position > 3 but points > 0 (scoring bug)
+        for r in results:
+            if r.position > 3 and r.points_added > 0:
+                issues.append({
+                    "meeting": meeting.name,
+                    "meetingId": meeting.id,
+                    "type": "invalid_scoring",
+                    "detail": f"Race {r.race_number}: position {r.position} has {r.points_added} points (should be 0)",
+                    "severity": "high",
+                })
+
+    total_meetings = len(meetings)
+    high_severity = sum(1 for i in issues if i["severity"] == "high")
+    medium_severity = sum(1 for i in issues if i["severity"] == "medium")
+
+    return {
+        "totalMeetings": total_meetings,
+        "totalIssues": len(issues),
+        "highSeverity": high_severity,
+        "mediumSeverity": medium_severity,
+        "issues": issues,
+    }

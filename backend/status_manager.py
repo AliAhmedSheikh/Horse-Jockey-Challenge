@@ -128,7 +128,9 @@ def refresh_meeting_status():
                         Result.race_number < next_race,
                     ).all()
                     p.current_points = sum(r.points_added for r in prev_results)
-                    p.completed_races = len(set(r.race_number for r in prev_results if r.points_added > 0))
+                    # Count ALL races the participant has a result for (scored or not)
+                    # This gives the true number of races they participated in
+                    p.completed_races = len(set(r.race_number for r in prev_results))
                     p.remaining_races = meeting.total_races - p.completed_races
 
                 # Delete existing results for this race to handle re-runs cleanly
@@ -147,10 +149,10 @@ def refresh_meeting_status():
                     riders = min(len(shuffled), random.randint(3, max(3, meeting.total_races)))
                     for pos in range(1, len(shuffled) + 1):
                         p = shuffled[pos - 1]
+                        p.completed_races += 1
+                        p.remaining_races = meeting.total_races - p.completed_races
                         if pos <= riders:
                             added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
-                            p.completed_races += 1
-                            p.remaining_races = meeting.total_races - p.completed_races
                             p.current_points += added
                             result = Result(
                                 meeting_id=meeting.id,
@@ -217,9 +219,12 @@ def refresh_meeting_status():
                                 timestamp=datetime.now(timezone.utc),
                             )
                             db.add(result)
-                    # Non-placed participants: no runner in this race, so no completed_races increment
+                    # Non-placed participants: they had a runner but didn't place top 3
+                    # Still count this race in their completed_races
                     for p in participants:
                         if p.id not in placed_ids:
+                            p.completed_races += 1
+                            p.remaining_races = meeting.total_races - p.completed_races
                             result = Result(
                                 meeting_id=meeting.id,
                                 participant_id=p.id,
