@@ -1,7 +1,9 @@
 "use client";
 
 import { BOOKMAKERS, type Participant } from "@/data/types";
-import { IconStar, IconTrendingUp } from "@/data/icons";
+import { IconStar, IconTrendingUp, IconInfo } from "@/data/icons";
+
+const ACCURATE_BOOKMAKERS = new Set(["Ladbrokes"]);
 import Link from "next/link";
 
 interface ChallengeCardProps {
@@ -77,16 +79,25 @@ export default function ChallengeCard({
         </div>
 
         <div className="grid grid-cols-5 gap-1 mb-3 text-center">
-          {BOOKMAKERS.map((bm) => (
-            <div key={bm} className="min-h-[36px] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-lg p-1">
-              <p className="text-[8px] text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate w-full leading-tight">
-                {bm}
-              </p>
-              <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
-                {participant.bookmakerPrices?.[bm] != null ? `$${participant.bookmakerPrices[bm].toFixed(2)}` : "—"}
-              </p>
-            </div>
-          ))}
+          {BOOKMAKERS.map((bm) => {
+            const isAccurate = ACCURATE_BOOKMAKERS.has(bm);
+            return (
+              <div key={bm} className={`min-h-[36px] flex flex-col items-center justify-center rounded-lg p-1 ${isAccurate ? "bg-slate-50 dark:bg-slate-800/50" : "bg-slate-100/50 dark:bg-slate-800/30"}`}>
+                <p className={`text-[8px] uppercase tracking-wider truncate w-full leading-tight ${isAccurate ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
+                  {bm}
+                </p>
+                <p className={`text-xs leading-tight ${isAccurate ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>
+                  {participant.bookmakerPrices?.[bm] != null ? `$${participant.bookmakerPrices[bm].toFixed(2)}` : "—"}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-start gap-1.5 mb-3 px-1">
+          <IconInfo className="w-3 h-3 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
+            Ladbrokes is live. Other columns pending Australian server validation.
+          </p>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-3">
           <div>

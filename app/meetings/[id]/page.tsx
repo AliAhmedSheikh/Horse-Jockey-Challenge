@@ -5,7 +5,9 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import type { Meeting, Participant } from "@/data/types";
 import { BOOKMAKERS } from "@/data/types";
-import { IconUser, IconCar, IconStar, IconChevronRight } from "@/data/icons";
+import { IconUser, IconCar, IconStar, IconChevronRight, IconInfo } from "@/data/icons";
+
+const ACCURATE_BOOKMAKERS = new Set(["Ladbrokes"]);
 
 const statusLabels: Record<string, string> = {
   Live: "Live",
@@ -146,7 +148,12 @@ export default function MeetingDetailPage() {
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
                 {BOOKMAKERS.map((bm) => (
-                   <th key={bm} className="text-center px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">{bm}</th>
+                   <th key={bm} className={`text-center px-2 py-3 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${ACCURATE_BOOKMAKERS.has(bm) ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
+                     {bm}
+                     {!ACCURATE_BOOKMAKERS.has(bm) && (
+                       <span className="block text-[8px] font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">Coming soon</span>
+                     )}
+                   </th>
                 ))}
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI</th>
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ovl</th>
@@ -184,9 +191,10 @@ export default function MeetingDetailPage() {
                   </td>
                   {BOOKMAKERS.map((bm) => {
                     const bp = p.bookmakerPrices?.[bm];
+                    const isAccurate = ACCURATE_BOOKMAKERS.has(bm);
                     return (
                       <td key={bm} className="px-2 py-3 text-right">
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white">{bp != null ? `$${bp.toFixed(2)}` : "—"}</span>
+                        <span className={`text-sm ${isAccurate ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>{bp != null ? `$${bp.toFixed(2)}` : "—"}</span>
                       </td>
                     );
                   })}
@@ -224,10 +232,11 @@ export default function MeetingDetailPage() {
               <div className="grid grid-cols-5 gap-1 text-center mb-2">
                 {BOOKMAKERS.map((bm) => {
                   const bp = p.bookmakerPrices?.[bm];
+                  const isAccurate = ACCURATE_BOOKMAKERS.has(bm);
                   return (
-                    <div key={bm} className="bg-white dark:bg-slate-800 rounded-lg p-1 min-h-[44px] flex flex-col items-center justify-center">
-                      <p className="text-[8px] text-slate-500 dark:text-slate-400 truncate w-full leading-tight">{bm}</p>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">{bp != null ? `$${bp.toFixed(2)}` : "—"}</p>
+                    <div key={bm} className={`rounded-lg p-1 min-h-[44px] flex flex-col items-center justify-center ${isAccurate ? "bg-white dark:bg-slate-800" : "bg-slate-100/50 dark:bg-slate-800/30"}`}>
+                      <p className={`text-[8px] truncate w-full leading-tight ${isAccurate ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>{bm}</p>
+                      <p className={`text-xs leading-tight ${isAccurate ? "font-bold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>{bp != null ? `$${bp.toFixed(2)}` : "—"}</p>
                     </div>
                   );
                 })}
@@ -248,6 +257,16 @@ export default function MeetingDetailPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="mt-3 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700/50">
+          <div className="flex items-start gap-2">
+            <IconInfo className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              <span className="font-semibold text-slate-600 dark:text-slate-300">Ladbrokes</span> — live bookmaker fixed odds.
+              Other columns will be enabled once validated on an Australian server.
+            </p>
+          </div>
         </div>
       </div>
 

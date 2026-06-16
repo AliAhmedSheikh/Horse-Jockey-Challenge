@@ -260,9 +260,10 @@ def scrape_all_bookmakers():
 
         meeting_ids = [m.id for m in meetings]
 
+        ACCURATE_SCRAPERS = {"Ladbrokes"}
+
         for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:
-            if bm_name in ("TAB", "Sportsbet", "PointsBet") and not has_live:
-                logger.info(f"{bm_name}: skipping (no LIVE meetings)")
+            if bm_name not in ACCURATE_SCRAPERS:
                 continue
             scraper = scraper_cls()
             try:

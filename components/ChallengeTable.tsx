@@ -2,7 +2,9 @@
 
 import type { Participant } from "@/data/types";
 import { BOOKMAKERS } from "@/data/types";
-import { IconStar } from "@/data/icons";
+import { IconStar, IconInfo } from "@/data/icons";
+
+const ACCURATE_BOOKMAKERS = new Set(["Ladbrokes"]);
 import ChallengeCard from "./ChallengeCard";
 
 interface ChallengeTableProps {
@@ -65,8 +67,13 @@ export default function ChallengeTable({
                   Meeting
                 </th>
                 {BOOKMAKERS.map((bm) => (
-                  <th key={bm} className="text-center px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  <th key={bm} className={`text-center px-2 py-3 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${ACCURATE_BOOKMAKERS.has(bm) ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
                     {bm}
+                    {!ACCURATE_BOOKMAKERS.has(bm) && (
+                      <span className="block text-[8px] font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">
+                        Coming soon
+                      </span>
+                    )}
                   </th>
                 ))}
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -128,8 +135,9 @@ export default function ChallengeTable({
                     </td>
                     {BOOKMAKERS.map((bm) => {
                       const bp = p.bookmakerPrices?.[bm];
+                      const isAccurate = ACCURATE_BOOKMAKERS.has(bm);
                       return (
-                        <td key={bm} className="px-2 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
+                        <td key={bm} className={`px-2 py-3 text-sm text-right ${isAccurate ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>
                           {bp != null ? `$${bp.toFixed(2)}` : "—"}
                         </td>
                       );
@@ -174,6 +182,16 @@ export default function ChallengeTable({
               })}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="mt-3 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700/50">
+        <div className="flex items-start gap-2">
+          <IconInfo className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <span className="font-semibold text-slate-600 dark:text-slate-300">Ladbrokes</span> — live bookmaker fixed odds.
+            Other columns will be enabled once validated on an Australian server.
+          </p>
         </div>
       </div>
 
