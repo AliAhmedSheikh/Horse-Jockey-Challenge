@@ -14,7 +14,8 @@ export interface Participant {
   isProjectedWinner: boolean;
 }
 
-export const BOOKMAKERS = ["Ladbrokes"] as const;
+export const BOOKMAKERS = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"] as const;
+export const ACCURATE_BOOKMAKERS: readonly string[] = ["Ladbrokes"];
 
 export interface Meeting {
   id: string;

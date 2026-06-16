@@ -1,10 +1,8 @@
 "use client";
 
 import type { Participant } from "@/data/types";
-import { BOOKMAKERS } from "@/data/types";
+import { BOOKMAKERS, ACCURATE_BOOKMAKERS } from "@/data/types";
 import { IconStar, IconInfo } from "@/data/icons";
-
-const ACCURATE_BOOKMAKERS = new Set(["Ladbrokes"]);
 import ChallengeCard from "./ChallengeCard";
 
 interface ChallengeTableProps {
@@ -67,9 +65,9 @@ export default function ChallengeTable({
                   Meeting
                 </th>
                 {BOOKMAKERS.map((bm) => (
-                  <th key={bm} className={`text-center px-2 py-3 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${ACCURATE_BOOKMAKERS.has(bm) ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
+                  <th key={bm} className={`text-center px-2 py-3 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${ACCURATE_BOOKMAKERS.includes(bm) ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
                     {bm}
-                    {!ACCURATE_BOOKMAKERS.has(bm) && (
+                    {!ACCURATE_BOOKMAKERS.includes(bm) && (
                       <span className="block text-[8px] font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">
                         Coming soon
                       </span>
@@ -134,8 +132,8 @@ export default function ChallengeTable({
                       {p.meetingName}
                     </td>
                     {BOOKMAKERS.map((bm) => {
-                      const bp = p.bookmakerPrices?.[bm];
-                      const isAccurate = ACCURATE_BOOKMAKERS.has(bm);
+                      const isAccurate = ACCURATE_BOOKMAKERS.includes(bm);
+                      const bp = isAccurate ? (p.bookmakerPrices?.[bm] ?? null) : null;
                       return (
                         <td key={bm} className={`px-2 py-3 text-sm text-right ${isAccurate ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>
                           {bp != null ? `$${bp.toFixed(2)}` : "—"}

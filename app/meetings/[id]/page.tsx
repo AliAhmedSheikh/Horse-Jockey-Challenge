@@ -4,10 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import type { Meeting, Participant } from "@/data/types";
-import { BOOKMAKERS } from "@/data/types";
+import { BOOKMAKERS, ACCURATE_BOOKMAKERS } from "@/data/types";
 import { IconUser, IconCar, IconStar, IconChevronRight, IconInfo } from "@/data/icons";
-
-const ACCURATE_BOOKMAKERS = new Set(["Ladbrokes"]);
 
 const statusLabels: Record<string, string> = {
   Live: "Live",
@@ -148,9 +146,9 @@ export default function MeetingDetailPage() {
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
                 {BOOKMAKERS.map((bm) => (
-                   <th key={bm} className={`text-center px-2 py-3 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${ACCURATE_BOOKMAKERS.has(bm) ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
+                   <th key={bm} className={`text-center px-2 py-3 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${ACCURATE_BOOKMAKERS.includes(bm) ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
                      {bm}
-                     {!ACCURATE_BOOKMAKERS.has(bm) && (
+                     {!ACCURATE_BOOKMAKERS.includes(bm) && (
                        <span className="block text-[8px] font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">Coming soon</span>
                      )}
                    </th>
@@ -190,8 +188,8 @@ export default function MeetingDetailPage() {
                     </div>
                   </td>
                   {BOOKMAKERS.map((bm) => {
-                    const bp = p.bookmakerPrices?.[bm];
-                    const isAccurate = ACCURATE_BOOKMAKERS.has(bm);
+                    const isAccurate = ACCURATE_BOOKMAKERS.includes(bm);
+                    const bp = isAccurate ? (p.bookmakerPrices?.[bm] ?? null) : null;
                     return (
                       <td key={bm} className="px-2 py-3 text-right">
                         <span className={`text-sm ${isAccurate ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>{bp != null ? `$${bp.toFixed(2)}` : "—"}</span>
@@ -231,8 +229,8 @@ export default function MeetingDetailPage() {
               </div>
               <div className="grid grid-cols-5 gap-1 text-center mb-2">
                 {BOOKMAKERS.map((bm) => {
-                  const bp = p.bookmakerPrices?.[bm];
-                  const isAccurate = ACCURATE_BOOKMAKERS.has(bm);
+                  const isAccurate = ACCURATE_BOOKMAKERS.includes(bm);
+                  const bp = isAccurate ? (p.bookmakerPrices?.[bm] ?? null) : null;
                   return (
                     <div key={bm} className={`rounded-lg p-1 min-h-[44px] flex flex-col items-center justify-center ${isAccurate ? "bg-white dark:bg-slate-800" : "bg-slate-100/50 dark:bg-slate-800/30"}`}>
                       <p className={`text-[8px] truncate w-full leading-tight ${isAccurate ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>{bm}</p>

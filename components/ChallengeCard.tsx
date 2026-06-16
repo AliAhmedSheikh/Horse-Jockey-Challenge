@@ -1,9 +1,7 @@
 "use client";
 
-import { BOOKMAKERS, type Participant } from "@/data/types";
+import { BOOKMAKERS, ACCURATE_BOOKMAKERS, type Participant } from "@/data/types";
 import { IconStar, IconTrendingUp, IconInfo } from "@/data/icons";
-
-const ACCURATE_BOOKMAKERS = new Set(["Ladbrokes"]);
 import Link from "next/link";
 
 interface ChallengeCardProps {
@@ -80,14 +78,15 @@ export default function ChallengeCard({
 
         <div className="grid grid-cols-5 gap-1 mb-3 text-center">
           {BOOKMAKERS.map((bm) => {
-            const isAccurate = ACCURATE_BOOKMAKERS.has(bm);
+            const isAccurate = ACCURATE_BOOKMAKERS.includes(bm);
+            const bp = isAccurate ? (participant.bookmakerPrices?.[bm] ?? null) : null;
             return (
               <div key={bm} className={`min-h-[36px] flex flex-col items-center justify-center rounded-lg p-1 ${isAccurate ? "bg-slate-50 dark:bg-slate-800/50" : "bg-slate-100/50 dark:bg-slate-800/30"}`}>
                 <p className={`text-[8px] uppercase tracking-wider truncate w-full leading-tight ${isAccurate ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
                   {bm}
                 </p>
                 <p className={`text-xs leading-tight ${isAccurate ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>
-                  {participant.bookmakerPrices?.[bm] != null ? `$${participant.bookmakerPrices[bm].toFixed(2)}` : "—"}
+                  {bp != null ? `$${bp.toFixed(2)}` : "—"}
                 </p>
               </div>
             );
