@@ -92,7 +92,7 @@ export default function BetsPage() {
         await fetch(`/api/bets/${editingBet.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stake: parseFloat(stake), odds: parseFloat(odds) }),
+          body: JSON.stringify({ stake: parseFloat(stake), odds: parseFloat(odds), betType }),
         });
       } else {
         await fetch("/api/bets", {

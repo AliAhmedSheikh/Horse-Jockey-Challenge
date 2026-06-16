@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, func
+from sqlalchemy import desc, asc, func
 
 from database import get_db, SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus, FormulaSetting, Bet
@@ -163,7 +163,7 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
         avg_per_race = p.current_points / p.completed_races
         meeting_completed = meeting.completed_races if meeting else 0
         if meeting_completed > 0:
-            participation_rate = p.completed_races / meeting_completed
+            participation_rate = min(p.completed_races / meeting_completed, 1.0)
             estimated_remaining_rides = round(remaining * participation_rate, 1)
         else:
             estimated_remaining_rides = remaining
@@ -199,7 +199,7 @@ def _participant_to_frontend(p: Participant, db: Session, value_threshold: float
         avg_per_race = p.current_points / p.completed_races
         meeting_completed = meeting.completed_races if meeting else 0
         if meeting_completed > 0:
-            participation_rate = p.completed_races / meeting_completed
+            participation_rate = min(p.completed_races / meeting_completed, 1.0)
             estimated_remaining_rides = round(remaining * participation_rate, 1)
         else:
             estimated_remaining_rides = remaining
@@ -292,7 +292,9 @@ def get_meeting_results(meeting_id: str, db: Session = Depends(get_db)):
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
-    results = db.query(Result).filter(
+    rows = db.query(Result, Participant).join(
+        Participant, Result.participant_id == Participant.id
+    ).filter(
         Result.meeting_id == meeting_id
     ).order_by(desc(Result.race_number)).all()
 
@@ -300,10 +302,13 @@ def get_meeting_results(meeting_id: str, db: Session = Depends(get_db)):
         ResultOut(
             id=r.id,
             participant_id=r.participant_id,
+            participant_name=p.name,
             final_points=r.final_points,
             position=r.position,
+            race_number=r.race_number,
+            points_added=r.points_added,
         )
-        for r in results
+        for r, p in rows
     ]
 
 
@@ -322,11 +327,12 @@ def get_meeting_podium(meeting_id: str, db: Session = Depends(get_db)):
     ).filter(
         Result.meeting_id == meeting_id,
         Result.race_number == max_race,
-    ).order_by(desc(Result.final_points)).limit(3).all()
+        Result.position.in_([1, 2, 3]),
+    ).order_by(asc(Result.position)).all()
 
     return [
-        PodiumEntry(participant_name=p.name, final_points=r.final_points, position=i + 1)
-        for i, (r, p) in enumerate(rows)
+        PodiumEntry(participant_name=p.name, final_points=r.points_added, position=r.position)
+        for r, p in rows
     ]
 
 
@@ -537,6 +543,7 @@ def reseed_data():
     try:
         db.query(Result).delete()
         db.query(Price).delete()
+        db.query(Bet).delete()
         db.query(Participant).delete()
         db.query(Meeting).delete()
         db.commit()
@@ -641,7 +648,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
             estimated_final = round(expected_pts_per_race * meeting.total_races, 1)
         else:
             avg_per_race = p.current_points / max(p.completed_races, 1)
-            participation_rate = p.completed_races / meeting.completed_races
+            participation_rate = min(p.completed_races / meeting.completed_races, 1.0)
             estimated_remaining_rides = round(remaining * participation_rate, 1)
             estimated_final = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
 
@@ -739,6 +746,8 @@ def update_bet(bet_id: int, payload: BetUpdate, db: Session = Depends(get_db)):
     if payload.odds is not None:
         bet.odds = payload.odds
         bet.potential_return = round(bet.stake * bet.odds, 2)
+    if payload.betType is not None:
+        bet.bet_type = payload.betType
     if payload.result is not None:
         bet.result = payload.result
         if payload.result == "won":

@@ -57,8 +57,11 @@ class PriceOut(BaseModel):
 class ResultOut(BaseModel):
     id: int
     participant_id: str
+    participant_name: Optional[str] = None
     final_points: float
     position: Optional[int]
+    race_number: Optional[int] = None
+    points_added: Optional[float] = None
 
 
 class RaceResultOut(BaseModel):
@@ -112,6 +115,7 @@ class BetUpdate(BaseModel):
     stake: Optional[float] = None
     odds: Optional[float] = None
     result: Optional[str] = None
+    betType: Optional[str] = None
 
 
 class BetOut(BaseModel):
