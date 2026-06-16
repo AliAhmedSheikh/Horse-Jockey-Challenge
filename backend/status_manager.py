@@ -434,17 +434,29 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                 if not matched:
                     # Dynamically add participant not in seed data
                     pid = f"{meeting.id}_{p_name.lower().replace(' ', '_')}"
-                    new_p = Participant(
-                        id=pid,
-                        meeting_id=meeting.id,
-                        name=p_name,
-                        current_points=0,
-                        completed_races=0,
-                        remaining_races=meeting.total_races,
-                    )
-                    db.add(new_p)
-                    db.flush()
-                    participants.append(new_p)
+                    # Check if participant already exists (from a previous market iteration)
+                    existing_p = None
+                    for ep in participants:
+                        if ep.id == pid:
+                            existing_p = ep
+                            break
+                    if not existing_p:
+                        new_p = Participant(
+                            id=pid,
+                            meeting_id=meeting.id,
+                            name=p_name,
+                            current_points=0,
+                            completed_races=0,
+                            remaining_races=meeting.total_races,
+                        )
+                        db.add(new_p)
+                        db.flush()
+                        participants.append(new_p)
+                    # Always delete before insert to avoid UNIQUE constraint
+                    db.query(Price).filter(
+                        Price.participant_id == pid,
+                        Price.bookmaker_name == bookmaker_name,
+                    ).delete()
                     db.add(Price(
                         participant_id=pid,
                         meeting_id=meeting.id,
