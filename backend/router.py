@@ -509,3 +509,33 @@ def refresh_data():
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+
+@router.post("/reseed")
+def reseed_data():
+    from status_manager import refresh_meeting_status, scrape_all_bookmakers
+    from seed_data import seed_database
+    db = SessionLocal()
+    try:
+        db.query(Result).delete()
+        db.query(Price).delete()
+        db.query(Participant).delete()
+        db.query(Meeting).delete()
+        db.commit()
+        _cache.clear()
+        seed_database(db, force=True)
+        scrape_all_bookmakers()
+        refresh_meeting_status()
+        _cache.clear()
+        meetings = db.query(Meeting).all()
+        participants = db.query(Participant).all()
+        return {
+            "status": "ok",
+            "message": f"Re-seeded: {len(meetings)} meetings, {len(participants)} participants",
+        }
+    except Exception as e:
+        db.rollback()
+        _cache.clear()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()

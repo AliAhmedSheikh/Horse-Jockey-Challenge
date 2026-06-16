@@ -104,14 +104,37 @@ DRIVER_MEETINGS = [
 ALL_MEETINGS = JOCKEY_MEETINGS + DRIVER_MEETINGS
 
 
-def seed_database(db: Session):
+def seed_database(db: Session, force: bool = False):
     existing = db.query(Meeting).count()
     today = today_aus()
-    if existing > 0:
+    if existing > 0 and not force:
         today_count = db.query(Meeting).filter(Meeting.date == today).count()
         if today_count > 0:
-            logger.info(f"Database already has {today_count} meetings for today ({today})")
-            return
+            from models import Participant as ParticipantModel
+            participant_count = db.query(ParticipantModel).filter(
+                ParticipantModel.meeting_id.in_(
+                    db.query(Meeting.id).filter(Meeting.date == today)
+                )
+            ).count()
+            if participant_count > 0:
+                logger.info(f"Database already has {today_count} meetings for today ({today}) with {participant_count} participants")
+                return
+            else:
+                logger.warning(
+                    f"Found {today_count} meetings for today but 0 participants — "
+                    f"clearing and re-seeding for {today}"
+                )
+                db.query(Result).filter(Result.meeting_id.in_(
+                    db.query(Meeting.id).filter(Meeting.date == today)
+                )).delete(synchronize_session='fetch')
+                db.query(Price).filter(Price.meeting_id.in_(
+                    db.query(Meeting.id).filter(Meeting.date == today)
+                )).delete(synchronize_session='fetch')
+                db.query(ParticipantModel).filter(ParticipantModel.meeting_id.in_(
+                    db.query(Meeting.id).filter(Meeting.date == today)
+                )).delete(synchronize_session='fetch')
+                db.query(Meeting).filter(Meeting.date == today).delete()
+                db.commit()
         else:
             logger.info(f"Existing data is from a previous day, clearing and re-seeding for {today}")
             db.query(Result).filter(Result.meeting_id.in_(
