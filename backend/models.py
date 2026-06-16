@@ -101,6 +101,30 @@ class Result(Base):
     )
 
 
+class Bet(Base):
+    __tablename__ = "bets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    participant_id = Column(String, ForeignKey("participants.id"), nullable=False)
+    meeting_id = Column(String, ForeignKey("meetings.id"), nullable=False)
+    participant_name = Column(String, nullable=False)
+    meeting_name = Column(String, nullable=False)
+    bet_type = Column(String, nullable=False, default="win")
+    stake = Column(Float, nullable=False)
+    odds = Column(Float, nullable=False)
+    potential_return = Column(Float, nullable=False)
+    result = Column(String, nullable=False, default="pending")
+    pnl = Column(Float, default=0.0)
+    settled_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("ix_bet_meeting_id", "meeting_id"),
+        Index("ix_bet_participant_id", "participant_id"),
+    )
+
+
 class FormulaSetting(Base):
     __tablename__ = "formula_settings"
 

@@ -3,9 +3,10 @@
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
-import type { Meeting, Participant } from "@/data/types";
+import type { Meeting, Participant, MeetingPrediction } from "@/data/types";
 import { BOOKMAKERS, ACCURATE_BOOKMAKERS } from "@/data/types";
 import { IconUser, IconCar, IconStar, IconChevronRight, IconInfo } from "@/data/icons";
+import { useEffect } from "react";
 
 const statusLabels: Record<string, string> = {
   Live: "Live",
@@ -27,19 +28,51 @@ function valueRatingColor(rating: string) {
   }
 }
 
+function useSSE(meetingId: string | null, onRaceComplete: () => void) {
+  useEffect(() => {
+    if (!meetingId) return;
+    const es = new EventSource("/api/events");
+    const handler = (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.meetingId === meetingId) {
+          onRaceComplete();
+        }
+      } catch {}
+    };
+    es.addEventListener("race_completed", handler);
+    return () => {
+      es.removeEventListener("race_completed", handler);
+      es.close();
+    };
+  }, [meetingId, onRaceComplete]);
+}
+
 export default function MeetingDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: meeting, error: meetingError, isLoading: meetingLoading } = useSWR<Meeting>(
+  const { data: meeting, error: meetingError, isLoading: meetingLoading, mutate: mutateMeeting } = useSWR<Meeting>(
     params.id ? `/api/meetings/${params.id}` : null,
     fetcher,
-    { refreshInterval: 30000 }
+    { refreshInterval: 15000 }
   );
-  const { data: participants, isLoading: participantsLoading } = useSWR<Participant[]>(
+  const { data: participants, isLoading: participantsLoading, mutate: mutateParticipants } = useSWR<Participant[]>(
     params.id ? `/api/meetings/${params.id}/participants` : null,
+    fetcher,
+    { refreshInterval: 15000 }
+  );
+  const { data: prediction } = useSWR<MeetingPrediction>(
+    params.id ? `/api/meetings/${params.id}/prediction` : null,
     fetcher,
     { refreshInterval: 30000 }
   );
+
+  const refreshAll = () => {
+    mutateMeeting();
+    mutateParticipants();
+  };
+
+  useSSE(params.id as string | null, refreshAll);
 
   if (meetingLoading) {
     return (
@@ -119,9 +152,50 @@ export default function MeetingDetailPage() {
         </div>
       </div>
 
+      {prediction && meeting.status === "Not Started" && (
+        <div className="card p-4 md:p-5 border-l-4 border-amber-500">
+          <div className="flex items-center gap-2 mb-3">
+            <IconStar className="w-4 h-4 text-amber-500" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Pre-Meeting Prediction</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-amber-50 dark:bg-amber-500/5 rounded-lg p-4 text-center">
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wider font-semibold">Projected Winner</p>
+              <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">{prediction.projectedWinner}</p>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-4 text-center">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Top 3 Predicted</p>
+              <div className="mt-2 space-y-1">
+                {prediction.predictions.slice(0, 3).map((p, i) => (
+                  <div key={p.id} className="flex items-center justify-between text-xs">
+                    <span className="text-slate-700 dark:text-slate-300">{i + 1}. {p.name}</span>
+                    <span className="font-semibold text-amber-500">{p.estimatedFinalPoints} pts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-4">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold mb-2">Win Probabilities</p>
+              <div className="space-y-1.5">
+                {prediction.predictions.slice(0, 4).map((p) => (
+                  <div key={p.id} className="flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(p.winProbability, 100)}%` }} />
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 w-10 text-right">{p.winProbability}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card p-4 md:p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Participants & Prices</h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+            {meeting.status === "Not Started" ? "Pre-Race Analysis" : "Participants & Prices"}
+          </h2>
           {meeting.projectedWinner && (
             <span className="flex items-center gap-1.5 text-xs text-amber-500">
               <IconStar className="w-3.5 h-3.5" />
@@ -306,6 +380,19 @@ export default function MeetingDetailPage() {
               <span className="text-xs font-medium text-amber-500">AI Projected Winner</span>
             </div>
           </div>
+          {prediction && prediction.predictions.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/50">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold mb-2">Top 5 Predictions</p>
+              <div className="space-y-1.5">
+                {prediction.predictions.slice(0, 5).map((p, i) => (
+                  <div key={p.id} className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 dark:text-slate-300">{i + 1}. {p.name}</span>
+                    <span className="font-semibold text-amber-500">{p.estimatedFinalPoints} pts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="card p-4 md:p-5">

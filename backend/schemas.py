@@ -25,6 +25,7 @@ class MeetingOut(BaseModel):
     leaderboard: List[LeaderboardEntry]
     latestUpdates: List[LatestUpdate]
     projectedWinner: str
+    scheduledTime: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -95,3 +96,49 @@ class DashboardOut(BaseModel):
     drivers: List[ParticipantOut]
     recentResults: List[RaceResultOut]
     dashboardCards: DashboardCards
+
+
+class BetCreate(BaseModel):
+    participantId: str
+    meetingId: str
+    participantName: str
+    meetingName: str
+    betType: str = "win"
+    stake: float
+    odds: float
+
+
+class BetUpdate(BaseModel):
+    stake: Optional[float] = None
+    odds: Optional[float] = None
+    result: Optional[str] = None
+
+
+class BetOut(BaseModel):
+    id: int
+    participantId: str
+    meetingId: str
+    participantName: str
+    meetingName: str
+    betType: str
+    stake: float
+    odds: float
+    potentialReturn: float
+    result: str
+    pnl: float
+    createdAt: str
+    updatedAt: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BetStats(BaseModel):
+    totalBets: int
+    totalStaked: float
+    totalReturned: float
+    totalPnl: float
+    roi: float
+    winCount: int
+    lossCount: int
+    pendingCount: int
+    winRate: float

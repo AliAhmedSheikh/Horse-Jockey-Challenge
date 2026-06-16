@@ -12,6 +12,7 @@ import {
   IconSettings,
   IconSun,
   IconMoon,
+  IconDollar,
 } from "@/data/icons";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/live", label: "Live", icon: IconCalendar },
   { href: "/meetings", label: "Meetings", icon: IconList },
   { href: "/results", label: "Results", icon: IconList },
+  { href: "/bets", label: "Bets", icon: IconDollar },
   { href: "/settings", label: "Formula Settings", icon: IconSettings },
 ];
 

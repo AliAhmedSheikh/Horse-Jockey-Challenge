@@ -19,6 +19,20 @@ from seed_data import _get_real_race_positions, seed_database
 from scrapers import LadbrokesScraper, TABScraper, SportsbetScraper, PointsBetScraper, TABtouchScraper
 
 
+def _broadcast_race_update(meeting_id: str, meeting_name: str, race_number: int, completed_races: int, total_races: int):
+    try:
+        from router import broadcast_sse
+        broadcast_sse("race_completed", {
+            "meetingId": meeting_id,
+            "meetingName": meeting_name,
+            "raceNumber": race_number,
+            "completedRaces": completed_races,
+            "totalRaces": total_races,
+        })
+    except Exception:
+        pass
+
+
 logger = logging.getLogger(__name__)
 
 BOOKMAKER_SCRAPERS = [
@@ -160,6 +174,7 @@ def refresh_meeting_status():
                             )
                             db.add(result)
                     meeting.completed_races = next_race
+                    _broadcast_race_update(meeting.id, meeting.name, next_race, meeting.completed_races, meeting.total_races)
                     logger.info(f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} ({riders} riders, weighted shuffle)")
                 else:
                     status = race_data.get("status", "")
@@ -216,6 +231,7 @@ def refresh_meeting_status():
                             )
                             db.add(result)
                     meeting.completed_races = next_race
+                    _broadcast_race_update(meeting.id, meeting.name, next_race, meeting.completed_races, meeting.total_races)
                     logger.info(f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} (REAL results)")
                 logger.info(f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} completed")
 

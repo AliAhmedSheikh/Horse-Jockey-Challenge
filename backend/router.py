@@ -1,5 +1,6 @@
 import functools
 import logging
+import threading
 import time
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
 
 from database import get_db, SessionLocal
-from models import Meeting, Participant, Price, Result, MeetingStatus, FormulaSetting
+from models import Meeting, Participant, Price, Result, MeetingStatus, FormulaSetting, Bet
 from time_utils import today_aus
 from utils import compute_value_rating, compute_status, MIN_PRICE
 from schemas import (
@@ -24,6 +25,10 @@ from schemas import (
     DashboardOut,
     PodiumEntry,
     FormulaSettingsOut,
+    BetCreate,
+    BetUpdate,
+    BetOut,
+    BetStats,
 )
 
 router = APIRouter()
@@ -132,6 +137,7 @@ def _meeting_to_frontend(meeting: Meeting, db: Session,
         leaderboard=leaderboard,
         latestUpdates=latest_updates,
         projectedWinner=projected,
+        scheduledTime=meeting.scheduled_time.isoformat() if meeting.scheduled_time else None,
     )
 
 
@@ -539,3 +545,260 @@ def reseed_data():
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+
+from fastapi.responses import StreamingResponse
+import json
+import time as _time
+
+_sse_clients: list = []
+_sse_lock = threading.Lock()
+
+
+def broadcast_sse(event: str, data: dict):
+    msg = f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    with _sse_lock:
+        dead = []
+        for q in _sse_clients:
+            try:
+                q.append(msg)
+            except Exception:
+                dead.append(q)
+        for d in dead:
+            _sse_clients.remove(d)
+
+
+@router.get("/events")
+async def sse_events():
+    import asyncio
+    queue: list = []
+    with _sse_lock:
+        _sse_clients.append(queue)
+
+    async def stream():
+        try:
+            while True:
+                while queue:
+                    msg = queue.pop(0)
+                    yield msg
+                yield ": keepalive\n\n"
+                await asyncio.sleep(1)
+        finally:
+            with _sse_lock:
+                if queue in _sse_clients:
+                    _sse_clients.remove(queue)
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    })
+
+
+@router.get("/meetings/{meeting_id}/prediction")
+def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    participants = db.query(Participant).filter(
+        Participant.meeting_id == meeting_id
+    ).all()
+
+    value_threshold = _load_value_threshold(db)
+
+    pids = [p.id for p in participants]
+    all_prices = db.query(Price).filter(Price.participant_id.in_(pids)).all() if pids else []
+    prices_by_pid = {}
+    for pr in all_prices:
+        prices_by_pid.setdefault(pr.participant_id, []).append(pr)
+
+    predictions = []
+    for p in participants:
+        prs = prices_by_pid.get(p.id, [])
+        accurate_prices = [pr for pr in prs if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
+        bp_list = [pr.price for pr in accurate_prices]
+        avg_bm = sum(bp_list) / len(bp_list) if bp_list else 3.0
+
+        implied_prob = 1.0 / max(avg_bm, MIN_PRICE)
+        win_prob = min(0.85, implied_prob * 1.2)
+
+        remaining = meeting.total_races - meeting.completed_races
+        if meeting.completed_races == 0:
+            expected_pts_per_race = win_prob * 2.0
+            estimated_final = round(expected_pts_per_race * meeting.total_races, 1)
+        else:
+            avg_per_race = p.current_points / max(p.completed_races, 1)
+            estimated_final = round(p.current_points + avg_per_race * remaining, 1)
+
+        predictions.append({
+            "id": p.id,
+            "name": p.name,
+            "currentPoints": p.current_points,
+            "completedRaces": p.completed_races,
+            "remainingRaces": remaining,
+            "bookmakerPrice": round(avg_bm, 2),
+            "winProbability": round(win_prob * 100, 1),
+            "estimatedFinalPoints": estimated_final,
+        })
+
+    predictions.sort(key=lambda x: x["estimatedFinalPoints"], reverse=True)
+
+    return {
+        "meetingId": meeting.id,
+        "meetingName": meeting.name,
+        "status": meeting.status,
+        "completedRaces": meeting.completed_races,
+        "totalRaces": meeting.total_races,
+        "projectedWinner": predictions[0]["name"] if predictions else "",
+        "predictions": predictions,
+    }
+
+
+@router.get("/bets")
+def get_bets(db: Session = Depends(get_db)):
+    bets = db.query(Bet).order_by(Bet.created_at.desc()).all()
+    return [
+        BetOut(
+            id=b.id,
+            participantId=b.participant_id,
+            meetingId=b.meeting_id,
+            participantName=b.participant_name,
+            meetingName=b.meeting_name,
+            betType=b.bet_type,
+            stake=b.stake,
+            odds=b.odds,
+            potentialReturn=b.potential_return,
+            result=b.result,
+            pnl=b.pnl,
+            createdAt=b.created_at.isoformat() if b.created_at else "",
+            updatedAt=b.updated_at.isoformat() if b.updated_at else "",
+        )
+        for b in bets
+    ]
+
+
+@router.post("/bets")
+def create_bet(payload: BetCreate, db: Session = Depends(get_db)):
+    potential_return = round(payload.stake * payload.odds, 2)
+    bet = Bet(
+        participant_id=payload.participantId,
+        meeting_id=payload.meetingId,
+        participant_name=payload.participantName,
+        meeting_name=payload.meetingName,
+        bet_type=payload.betType,
+        stake=payload.stake,
+        odds=payload.odds,
+        potential_return=potential_return,
+        result="pending",
+        pnl=0.0,
+    )
+    db.add(bet)
+    db.commit()
+    db.refresh(bet)
+    return BetOut(
+        id=bet.id,
+        participantId=bet.participant_id,
+        meetingId=bet.meeting_id,
+        participantName=bet.participant_name,
+        meetingName=bet.meeting_name,
+        betType=bet.bet_type,
+        stake=bet.stake,
+        odds=bet.odds,
+        potentialReturn=bet.potential_return,
+        result=bet.result,
+        pnl=bet.pnl,
+        createdAt=bet.created_at.isoformat() if bet.created_at else "",
+        updatedAt=bet.updated_at.isoformat() if bet.updated_at else "",
+    )
+
+
+@router.put("/bets/{bet_id}")
+def update_bet(bet_id: int, payload: BetUpdate, db: Session = Depends(get_db)):
+    bet = db.query(Bet).filter(Bet.id == bet_id).first()
+    if not bet:
+        raise HTTPException(status_code=404, detail="Bet not found")
+
+    if payload.stake is not None:
+        bet.stake = payload.stake
+        bet.potential_return = round(bet.stake * bet.odds, 2)
+    if payload.odds is not None:
+        bet.odds = payload.odds
+        bet.potential_return = round(bet.stake * bet.odds, 2)
+    if payload.result is not None:
+        bet.result = payload.result
+        if payload.result == "won":
+            bet.pnl = round(bet.potential_return - bet.stake, 2)
+            bet.settled_at = datetime.now(timezone.utc)
+        elif payload.result == "lost":
+            bet.pnl = -bet.stake
+            bet.settled_at = datetime.now(timezone.utc)
+        elif payload.result == "void":
+            bet.pnl = 0.0
+            bet.settled_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(bet)
+    return BetOut(
+        id=bet.id,
+        participantId=bet.participant_id,
+        meetingId=bet.meeting_id,
+        participantName=bet.participant_name,
+        meetingName=bet.meeting_name,
+        betType=bet.bet_type,
+        stake=bet.stake,
+        odds=bet.odds,
+        potentialReturn=bet.potential_return,
+        result=bet.result,
+        pnl=bet.pnl,
+        createdAt=bet.created_at.isoformat() if bet.created_at else "",
+        updatedAt=bet.updated_at.isoformat() if bet.updated_at else "",
+    )
+
+
+@router.delete("/bets/{bet_id}")
+def delete_bet(bet_id: int, db: Session = Depends(get_db)):
+    bet = db.query(Bet).filter(Bet.id == bet_id).first()
+    if not bet:
+        raise HTTPException(status_code=404, detail="Bet not found")
+    db.delete(bet)
+    db.commit()
+    return {"status": "ok", "message": "Bet deleted"}
+
+
+@router.get("/bets/stats")
+def get_bet_stats(db: Session = Depends(get_db)):
+    bets = db.query(Bet).all()
+    total_bets = len(bets)
+    total_staked = sum(b.stake for b in bets)
+    total_returned = sum(b.potential_return for b in bets if b.result == "won")
+    total_pnl = sum(b.pnl for b in bets)
+    win_count = sum(1 for b in bets if b.result == "won")
+    loss_count = sum(1 for b in bets if b.result == "lost")
+    pending_count = sum(1 for b in bets if b.result == "pending")
+    settled = win_count + loss_count
+    win_rate = (win_count / settled * 100) if settled > 0 else 0.0
+    roi = (total_pnl / total_staked * 100) if total_staked > 0 else 0.0
+
+    pnl_by_day = {}
+    for b in bets:
+        if b.result in ("won", "lost", "void") and b.settled_at:
+            day = b.settled_at.strftime("%Y-%m-%d")
+            pnl_by_day[day] = pnl_by_day.get(day, 0.0) + b.pnl
+
+    cumulative_pnl = []
+    running = 0.0
+    for day in sorted(pnl_by_day.keys()):
+        running += pnl_by_day[day]
+        cumulative_pnl.append({"date": day, "pnl": round(running, 2)})
+
+    return BetStats(
+        totalBets=total_bets,
+        totalStaked=round(total_staked, 2),
+        totalReturned=round(total_returned, 2),
+        totalPnl=round(total_pnl, 2),
+        roi=round(roi, 1),
+        winCount=win_count,
+        lossCount=loss_count,
+        pendingCount=pending_count,
+        winRate=round(win_rate, 1),
+    )

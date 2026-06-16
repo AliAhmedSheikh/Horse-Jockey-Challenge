@@ -27,6 +27,7 @@ export interface Meeting {
   leaderboard: { name: string; points: number; rank: number }[];
   latestUpdates: { participant: string; pointsAdded: number; time: string }[];
   projectedWinner: string;
+  scheduledTime?: string;
 }
 
 export interface RaceResult {
@@ -45,4 +46,53 @@ export interface PodiumEntry {
   participant_name: string;
   final_points: number;
   position: number;
+}
+
+export interface Bet {
+  id: number;
+  participantId: string;
+  meetingId: string;
+  participantName: string;
+  meetingName: string;
+  betType: string;
+  stake: number;
+  odds: number;
+  potentialReturn: number;
+  result: "pending" | "won" | "lost" | "void";
+  pnl: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BetStats {
+  totalBets: number;
+  totalStaked: number;
+  totalReturned: number;
+  totalPnl: number;
+  roi: number;
+  winCount: number;
+  lossCount: number;
+  pendingCount: number;
+  winRate: number;
+}
+
+export interface Prediction {
+  id: string;
+  name: string;
+  currentPoints: number;
+  completedRaces: number;
+  remainingRaces: number;
+  bookmakerPrice: number;
+  winProbability: number;
+  estimatedFinalPoints: number;
+}
+
+export interface MeetingPrediction {
+  meetingId: string;
+  meetingName: string;
+  status: string;
+  completedRaces: number;
+  totalRaces: number;
+  projectedWinner: string;
+  predictions: Prediction[];
 }
