@@ -148,7 +148,7 @@ def refresh_meeting_status():
                     for pos in range(1, len(shuffled) + 1):
                         p = shuffled[pos - 1]
                         if pos <= riders:
-                            added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
+                            added = {1: 12, 2: 6, 3: 4, 4: 3, 5: 1}.get(pos, 0)
                             p.completed_races += 1
                             p.remaining_races = meeting.total_races - p.completed_races
                             p.current_points += added

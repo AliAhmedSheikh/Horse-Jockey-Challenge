@@ -53,7 +53,7 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
     # Expected points per race based on bookmaker price (market expectation)
     implied_prob = 1.0 / max(avg_bookmaker, MIN_PRICE)
     top3_prob = min(0.85, implied_prob * 1.5)
-    expected_pts_per_race = top3_prob * 2.0
+    expected_pts_per_race = top3_prob * 7.0
 
     expected_points = expected_pts_per_race * completed_races
     perf_ratio = current_points / max(expected_points, 0.01)
@@ -158,7 +158,7 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
     if p.completed_races == 0:
         implied = 1.0 / max(avg_bookmaker, 1.01)
         top3_prob = min(0.85, implied * 1.5)
-        projected = round(top3_prob * 2.0 * total_races, 1)
+        projected = round(top3_prob * 7.0 * total_races, 1)
     else:
         avg_per_race = p.current_points / p.completed_races
         projected = round(p.current_points + avg_per_race * remaining, 1)
@@ -188,7 +188,7 @@ def _participant_to_frontend(p: Participant, db: Session, value_threshold: float
     if p.completed_races == 0:
         implied = 1.0 / max(avg_bookmaker, 1.01)
         top3_prob = min(0.85, implied * 1.5)
-        projected = round(top3_prob * 2.0 * total, 1)
+        projected = round(top3_prob * 7.0 * total, 1)
     else:
         avg_per_race = p.current_points / p.completed_races
         projected = round(p.current_points + avg_per_race * remaining, 1)
@@ -625,7 +625,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
 
         remaining = meeting.total_races - meeting.completed_races
         if meeting.completed_races == 0:
-            expected_pts_per_race = win_prob * 2.0
+            expected_pts_per_race = win_prob * 7.0
             estimated_final = round(expected_pts_per_race * meeting.total_races, 1)
         else:
             avg_per_race = p.current_points / max(p.completed_races, 1)
