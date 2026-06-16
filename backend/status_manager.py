@@ -262,6 +262,15 @@ def scrape_all_bookmakers():
 
         ACCURATE_SCRAPERS = {"Ladbrokes"}
 
+        stale_bookmakers = [bm for bm, _, _ in BOOKMAKER_SCRAPERS if bm not in ACCURATE_SCRAPERS]
+        if stale_bookmakers:
+            deleted = db.query(Price).filter(
+                Price.meeting_id.in_(meeting_ids),
+                Price.bookmaker_name.in_(stale_bookmakers),
+            ).delete(synchronize_session=False)
+            if deleted:
+                logger.info(f"Cleared {deleted} stale price records for {stale_bookmakers}")
+
         for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:
             if bm_name not in ACCURATE_SCRAPERS:
                 continue
