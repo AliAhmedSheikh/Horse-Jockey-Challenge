@@ -26,14 +26,14 @@ def weighted_shuffle(participants, db: Session, meeting_id: str):
 
 
 def race_points(pos, all_positions=None):
-    if pos > 5:
+    if pos > 3:
         return 0
-    base = {1: 12, 2: 6, 3: 4, 4: 3, 5: 1}[pos]
+    base = {1: 3, 2: 2, 3: 1}[pos]
     if all_positions is None:
         return base
     count = sum(1 for p in all_positions if p == pos)
     if count > 1:
-        total = sum({1: 12, 2: 6, 3: 4, 4: 3, 5: 1}.get(pos + i, 0) for i in range(count))
+        total = sum({1: 3, 2: 2, 3: 1}.get(pos + i, 0) for i in range(count))
         return total / count
     return base
 
