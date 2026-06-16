@@ -161,7 +161,13 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
         projected = round(top3_prob * 2.0 * total_races, 1)
     else:
         avg_per_race = p.current_points / p.completed_races
-        projected = round(p.current_points + avg_per_race * remaining, 1)
+        meeting_completed = meeting.completed_races if meeting else 0
+        if meeting_completed > 0:
+            participation_rate = p.completed_races / meeting_completed
+            estimated_remaining_rides = round(remaining * participation_rate, 1)
+        else:
+            estimated_remaining_rides = remaining
+        projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
     value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in accurate_prices}
     return ParticipantOut(
@@ -191,7 +197,13 @@ def _participant_to_frontend(p: Participant, db: Session, value_threshold: float
         projected = round(top3_prob * 2.0 * total, 1)
     else:
         avg_per_race = p.current_points / p.completed_races
-        projected = round(p.current_points + avg_per_race * remaining, 1)
+        meeting_completed = meeting.completed_races if meeting else 0
+        if meeting_completed > 0:
+            participation_rate = p.completed_races / meeting_completed
+            estimated_remaining_rides = round(remaining * participation_rate, 1)
+        else:
+            estimated_remaining_rides = remaining
+        projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
 
     value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in accurate_prices}
@@ -629,7 +641,9 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
             estimated_final = round(expected_pts_per_race * meeting.total_races, 1)
         else:
             avg_per_race = p.current_points / max(p.completed_races, 1)
-            estimated_final = round(p.current_points + avg_per_race * remaining, 1)
+            participation_rate = p.completed_races / meeting.completed_races
+            estimated_remaining_rides = round(remaining * participation_rate, 1)
+            estimated_final = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
 
         predictions.append({
             "id": p.id,
