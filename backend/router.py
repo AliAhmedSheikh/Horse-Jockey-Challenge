@@ -30,6 +30,8 @@ router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
+ACCURATE_BOOKMAKERS = {"Ladbrokes"}
+
 _cache = {}
 CACHE_TTL = 30
 
@@ -140,7 +142,8 @@ def _load_value_threshold(db: Session) -> float:
 
 
 def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting], prices: List, value_threshold: float = 15.0) -> ParticipantOut:
-    bookmaker_prices = [pr.price for pr in prices]
+    accurate_prices = [pr for pr in prices if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
+    bookmaker_prices = [pr.price for pr in accurate_prices]
     avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
     total_races = meeting.total_races if meeting else 8
     ai_price = _compute_ai_price(avg_bookmaker, p.current_points, p.completed_races, total_races)
@@ -154,7 +157,7 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
         avg_per_race = p.current_points / p.completed_races
         projected = round(p.current_points + avg_per_race * remaining, 1)
     value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold)
-    bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
+    bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in accurate_prices}
     return ParticipantOut(
         id=p.id, name=p.name, meetingName=meeting.name if meeting else "", meetingId=p.meeting_id,
         bookmakerPrice=round(avg_bookmaker, 2), bookmakerPrices=bookmaker_prices_dict, aiPrice=ai_price, overlayPercent=overlay,
@@ -167,7 +170,8 @@ def _participant_to_frontend(p: Participant, db: Session, value_threshold: float
     prices = db.query(Price).filter(Price.participant_id == p.id).all()
     meeting = db.query(Meeting).filter(Meeting.id == p.meeting_id).first()
 
-    bookmaker_prices = [pr.price for pr in prices]
+    accurate_prices = [pr for pr in prices if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
+    bookmaker_prices = [pr.price for pr in accurate_prices]
     avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
 
     total = meeting.total_races if meeting else 8
@@ -184,7 +188,7 @@ def _participant_to_frontend(p: Participant, db: Session, value_threshold: float
         projected = round(p.current_points + avg_per_race * remaining, 1)
 
     value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold)
-    bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in prices}
+    bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in accurate_prices}
 
     return ParticipantOut(
         id=p.id,
@@ -408,7 +412,7 @@ def get_dashboard(db: Session = Depends(get_db)):
         p = participant_map.get(r.participant_id)
         m = meeting_map.get(r.meeting_id)
         if p and m:
-            prs = prices_by_participant.get(p.id, [])
+            prs = [pr for pr in prices_by_participant.get(p.id, []) if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
             avg_bm = sum(pr.price for pr in prs) / len(prs) if prs else 3.0
             ai_price = _compute_ai_price(avg_bm, p.current_points, p.completed_races, m.total_races)
             overlay = round((avg_bm - ai_price) / ai_price * 100, 1)
