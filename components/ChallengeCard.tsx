@@ -95,7 +95,7 @@ export default function ChallengeCard({
         <div className="flex items-start gap-1.5 mb-3 px-1">
           <IconInfo className="w-3 h-3 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
           <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
-            Ladbrokes is live. Other columns pending Australian server validation.
+            Ladbrokes, Neds — live. TAB, TABtouch, Sportsbet, PointsBet — via PuntersEdge.
           </p>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-3">

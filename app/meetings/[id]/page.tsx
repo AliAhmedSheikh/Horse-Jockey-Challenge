@@ -6,7 +6,7 @@ import { fetcher } from "@/lib/api";
 import type { Meeting, Participant, MeetingPrediction } from "@/data/types";
 import { BOOKMAKERS, ACCURATE_BOOKMAKERS } from "@/data/types";
 import { IconUser, IconCar, IconStar, IconChevronRight, IconInfo } from "@/data/icons";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 
 const statusLabels: Record<string, string> = {
   Live: "Live",
@@ -67,10 +67,10 @@ export default function MeetingDetailPage() {
     { refreshInterval: 30000 }
   );
 
-  const refreshAll = () => {
+  const refreshAll = useCallback(() => {
     mutateMeeting();
     mutateParticipants();
-  };
+  }, [mutateMeeting, mutateParticipants]);
 
   useSSE(params.id as string | null, refreshAll);
 

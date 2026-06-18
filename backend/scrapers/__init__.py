@@ -3,7 +3,10 @@ from typing import List, Dict
 
 from scrapers.base import LadbrokesAPIScraper, _fetch_all_meetings
 from scrapers.puntersedge import PuntersEdgeScraper
+from scrapers.tab import TABScraper
 from scrapers.tabtouch import TABtouchScraper
+from scrapers.pointsbet import PointsBetScraper
+from scrapers.neds import NedsScraper
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +14,6 @@ from utils import MIN_PRICE, MAX_PRICE
 
 # Map bookmaker names to PuntersEdge API keys (first found wins)
 PE_KEY_MAP = {
-    "TAB": ["tab"],
     "PointsBet": ["pointsbetau"],
     "Sportsbet": ["sportsbet", "sportsbet_au"],
 }
@@ -304,52 +306,17 @@ def _derive_markets(bookmaker_name: str) -> List[Dict]:
         )
         return result
 
-    # Fallback 2: use Ladbrokes prices directly (real prices, not bookmaker-specific)
-    logger.info(
-        f"{bookmaker_name}: no PuntersEdge-derived markets, "
-        f"falling back to Ladbrokes prices"
+    # Fallback 3: use Ladbrokes prices as an estimate (last resort)
+    logger.warning(
+        f"{bookmaker_name}: PuntersEdge returned no data — "
+        f"using Ladbrokes prices as a fallback estimate"
     )
     result = []
     for m in markets:
         if m.get("participants"):
             market = dict(m)
-            market["bookmaker"] = bookmaker_name
+            market["bookmaker"] = f"{bookmaker_name} (est.)" 
             result.append(market)
-    if result:
-        logger.info(
-            f"{bookmaker_name}: {len(result)} markets from Ladbrokes fallback"
-        )
-    else:
-        logger.warning(f"{bookmaker_name}: no markets from any source")
-    return result
-
-
-class TABScraper:
-    def __init__(self):
-        self.name = "TAB"
-
-    def scrape_jockey_challenges(self) -> List[Dict]:
-        return _derive_markets("TAB")
-
-    def scrape_driver_challenges(self) -> List[Dict]:
-        return []
-
-    def close(self):
-        pass
-
-
-class PointsBetScraper:
-    def __init__(self):
-        self.name = "PointsBet"
-
-    def scrape_jockey_challenges(self) -> List[Dict]:
-        return _derive_markets("PointsBet")
-
-    def scrape_driver_challenges(self) -> List[Dict]:
-        return []
-
-    def close(self):
-        pass
 
 
 class SportsbetScraper:
@@ -361,7 +328,7 @@ class SportsbetScraper:
         return _derive_markets("Sportsbet")
 
     def scrape_driver_challenges(self) -> List[Dict]:
-        return []
+        return _derive_markets("Sportsbet")
 
     def close(self):
         pass
@@ -373,4 +340,5 @@ __all__ = [
     "SportsbetScraper",
     "PointsBetScraper",
     "TABtouchScraper",
+    "NedsScraper",
 ]

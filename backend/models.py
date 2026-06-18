@@ -20,6 +20,7 @@ class MeetingType(str, enum.Enum):
 class Meeting(Base):
     __tablename__ = "meetings"
     __table_args__ = (
+        UniqueConstraint("date", "name", name="uix_meeting_date_name"),
         Index("ix_meeting_date", "date"),
         Index("ix_meeting_date_status", "date", "status"),
     )
@@ -43,6 +44,7 @@ class Meeting(Base):
 class Participant(Base):
     __tablename__ = "participants"
     __table_args__ = (
+        UniqueConstraint("meeting_id", "name", name="uix_meeting_participant_name"),
         Index("ix_participant_meeting_id", "meeting_id"),
     )
 
@@ -67,6 +69,7 @@ class Price(Base):
     meeting_id = Column(String, ForeignKey("meetings.id"), nullable=False)
     bookmaker_name = Column(String, nullable=False)
     price = Column(Float, nullable=False)
+    race_odds_json = Column(Text, nullable=True, default=None)
     timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     participant = relationship("Participant", back_populates="prices")

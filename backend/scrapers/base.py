@@ -80,6 +80,7 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
         challenge_type = "driver" if category == "H" else "jockey"
 
         seen = {}
+        jockey_race_odds = {}
         races_data = []
 
         def _fetch_race(client, race):
@@ -106,7 +107,7 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                 for runner in data.get("runners", []):
                     if runner.get("is_scratched", False):
                         continue
-                    jockey = (runner.get("jockey") or "").strip()
+                    jockey = (runner.get("jockey") or runner.get("driver") or "").strip()
                     if not jockey:
                         continue
                     odds = runner.get("odds", {})
@@ -114,11 +115,11 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                         win_price = float(odds.get("fixed_win", 0) or 0)
                     except (ValueError, TypeError):
                         continue
-                    # Harness runners often have fixed_win=0 — still include with MIN_PRICE
+                    # Harness runners often have fixed_win=0 — skip if no price available
                     if win_price > 0:
                         win_price = max(MIN_PRICE, min(MAX_PRICE, win_price))
                     else:
-                        win_price = MIN_PRICE
+                        continue
                     jp.append((jockey, win_price))
                 return rd, jp
             except Exception as e:
@@ -133,12 +134,14 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                     rd, jp = f.result()
                     if rd:
                         races_data.append(rd)
+                        rn = rd.get("race_number", 0)
                         for nm, pr in jp:
                             if nm not in seen or pr < seen[nm]:
                                 seen[nm] = pr
+                            jockey_race_odds.setdefault(nm, {})[rn] = pr
 
         if seen:
-            parts = [{"name": n, "price": p} for n, p in seen.items()]
+            parts = [{"name": n, "price": p, "race_odds": jockey_race_odds.get(n, {})} for n, p in seen.items()]
             parts.sort(key=lambda x: x["price"] if x["price"] > 0 else float('inf'))
             total_racing_races = len([r for r in races if r.get("race_number", 0) > 0])
             market = {

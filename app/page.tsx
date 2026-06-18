@@ -110,8 +110,8 @@ export default function DashboardPage() {
           value={dashboardCards.activeJockeyChallenges}
           subtitle={`${jockeys.length} total jockeys`}
           icon={<IconUser className="w-5 h-5" />}
-          trend={dashboardCards.activeJockeyChallenges > 0 ? "up" : "neutral"}
-          trendLabel={dashboardCards.activeJockeyChallenges > 0 ? "Active" : "No active"}
+          trend={meetings.some((m) => m.type === "Jockey" && m.status === "Live") ? "up" : "neutral"}
+          trendLabel={meetings.some((m) => m.type === "Jockey" && m.status === "Live") ? "Live" : "All completed"}
           onClick={() => router.push("/jockey-challenges")}
         />
         <DataCard
@@ -119,8 +119,8 @@ export default function DashboardPage() {
           value={dashboardCards.activeDriverChallenges}
           subtitle={`${drivers.length} total drivers`}
           icon={<IconCar className="w-5 h-5" />}
-          trend={dashboardCards.activeDriverChallenges > 0 ? "up" : "neutral"}
-          trendLabel={dashboardCards.activeDriverChallenges > 0 ? "Active" : "No active"}
+          trend={meetings.some((m) => m.type === "Driver" && m.status === "Live") ? "up" : "neutral"}
+          trendLabel={meetings.some((m) => m.type === "Driver" && m.status === "Live") ? "Live" : "All completed"}
           onClick={() => router.push("/driver-challenges")}
         />
         <DataCard
@@ -160,7 +160,7 @@ export default function DashboardPage() {
         <div className="card p-4 md:p-5 md:col-span-2">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Today's Meetings</h2>
           <div className="space-y-2">
-            {meetings.filter((m) => m.status !== "Completed").slice(0, 6).map((m) => (
+            {meetings.slice(0, 10).map((m) => (
               <div
                 key={m.id}
                 onClick={() => router.push(`/meetings/${m.id}`)}

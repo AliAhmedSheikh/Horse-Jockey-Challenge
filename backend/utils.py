@@ -5,6 +5,7 @@ from models import Price
 
 MIN_PRICE = 1.50
 MAX_PRICE = 100.0
+POINTS_TABLE = {1: 3, 2: 2, 3: 1}
 
 
 def weighted_shuffle(participants, db: Session, meeting_id: str):
@@ -28,12 +29,12 @@ def weighted_shuffle(participants, db: Session, meeting_id: str):
 def race_points(pos, all_positions=None):
     if pos > 3:
         return 0
-    base = {1: 3, 2: 2, 3: 1}[pos]
+    base = POINTS_TABLE[pos]
     if all_positions is None:
         return base
     count = sum(1 for p in all_positions if p == pos)
     if count > 1:
-        total = sum({1: 3, 2: 2, 3: 1}.get(pos + i, 0) for i in range(count))
+        total = sum(POINTS_TABLE.get(pos + i, 0) for i in range(count))
         return total / count
     return base
 
@@ -120,9 +121,10 @@ def names_match(a: str, b: str) -> bool:
         return expanded
 
     # Handle initials: "d egerton green" should match "dylan egerton green"
-    # Only apply if one name actually has an initial (single-letter word)
-    has_initial_a = any(len(w) == 1 for w in wa)
-    has_initial_b = any(len(w) == 1 for w in wb)
+    # Only apply if one name actually has an initial (single-letter word at position 0)
+    # Position matters: "o" in "O'connell" is NOT an initial — it's part of a compound surname
+    has_initial_a = len(wa) > 0 and len(wa[0]) == 1
+    has_initial_b = len(wb) > 0 and len(wb[0]) == 1
     if has_initial_a or has_initial_b:
         exp_a = _expand_initials(wa, set_b)
         exp_b = _expand_initials(wb, set_a)
@@ -137,10 +139,33 @@ def names_match(a: str, b: str) -> bool:
     if compound_a == compound_b:
         return True
 
-    # Last-name fallback: requires last name >= 5 chars AND at least one other word match
+    # Last-name fallback: requires last name >= 5 chars AND at least one other MEANINGFUL word match
     # AND the shorter name must have >= 3 words (prevents "Dylan Green" matching "Dylan Egerton-Green")
+    # Single-letter words (like "o" from O'Brien/O'connell) are excluded from overlap to prevent
+    # false matches between different people who share a compound surname prefix.
+    # Also requires the first name (first word) to match or be an initial/abbreviation, to prevent
+    # "Wayne O'connell" matching "Reece O'connell" etc.
     if wa[-1] == wb[-1] and len(wa[-1]) >= 5:
-        other_overlap = (set_a - {wa[-1]}) & (set_b - {wb[-1]})
+        # First name must match (or be an initial or abbreviation/prefix)
+        first_a, first_b = wa[0], wb[0]
+        first_is_prefix = (
+            (len(first_a) >= 3 and first_b.startswith(first_a))
+            or (len(first_b) >= 3 and first_a.startswith(first_b))
+        )
+        first_match = (
+            first_a == first_b
+            or (len(first_a) == 1 and first_b.startswith(first_a))
+            or (len(first_b) == 1 and first_a.startswith(first_b))
+            or first_is_prefix
+        )
+        if not first_match:
+            return False
+        # If first name is an abbreviation/prefix, last name alone is enough
+        if first_is_prefix:
+            return True
+        meaningful_a = {w for w in set_a - {wa[-1]} if len(w) > 1}
+        meaningful_b = {w for w in set_b - {wb[-1]} if len(w) > 1}
+        other_overlap = meaningful_a & meaningful_b
         if other_overlap and (min(len(wa), len(wb)) >= 3 or len(other_overlap) >= 2):
             return True
 

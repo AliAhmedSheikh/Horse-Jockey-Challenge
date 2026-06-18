@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+import json
 import random
 import logging
 
@@ -166,6 +167,108 @@ def seed_database(db: Session, force: bool = False):
         )
         _seed_from_fallback(db)
 
+    # Also seed from TAB/TABtouch jockey challenges to ensure those meetings exist
+    try:
+        from scrapers.tab import TABScraper
+        tab = TABScraper()
+        tab_jockey = tab.scrape_jockey_challenges()
+        tab_driver = tab.scrape_driver_challenges()
+        tab.close()
+        if tab_jockey or tab_driver:
+            _seed_tab_meetings(db, tab_jockey, tab_driver)
+    except Exception as e:
+        logger.warning(f"TAB seeding failed: {e}")
+
+    # Ensure harness driver meetings are created even when no bookmaker has published odds
+    try:
+        _seed_driver_meetings_from_listing(db)
+    except Exception as e:
+        logger.warning(f"Driver meeting listing seeding failed: {e}")
+
+
+def _seed_driver_meetings_from_listing(db: Session):
+    """Create harness driver meetings from TAB racing listing even without prices."""
+    from time_utils import today_aus
+    from scrapers.tab import _get_todays_meetings, _get_client, BASE
+    import re
+
+    aus_date = today_aus()
+    existing = {normalise_name(m.name) for m in db.query(Meeting).filter(Meeting.date == aus_date, Meeting.type == "driver").all()}
+    todays = _get_todays_meetings()
+    if not todays:
+        return
+
+    counter = db.query(Meeting).count()
+    now_aus = datetime.now(AU_TZ)
+    client = _get_client()
+
+    for mtg in todays:
+        if mtg["type"] != "driver":
+            continue
+        if normalise_name(mtg["meeting_name"]) in existing:
+            continue
+
+        # Scrape race pages to discover driver names
+        driver_names = set()
+        for ri in mtg["races"]:
+            rn = ri["race_number"]
+            url = f"{BASE}/racing/{aus_date}/{mtg['meeting_id'].lower()}/{rn}"
+            try:
+                r = client.get(url)
+                if r.status_code != 200:
+                    continue
+                pattern = re.compile(r'var model = ({.*?});\s*\n', re.DOTALL)
+                m = pattern.search(r.text)
+                if not m:
+                    continue
+                model = json.loads(m.group(1))
+                starters = model.get("allStarters", [])
+                if not starters:
+                    legs = model.get("pool", {}).get("legs", [])
+                    if legs:
+                        starters = legs[0].get("starters", [])
+                for s in starters:
+                    if s.get("isScratched") or s.get("isFobScratched"):
+                        continue
+                    driver = (s.get("associatedName") or s.get("rider") or "").strip()
+                    if not driver or driver.lower() in ("unknown", "n/a", "not declared", "n.r", "nr", "not riding", "scratching", ""):
+                        continue
+                    driver_names.add(driver.title())
+            except Exception:
+                continue
+
+        if not driver_names:
+            logger.info(f"Discovered driver meeting {mtg['meeting_name']} but no participants found yet")
+            # Still create the meeting — participants will populate when prices become available
+            driver_names.add("Unknown")
+
+        counter += 1
+        mid = f"m{counter}"
+        total_races = len(mtg["races"])
+        meeting = Meeting(
+            id=mid, name=mtg["meeting_name"], date=aus_date,
+            status=MeetingStatus.UPCOMING.value, type="driver",
+            total_races=total_races, completed_races=0,
+            scheduled_time=now_aus + timedelta(hours=1),
+        )
+        db.add(meeting)
+        db.flush()
+
+        for name in driver_names:
+            if name == "Unknown":
+                continue
+            pid = f"{mid}_{name.lower().replace(' ', '_')}"
+            db.add(Participant(
+                id=pid, meeting_id=mid, name=name,
+                current_points=0, completed_races=0, remaining_races=total_races,
+            ))
+            db.flush()
+
+        existing.add(normalise_name(mtg["meeting_name"]))
+        logger.info(f"Created driver meeting {mtg['meeting_name']} with {len(driver_names)} participants")
+
+    db.commit()
+
 
 def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
     now = datetime.now(timezone.utc)
@@ -223,8 +326,13 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
             db.flush()
             meeting_races_map[mid] = races
 
+            # Deduplicate participants by name (API sometimes returns duplicates)
+            seen_pids = set()
             for i, p in enumerate(participants):
                 pid = f"{mid}_{p['name'].lower().replace(' ', '_')}"
+                if pid in seen_pids:
+                    continue
+                seen_pids.add(pid)
                 participant = Participant(
                     id=pid,
                     meeting_id=mid,
@@ -236,17 +344,86 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                 db.add(participant)
                 db.flush()
 
+                race_odds = p.get("race_odds", {})
                 db.add(Price(
                         participant_id=pid,
                         meeting_id=mid,
                         bookmaker_name="Ladbrokes",
                         price=round(max(MIN_PRICE, min(MAX_PRICE, p["price"])), 2),
+                        race_odds_json=json.dumps(race_odds) if race_odds else None,
                         timestamp=now,
                     ))
 
     db.commit()
     _simulate_live_data(db, meeting_races_map)
     logger.info(f"Seeded {counter} meetings from API data")
+
+
+def _seed_tab_meetings(db: Session, tab_jockey: list, tab_driver: list):
+    """Seed meetings from TAB/TABtouch jockey challenges if they don't already exist."""
+    from time_utils import today_aus
+    aus_date = today_aus()
+    now = datetime.now(timezone.utc)
+    now_aus = datetime.now(AU_TZ)
+
+    existing_names = {normalise_name(m.name) for m in db.query(Meeting).filter(Meeting.date == aus_date).all()}
+    counter = db.query(Meeting).count()
+
+    for market_list, mtype in [(tab_jockey, "jockey"), (tab_driver, "driver")]:
+        for market in market_list:
+            meeting_name = market["meeting_name"]
+            if normalise_name(meeting_name) in existing_names:
+                continue
+
+            counter += 1
+            mid = f"m{counter}"
+            total_races = market.get("total_races", 8)
+            participants = market.get("participants", [])
+
+            meeting = Meeting(
+                id=mid,
+                name=meeting_name,
+                date=aus_date,
+                status=MeetingStatus.UPCOMING.value,
+                type=mtype,
+                total_races=total_races,
+                completed_races=0,
+                scheduled_time=now_aus + timedelta(hours=1),
+            )
+            db.add(meeting)
+            db.flush()
+
+            seen_pids = set()
+            for p in participants:
+                pid = f"{mid}_{p['name'].lower().replace(' ', '_')}"
+                if pid in seen_pids:
+                    continue
+                seen_pids.add(pid)
+                participant = Participant(
+                    id=pid,
+                    meeting_id=mid,
+                    name=p["name"],
+                    current_points=0,
+                    completed_races=0,
+                    remaining_races=total_races,
+                )
+                db.add(participant)
+                db.flush()
+
+                race_odds = p.get("race_odds", {})
+                db.add(Price(
+                    participant_id=pid,
+                    meeting_id=mid,
+                    bookmaker_name="TAB",
+                    price=round(max(MIN_PRICE, min(MAX_PRICE, p["price"])), 2),
+                    race_odds_json=json.dumps(race_odds) if race_odds else None,
+                    timestamp=now,
+                ))
+
+            existing_names.add(normalise_name(meeting_name))
+            logger.info(f"Seeded TAB meeting: {meeting_name} ({len(participants)} participants)")
+
+    db.commit()
 
 
 def _seed_from_fallback(db: Session):
@@ -440,8 +617,8 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
                     for p in participants:
                         if p.id in used_pids:
                             continue
-                        horse_parts = set(horse_name.lower().split())
-                        pname_parts = set(p.name.lower().split())
+                        horse_parts = {w for w in horse_name.lower().split() if len(w) >= 3}
+                        pname_parts = {w for w in p.name.lower().split() if len(w) >= 3}
                         if horse_parts & pname_parts:
                             placed.append((p, pos))
                             used_pids.add(p.id)
@@ -559,8 +736,13 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
                             timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 30)),
                         )
                         db.add(result)
+                # Only non-placed matched participants get completed_races
+                all_matched = set()
+                if real_positions:
+                    for p2, pos2 in real_positions:
+                        all_matched.add(p2.id)
                 for p in participants:
-                    if p.id not in placed_ids:
+                    if p.id not in placed_ids and p.id in all_matched:
                         result = Result(
                             meeting_id=meeting.id,
                             participant_id=p.id,

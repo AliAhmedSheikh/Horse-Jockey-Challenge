@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import random
@@ -16,7 +17,7 @@ _scrape_lock = threading.Lock()
 
 from scrapers.base import fetch_single_race_results, invalidate_cache
 from seed_data import _get_real_race_positions, seed_database
-from scrapers import LadbrokesScraper, TABScraper, SportsbetScraper, PointsBetScraper, TABtouchScraper
+from scrapers import LadbrokesScraper, TABScraper, SportsbetScraper, PointsBetScraper, TABtouchScraper, NedsScraper
 
 
 def _broadcast_race_update(meeting_id: str, meeting_name: str, race_number: int, completed_races: int, total_races: int):
@@ -41,7 +42,10 @@ BOOKMAKER_SCRAPERS = [
     ("Sportsbet", SportsbetScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
     ("PointsBet", PointsBetScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
     ("TABtouch", TABtouchScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
+    ("Neds", NedsScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
 ]
+
+ACCURATE_SCRAPERS = {"Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch", "Neds"}
 
 
 def refresh_meeting_status():
@@ -219,10 +223,18 @@ def refresh_meeting_status():
                                 timestamp=datetime.now(timezone.utc),
                             )
                             db.add(result)
-                    # Non-placed participants: they had a runner but didn't place top 3
-                    # Still count this race in their completed_races
+                    # Get all participant IDs that were matched to API results in this race
+                    from seed_data import _get_real_race_positions as _grrp
+                    # Re-fetch to get all matched participants, not just placed ones
+                    all_matched_race = _get_real_race_positions(race_data, participants, {})
+                    all_matched_pids = set()
+                    if all_matched_race:
+                        for p2, pos2 in all_matched_race:
+                            all_matched_pids.add(p2.id)
+                    
+                    # Non-placed participants who DID have a runner in this race
                     for p in participants:
-                        if p.id not in placed_ids:
+                        if p.id not in placed_ids and p.id in all_matched_pids:
                             p.completed_races += 1
                             p.remaining_races = meeting.total_races - p.completed_races
                             result = Result(
@@ -263,6 +275,16 @@ def scrape_all_bookmakers():
         return
     logger.info("Starting bookmaker scrape cycle...")
     invalidate_cache()
+    from scrapers.neds import invalidate_cache as invalidate_neds_cache
+    try:
+        invalidate_neds_cache()
+    except Exception:
+        pass
+    try:
+        from router import _cache as router_cache
+        router_cache.clear()
+    except Exception:
+        pass
     db = None
     today = today_aus()
     try:
@@ -281,7 +303,13 @@ def scrape_all_bookmakers():
 
         meeting_ids = [m.id for m in meetings]
 
-        ACCURATE_SCRAPERS = {"Ladbrokes"}
+        # Time-based price eviction: remove prices older than 24 hours
+        old_prices = db.query(Price).filter(
+            Price.meeting_id.in_(meeting_ids),
+            Price.timestamp < datetime.now(timezone.utc) - timedelta(hours=24),
+        ).delete(synchronize_session=False)
+        if old_prices:
+            logger.info(f"Cleared {old_prices} price records older than 24 hours")
 
         stale_bookmakers = [bm for bm, _, _ in BOOKMAKER_SCRAPERS if bm not in ACCURATE_SCRAPERS]
         if stale_bookmakers:
@@ -297,12 +325,6 @@ def scrape_all_bookmakers():
                 continue
             scraper = scraper_cls()
             try:
-                # Clear old prices for this bookmaker unconditionally
-                db.query(Price).filter(
-                    Price.meeting_id.in_(meeting_ids),
-                    Price.bookmaker_name == bm_name,
-                ).delete(synchronize_session=False)
-
                 all_markets = []
                 for method_name in methods:
                     method = getattr(scraper, method_name, None)
@@ -319,7 +341,7 @@ def scrape_all_bookmakers():
                     _update_prices_from_markets(db, meetings, all_markets, bm_name)
                     logger.info(f"{bm_name}: prices updated for {len(meetings)} meetings")
                 else:
-                    logger.info(f"{bm_name}: no markets returned, cleared old prices")
+                    logger.info(f"{bm_name}: no markets returned")
 
                 db.commit()
             except Exception as e:
@@ -346,7 +368,10 @@ def _add_dynamic_meetings(db, unmatched_names, markets, bookmaker_name):
         mn = normalise_name(market.get("meeting_name", ""))
         if mn not in [normalise_name(u) for u in unmatched_names]:
             continue
-        existing = db.query(Meeting).filter(normalise_name(Meeting.name) == mn).first()
+        existing = db.query(Meeting).filter(
+            Meeting.date == today_aus(),
+            Meeting.name.ilike(f"%{market.get('meeting_name', '')}%")
+        ).first()
         if existing:
             continue
         mtype = MeetingType.DRIVER.value if market.get("type") == "driver" else MeetingType.JOCKEY.value
@@ -366,7 +391,7 @@ def _add_dynamic_meetings(db, unmatched_names, markets, bookmaker_name):
         db.flush()
         for p_data in market.get("participants", []):
             p_name = p_data.get("name", "").strip()
-            if not p_name:
+            if not p_name or p_name.lower() in ("unknown", ""):
                 continue
             pid = f"{mid}_{p_name.lower().replace(' ', '_')}"
             db.add(Participant(
@@ -374,10 +399,12 @@ def _add_dynamic_meetings(db, unmatched_names, markets, bookmaker_name):
                 current_points=0, completed_races=0, remaining_races=meeting.total_races,
             ))
             db.flush()
+            race_odds = p_data.get("race_odds", {})
             db.add(Price(
                 participant_id=pid, meeting_id=mid,
                 bookmaker_name=bookmaker_name,
                 price=round(max(MIN_PRICE, min(MAX_PRICE, float(p_data.get("price", 0) or 0))), 2),
+                race_odds_json=json.dumps(race_odds) if race_odds else None,
                 timestamp=datetime.now(timezone.utc),
             ))
         logger.info(f"Added dynamic meeting '{market['meeting_name']}' from {bookmaker_name}")
@@ -391,6 +418,10 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
         r'^(n\.?r\.?|not\s+(riding|declared)|scratched|n\.?d\.?|late\s+scratching|reserve|emergency|unknown)\s*$',
         re.IGNORECASE
     )
+
+    # Track which prices have been added in this call to prevent duplicates
+    # when multiple markets match the same meeting (e.g. jockey + driver markets)
+    processed_prices = set()
 
     unmatched_meetings = []
     for market in markets:
@@ -412,34 +443,27 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                     new_price = float(p_data.get("price", 0) or 0)
                 except (ValueError, TypeError):
                     continue
-                if not p_name or new_price <= 0 or _NON_RIDER_RE.match(p_name):
+                if not p_name or new_price <= 0 or _NON_RIDER_RE.match(p_name) or p_name.lower() in ("unknown", ""):
                     continue
                 new_price = round(max(MIN_PRICE, min(MAX_PRICE, new_price)), 2)
+                race_odds = p_data.get("race_odds", {})
+                race_odds_json_val = json.dumps(race_odds) if race_odds else None
                 matched = False
+                pid = None
                 for p in participants:
                     if names_match(p.name, p_name):
-                        db.query(Price).filter(
-                            Price.participant_id == p.id,
-                            Price.bookmaker_name == bookmaker_name,
-                        ).delete()
-                        db.add(Price(
-                            participant_id=p.id,
-                            meeting_id=meeting.id,
-                            bookmaker_name=bookmaker_name,
-                            price=new_price,
-                            timestamp=datetime.now(timezone.utc),
-                        ))
+                        pid = p.id
                         matched = True
                         break
                 if not matched:
-                    # Dynamically add participant not in seed data
                     pid = f"{meeting.id}_{p_name.lower().replace(' ', '_')}"
-                    # Check if participant already exists (from a previous market iteration)
                     existing_p = None
                     for ep in participants:
                         if ep.id == pid:
                             existing_p = ep
                             break
+                    if not existing_p:
+                        existing_p = db.query(Participant).filter(Participant.id == pid).first()
                     if not existing_p:
                         new_p = Participant(
                             id=pid,
@@ -452,19 +476,36 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                         db.add(new_p)
                         db.flush()
                         participants.append(new_p)
-                    # Always delete before insert to avoid UNIQUE constraint
-                    db.query(Price).filter(
+                        added_count += 1
+
+                # Skip if this exact (participant_id, bookmaker_name) was already processed
+                price_key = (pid, bookmaker_name)
+                if price_key in processed_prices:
+                    # Update price instead of insert
+                    existing = db.query(Price).filter(
                         Price.participant_id == pid,
                         Price.bookmaker_name == bookmaker_name,
-                    ).delete()
-                    db.add(Price(
-                        participant_id=pid,
-                        meeting_id=meeting.id,
-                        bookmaker_name=bookmaker_name,
-                        price=new_price,
-                        timestamp=datetime.now(timezone.utc),
-                    ))
-                    added_count += 1
+                    ).first()
+                    if existing:
+                        existing.price = new_price
+                        if race_odds_json_val:
+                            existing.race_odds_json = race_odds_json_val
+                        existing.timestamp = datetime.now(timezone.utc)
+                    continue
+
+                processed_prices.add(price_key)
+                db.query(Price).filter(
+                    Price.participant_id == pid,
+                    Price.bookmaker_name == bookmaker_name,
+                ).delete()
+                db.add(Price(
+                    participant_id=pid,
+                    meeting_id=meeting.id,
+                    bookmaker_name=bookmaker_name,
+                    price=new_price,
+                    race_odds_json=race_odds_json_val,
+                    timestamp=datetime.now(timezone.utc),
+                ))
             if added_count:
                 logger.info(
                     f"{bookmaker_name} / {market.get('meeting_name', '?')}: "
@@ -472,7 +513,12 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                 )
 
     if unmatched_meetings:
-        logger.info(
-            f"{bookmaker_name}: {len(unmatched_meetings)} meetings added dynamically"
-        )
-        _add_dynamic_meetings(db, unmatched_meetings, markets, bookmaker_name)
+        if bookmaker_name in ("Ladbrokes", "TAB", "TABtouch", "PointsBet"):
+            logger.info(
+                f"{bookmaker_name}: {len(unmatched_meetings)} meetings added dynamically"
+            )
+            _add_dynamic_meetings(db, unmatched_meetings, markets, bookmaker_name)
+        else:
+            logger.info(
+                f"{bookmaker_name}: {len(unmatched_meetings)} meetings not in DB, skipping"
+            )

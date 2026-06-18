@@ -66,7 +66,7 @@ export default function BetsPage() {
   }, [selectedParticipantId, meetingParticipants]);
 
   const sortedMeetings = [...(meetings || [])].sort((a, b) => {
-    const statusOrder: Record<string, number> = { "Not Started": 0, "In Progress": 1, "Completed": 2 };
+    const statusOrder: Record<string, number> = { "Not Started": 0, "Live": 1, "Completed": 2 };
     return (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3);
   });
 
@@ -86,7 +86,18 @@ export default function BetsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const pname = getParticipantName();
-    if (!pname || !stake || !odds) return;
+    if (!pname || !stake || !odds) {
+      alert("Please fill in all required fields: participant name, stake, and odds.");
+      return;
+    }
+    if (parseFloat(stake) <= 0) {
+      alert("Stake must be greater than 0.");
+      return;
+    }
+    if (parseFloat(odds) < 1.01) {
+      alert("Odds must be at least 1.01.");
+      return;
+    }
     try {
       if (editingBet) {
         await fetch(`/api/bets/${editingBet.id}`, {
@@ -130,8 +141,8 @@ export default function BetsPage() {
   const startEdit = (bet: Bet) => {
     setEditingBet(bet);
     setShowForm(true);
-    setSelectedMeetingId("");
-    setSelectedParticipantId("");
+    setSelectedMeetingId(bet.meetingId !== "manual" ? bet.meetingId : "");
+    setSelectedParticipantId(bet.participantId !== "manual" ? bet.participantId : "");
     setManualName(bet.participantName);
     setStake(String(bet.stake));
     setOdds(String(bet.odds));
@@ -248,15 +259,21 @@ export default function BetsPage() {
             <p className={`text-2xl font-bold mt-1 ${stats.totalPnl >= 0 ? "text-emerald-500" : "text-red-500"}`}>
               {stats.totalPnl >= 0 ? "+" : ""}{stats.totalPnl.toFixed(2)}
             </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Win rate: {stats.winRate}%</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Win rate: {stats.winRate.toFixed(1)}%</p>
           </div>
           <div className="card p-4">
             <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">ROI</p>
             <p className={`text-2xl font-bold mt-1 ${stats.roi >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-              {stats.roi >= 0 ? "+" : ""}{stats.roi}%
+              {stats.roi >= 0 ? "+" : ""}{stats.roi.toFixed(2)}%
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{stats.totalBets} bets placed</p>
           </div>
+        </div>
+      )}
+
+      {!stats && (
+        <div className="flex items-center justify-center h-32 text-sm text-slate-400">
+          Loading bet statistics...
         </div>
       )}
 
@@ -349,7 +366,7 @@ export default function BetsPage() {
             </div>
             <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
             <div>
-              <p className={`text-lg font-bold ${stats.roi >= 0 ? "text-emerald-500" : "text-red-500"}`}>{stats.roi >= 0 ? "+" : ""}{stats.roi}%</p>
+              <p className={`text-lg font-bold ${stats.roi >= 0 ? "text-emerald-500" : "text-red-500"}`}>{stats.roi >= 0 ? "+" : ""}{stats.roi.toFixed(2)}%</p>
               <p className="text-xs text-slate-400">ROI</p>
             </div>
           </div>

@@ -3,7 +3,6 @@ import re
 import json
 import time
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Optional
 import httpx
 import urllib3
@@ -18,7 +17,6 @@ BASE = "https://www.tabtouch.com.au"
 
 _NON_AU_PATTERN = re.compile(r'\s+-\s+\w{2,4}\s*$')
 _JOCKEY_CHALLENGE_RE = re.compile(r'(.+?)\s+Jockey Challenge\s+3,2,1\s+Points', re.IGNORECASE)
-_DRIVER_WINS_RE = re.compile(r'Driver Wins\s*-\s*(.+?)\s*\((.+?)\)', re.IGNORECASE)
 _GLOBALS_PATTERN = re.compile(r'globals\.fixedOddsBettingData\s*=\s*({.*?});', re.DOTALL)
 _EVENT_ID_PATTERN = re.compile(r'/event-(\d+)')
 
@@ -32,7 +30,7 @@ _shared_client = None
 _client_lock = threading.Lock()
 _event_cache = {}
 _event_cache_lock = threading.Lock()
-CACHE_TTL = 120
+_CACHE_TTL = 120
 
 
 def _get_client():
@@ -56,7 +54,7 @@ def _get_jockey_challenge_events(date_str: str) -> List[Dict]:
     with _event_cache_lock:
         if cache_key in _event_cache:
             entry = _event_cache[cache_key]
-            if isinstance(entry, tuple) and now - entry[1] < CACHE_TTL:
+            if isinstance(entry, tuple) and now - entry[1] < _CACHE_TTL:
                 return entry[0]
 
     url = f"{BASE}/racing/jockey-challenge/{date_str}"
@@ -109,7 +107,7 @@ def _fetch_jockey_challenge_event(event_id: int, date_str: str) -> Optional[Dict
     with _event_cache_lock:
         if cache_key in _event_cache:
             entry = _event_cache[cache_key]
-            if isinstance(entry, tuple) and now - entry[1] < CACHE_TTL:
+            if isinstance(entry, tuple) and now - entry[1] < _CACHE_TTL:
                 return entry[0]
 
     url = f"{BASE}/api/fixed-odds/refresh/jockeychallenge/{date_str}/event-{event_id}"
@@ -117,16 +115,10 @@ def _fetch_jockey_challenge_event(event_id: int, date_str: str) -> Optional[Dict
         client = _get_client()
         r = client.get(url)
         if r.status_code != 200:
-            logger.warning(f"TABtouch jockey challenge event {event_id} returned {r.status_code}")
             return None
 
         data = r.json()
         if data.get("responseCode") != "Success":
-            code = data.get("responseCode", "unknown")
-            if code == "FixedOddsEventClosed":
-                logger.info(f"TABtouch jockey challenge event {event_id}: closed, will use HTML fallback")
-            else:
-                logger.warning(f"TABtouch jockey challenge event {event_id}: {code} - {data.get('responseMessage', '')}")
             return None
 
         with _event_cache_lock:
@@ -144,7 +136,7 @@ def _fetch_event_from_html(event_id: int, date_str: str) -> Optional[Dict]:
     with _event_cache_lock:
         if cache_key in _event_cache:
             entry = _event_cache[cache_key]
-            if isinstance(entry, tuple) and now - entry[1] < CACHE_TTL:
+            if isinstance(entry, tuple) and now - entry[1] < _CACHE_TTL:
                 return entry[0]
 
     url = f"{BASE}/racing/jockey-challenge/{date_str}/event-{event_id}"
@@ -152,12 +144,10 @@ def _fetch_event_from_html(event_id: int, date_str: str) -> Optional[Dict]:
         client = _get_client()
         r = client.get(url)
         if r.status_code != 200:
-            logger.warning(f"TABtouch event page {url} returned {r.status_code}")
             return None
 
         m = _GLOBALS_PATTERN.search(r.text)
         if not m:
-            logger.warning(f"TABtouch event {event_id}: fixedOddsBettingData not found")
             return None
 
         data = json.loads(m.group(1))
@@ -178,13 +168,11 @@ def _get_todays_meetings() -> List[Dict]:
         client = _get_client()
         r = client.get(url)
         if r.status_code != 200:
-            logger.warning(f"TABtouch racing page returned {r.status_code}")
             return []
 
         soup = BeautifulSoup(r.text, 'html.parser')
         table = soup.find('table')
         if not table:
-            logger.warning("TABtouch racing page: no table found")
             return []
 
         rows = table.find_all('tr')
@@ -242,19 +230,17 @@ def _get_todays_meetings() -> List[Dict]:
         return []
 
 
-class TABtouchScraper:
+class TABScraper:
+    """Scrape TAB jockey/driver challenge odds via TABtouch API.
+
+    TAB and TABtouch are both Tabcorp brands sharing the same data.
+    Uses the TABtouch JSON API endpoints which are publicly accessible.
+    """
+
     def __init__(self):
-        self.name = "TABtouch"
+        self.name = "TAB"
 
-    def _scrape(self, challenge_type: str) -> List[Dict]:
-        if challenge_type == "jockey":
-            return self._scrape_jockey_challenges()
-        elif challenge_type == "driver":
-            return self._scrape_driver_challenges()
-        return []
-
-    def _scrape_jockey_challenges(self) -> List[Dict]:
-        """Scrape actual jockey challenge markets from TABtouch dedicated API."""
+    def scrape_jockey_challenges(self) -> List[Dict]:
         from time_utils import today_aus
         date_str = today_aus()
 
@@ -262,6 +248,7 @@ class TABtouchScraper:
         if not events:
             return self._scrape_jockey_from_race_pages(date_str)
 
+        # Get race counts per meeting
         meetings = _get_todays_meetings()
         meeting_race_counts = {}
         for mtg in meetings:
@@ -273,13 +260,16 @@ class TABtouchScraper:
             event_name = event["event_name"]
             event_id = event["event_id"]
 
+            # Only process Jockey Challenge 3,2,1 Points events
             m = _JOCKEY_CHALLENGE_RE.match(event_name)
             if not m:
                 continue
             meeting_name = m.group(1).strip()
 
+            # Try JSON API first (works for open events)
             data = _fetch_jockey_challenge_event(event_id, date_str)
             if not data:
+                # Fall back to HTML (works for closed events)
                 data = _fetch_event_from_html(event_id, date_str)
             if not data:
                 continue
@@ -288,26 +278,27 @@ class TABtouchScraper:
             if not propositions:
                 continue
 
-            is_open = data.get("isOpen", False)
             participants = []
             for prop in propositions:
-                # For open events, skip if showRacingStatusText or not showBetButton
-                # For closed/resulted events, showBetButton is False for all — skip that check
-                if is_open and (prop.get("showRacingStatusText") or not prop.get("showBetButton")):
-                    continue
                 name = (prop.get("name") or "").strip()
                 if not name:
                     continue
-                # Skip quinella-style entries, "Any Other", dead heat rules
+                # Skip quinella-style entries (contain "/"), "Any Other", dead heat rules
                 if "/" in name or "Any Other" in name or "Dead Heat" in name:
                     continue
                 if "must complete" in name.lower():
+                    continue
+                # For open events, skip if showBetButton=False or racing status text shown
+                # For closed/resulted events, showBetButton is False for all props — skip that check
+                is_open = data.get("isOpen", False)
+                if is_open and (prop.get("showRacingStatusText") or not prop.get("showBetButton")):
                     continue
                 try:
                     price = float(prop.get("winReturn", 0) or 0)
                 except (ValueError, TypeError):
                     continue
                 if price > 0:
+                    price = round(max(MIN_PRICE, min(MAX_PRICE, price)), 2)
                     participants.append({"name": name, "price": price})
 
             if not participants:
@@ -319,24 +310,20 @@ class TABtouchScraper:
                 "meeting_name": meeting_name,
                 "type": "jockey",
                 "participants": participants,
-                "bookmaker": "TABtouch",
+                "bookmaker": "TAB",
                 "total_races": total_races,
                 "races": [],
             }
             result.append(market)
             logger.info(
-                f"TABtouch jockey: {meeting_name} "
+                f"TAB jockey: {meeting_name} "
                 f"({len(participants)} participants, {total_races} races)"
             )
 
         return result
 
-    def _scrape_driver_challenges(self) -> List[Dict]:
-        """Scrape driver challenges from TABtouch harness racing pages.
-        
-        Harness pages use allStarters[].associatedName for drivers and
-        fixedWinDividendDollars/winDividendDollars for prices.
-        """
+    def scrape_driver_challenges(self) -> List[Dict]:
+        """TABtouch driver challenges are derived from harness race win odds."""
         from time_utils import today_aus
         date_str = today_aus()
 
@@ -352,8 +339,8 @@ class TABtouchScraper:
             meeting_id = mtg["meeting_id"]
             driver_prices = {}
 
-            def _process_race(mid, ds, ri):
-                rn = ri["race_number"]
+            def _process_race(mid, ds, rn_info):
+                rn = rn_info["race_number"]
                 url = f"{BASE}/racing/{ds}/{mid.lower()}/{rn}"
                 try:
                     client = _get_client()
@@ -368,11 +355,13 @@ class TABtouchScraper:
 
                     model = json.loads(m.group(1))
                     results = []
+
                     starters = model.get("allStarters", [])
                     if not starters:
                         legs = model.get("pool", {}).get("legs", [])
                         if legs:
                             starters = legs[0].get("starters", [])
+
                     for starter in starters:
                         if starter.get("isScratched") or starter.get("isFobScratched"):
                             continue
@@ -389,11 +378,12 @@ class TABtouchScraper:
                             results.append((driver, round(max(MIN_PRICE, min(MAX_PRICE, price)), 2)))
                     return results
                 except Exception as e:
-                    logger.warning(f"TABtouch driver race {mid} R{rn}: {e}")
+                    logger.warning(f"TAB driver race {mid} R{rn}: {e}")
                     return []
 
             races = mtg["races"]
             if races:
+                from concurrent.futures import ThreadPoolExecutor, as_completed
                 with ThreadPoolExecutor(max_workers=5) as ex:
                     futs = {ex.submit(_process_race, meeting_id, date_str, ri): ri for ri in races}
                     for f in as_completed(futs):
@@ -410,26 +400,25 @@ class TABtouchScraper:
                     "meeting_name": mtg["meeting_name"],
                     "type": "driver",
                     "participants": participants,
-                    "bookmaker": "TABtouch",
+                    "bookmaker": "TAB",
                     "total_races": len(mtg["races"]),
                     "races": [],
                 }
                 result.append(market)
                 logger.info(
-                    f"TABtouch driver: {mtg['meeting_name']} "
+                    f"TAB driver: {mtg['meeting_name']} "
                     f"({len(participants)} participants, {len(mtg['races'])} races)"
                 )
 
         return result
-
-    def scrape_jockey_challenges(self) -> List[Dict]:
-        return self._scrape("jockey")
 
     def _scrape_jockey_from_race_pages(self, date_str: str) -> List[Dict]:
         """Fallback: derive jockey challenge prices from individual race pages."""
         meetings = _get_todays_meetings()
         if not meetings:
             return []
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         result = []
         for mtg in meetings:
@@ -478,7 +467,7 @@ class TABtouchScraper:
                             results.append((jockey, round(max(MIN_PRICE, min(MAX_PRICE, price)), 2)))
                     return results
                 except Exception as e:
-                    logger.warning(f"TABtouch jockey race {mid} R{rn}: {e}")
+                    logger.warning(f"TAB jockey race {mid} R{rn}: {e}")
                     return []
 
             races = mtg["races"]
@@ -499,20 +488,17 @@ class TABtouchScraper:
                     "meeting_name": mtg["meeting_name"],
                     "type": "jockey",
                     "participants": participants,
-                    "bookmaker": "TABtouch",
+                    "bookmaker": "TAB",
                     "total_races": len(mtg["races"]),
                     "races": [],
                 }
                 result.append(market)
                 logger.info(
-                    f"TABtouch jockey (race pages): {mtg['meeting_name']} "
+                    f"TAB jockey (race pages): {mtg['meeting_name']} "
                     f"({len(participants)} participants, {len(mtg['races'])} races)"
                 )
 
         return result
-
-    def scrape_driver_challenges(self) -> List[Dict]:
-        return self._scrape("driver")
 
     def close(self):
         pass

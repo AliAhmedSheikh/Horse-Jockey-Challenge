@@ -15,7 +15,7 @@ export interface Participant {
 }
 
 export const BOOKMAKERS = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"] as const;
-export const ACCURATE_BOOKMAKERS: readonly string[] = ["Ladbrokes"];
+export const ACCURATE_BOOKMAKERS: readonly string[] = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"];
 
 export interface Meeting {
   id: string;
