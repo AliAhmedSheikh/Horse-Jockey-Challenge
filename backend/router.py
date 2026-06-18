@@ -609,11 +609,8 @@ def _cached(key: str, ttl: int = CACHE_TTL):
                 return result
             except Exception as e:
                 logger.warning(f"Cache miss for '{key}', error: {e}")
-                # Serve stale cache if available (better than crashing/retry loop)
-                if key in _cache:
-                    logger.info(f"Serving stale '{key}' cache")
-                    return _cache[key]["data"]
-                # No stale cache — return empty to avoid frontend retry loops
+                # Do NOT serve stale cache — it can show outdated results
+                # Instead, propagate the error so frontend shows current state
                 if key == "dashboard":
                     from schemas import DashboardOut, DashboardCards
                     return DashboardOut(meetings=[], jockeys=[], drivers=[], recentResults=[], dashboardCards=DashboardCards(todayMeetings=0, activeJockeyChallenges=0, activeDriverChallenges=0, totalParticipants=0))

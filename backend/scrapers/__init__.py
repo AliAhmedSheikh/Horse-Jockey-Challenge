@@ -336,32 +336,74 @@ def _derive_markets(bookmaker_name: str) -> List[Dict]:
         )
         return result
 
-    # Fallback 3: use Ladbrokes prices as an estimate (last resort)
+    # Fallback 3: DO NOT use Ladbrokes prices as proxy for other bookmakers
+    # This causes fake data — prices labeled as Sportsbet/PointsBet are actually Ladbrokes
     logger.warning(
-        f"{bookmaker_name}: PuntersEdge returned no data — "
-        f"using Ladbrokes prices as a fallback estimate"
+        f"{bookmaker_name}: PuntersEdge returned no data and no ratio match — "
+        f"no prices available for this bookmaker"
     )
-    result = []
-    for m in markets:
-        if m.get("participants"):
-            market = dict(m)
-            market["bookmaker"] = f"{bookmaker_name} (est.)" 
-            result.append(market)
+    return []
 
 
 class SportsbetScraper:
-    """Sportsbet prices derived via PuntersEdge venue ratios."""
+    """Sportsbet prices: try PuntersEdge first, fall back to Playwright scraper."""
     def __init__(self):
         self.name = "Sportsbet"
+        self._pw_scraper = None
+
+    def _get_pw_scraper(self):
+        if self._pw_scraper is None:
+            try:
+                from scrapers.sportsbet import SportsbetScraper as PWSportsbetScraper
+                self._pw_scraper = PWSportsbetScraper()
+            except Exception:
+                pass
+        return self._pw_scraper
 
     def scrape_jockey_challenges(self) -> List[Dict]:
-        return [m for m in _derive_markets("Sportsbet") if m.get("type") == "jockey"]
+        # Try PuntersEdge first
+        pe_result = [m for m in _derive_markets("Sportsbet") if m.get("type") == "jockey"]
+        if pe_result:
+            return pe_result
+
+        # Fallback: Playwright scraper
+        pw = self._get_pw_scraper()
+        if pw:
+            try:
+                result = pw.scrape_jockey_challenges()
+                if result:
+                    logger.info(f"Sportsbet: Playwright fallback returned {len(result)} jockey markets")
+                    return result
+            except Exception as e:
+                logger.warning(f"Sportsbet: Playwright fallback failed: {e}")
+
+        return []
 
     def scrape_driver_challenges(self) -> List[Dict]:
-        return [m for m in _derive_markets("Sportsbet") if m.get("type") == "driver"]
+        # Try PuntersEdge first
+        pe_result = [m for m in _derive_markets("Sportsbet") if m.get("type") == "driver"]
+        if pe_result:
+            return pe_result
+
+        # Fallback: Playwright scraper
+        pw = self._get_pw_scraper()
+        if pw:
+            try:
+                result = pw.scrape_driver_challenges()
+                if result:
+                    logger.info(f"Sportsbet: Playwright fallback returned {len(result)} driver markets")
+                    return result
+            except Exception as e:
+                logger.warning(f"Sportsbet: Playwright fallback failed: {e}")
+
+        return []
 
     def close(self):
-        pass
+        if self._pw_scraper:
+            try:
+                self._pw_scraper.close()
+            except Exception:
+                pass
 
 
 __all__ = [

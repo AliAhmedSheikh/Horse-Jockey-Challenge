@@ -1,7 +1,7 @@
 import logging
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from typing import List, Dict, Tuple, Optional
 import httpx
 
@@ -48,18 +48,30 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
             return _all_cache
 
     today = today_aus()
+    from datetime import date as _date, timedelta
+    today_date = _date.fromisoformat(today)
+    dates_to_try = [
+        today,
+        (today_date - timedelta(days=1)).isoformat(),
+        (today_date + timedelta(days=1)).isoformat(),
+    ]
+
     client = _get_client()
-    try:
-        r = client.get(
-            f"{API_BASE}/racing/meetings",
-            params={"date_from": today, "date_to": today, "country": "AUS", "type": " ", "limit": 200},
-        )
-        if r.status_code != 200:
-            logger.warning(f"Ladbrokes API returned {r.status_code}, will retry on next request")
-            return ([], [])
-        meetings = r.json().get("data", {}).get("meetings", [])
-    except Exception as e:
-        logger.error(f"Failed to fetch meetings: {e}, will retry on next request", exc_info=True)
+    all_meetings = []
+    for d in dates_to_try:
+        try:
+            r = client.get(
+                f"{API_BASE}/racing/meetings",
+                params={"date_from": d, "date_to": d, "country": "AUS", "type": " ", "limit": 200},
+            )
+            if r.status_code == 200:
+                meetings = r.json().get("data", {}).get("meetings", [])
+                all_meetings.extend(meetings)
+        except Exception as e:
+            logger.warning(f"Failed to fetch meetings for {d}: {e}")
+
+    if not all_meetings:
+        logger.warning("Ladbrokes API returned no meetings on any date")
         return ([], [])
 
     jockey_markets = []
@@ -129,17 +141,18 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
 
         valid = [r for r in races if r.get("race_number", 0) > 0]
         if valid:
-            with ThreadPoolExecutor(max_workers=10) as ex:
-                futs = {ex.submit(_fetch_race, client, r): r for r in valid}
-                for f in as_completed(futs):
-                    rd, jp = f.result()
-                    if rd:
-                        races_data.append(rd)
-                        rn = rd.get("race_number", 0)
-                        for nm, pr, horse in jp:
-                            if nm not in seen or pr < seen[nm][0]:
-                                seen[nm] = (pr, horse)
-                            jockey_race_odds.setdefault(nm, {})[rn] = {"odds": pr, "horse": horse}
+            from scrapers.shared import get_pool
+            pool = get_pool()
+            futs = {pool.submit(_fetch_race, client, r): r for r in valid}
+            for f in as_completed(futs):
+                rd, jp = f.result()
+                if rd:
+                    races_data.append(rd)
+                    rn = rd.get("race_number", 0)
+                    for nm, pr, horse in jp:
+                        if nm not in seen or pr < seen[nm][0]:
+                            seen[nm] = (pr, horse)
+                        jockey_race_odds.setdefault(nm, {})[rn] = {"odds": pr, "horse": horse}
 
         if seen:
             parts = [{"name": n, "price": p[0], "race_odds": jockey_race_odds.get(n, {})} for n, p in seen.items()]
@@ -165,27 +178,44 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
     return _all_cache
 
 
-def fetch_single_race_results(meeting_name: str, race_number: int) -> Optional[Dict]:
+def fetch_single_race_results(meeting_name: str, race_number: int, date_override=None) -> Optional[Dict]:
     """Fetch results for a specific race, bypassing the global cache.
+
+    Tries multiple dates: date_override (if provided), today, yesterday, and tomorrow.
+    This handles meetings that were seeded on a different day than the Ladbrokes API entry.
 
     Returns dict with status, results, runners or None if unavailable.
     """
+    from datetime import date as _date, timedelta
     today = today_aus()
+    today_date = _date.fromisoformat(today)
+    dates_to_try = []
+    if date_override:
+        dates_to_try.append(date_override)
+    dates_to_try.append(today)
+    dates_to_try.append((today_date - timedelta(days=1)).isoformat())
+    dates_to_try.append((today_date + timedelta(days=1)).isoformat())
+
     client = _get_client()
-    try:
-        r = client.get(
-            f"{API_BASE}/racing/meetings",
-            params={"date_from": today, "date_to": today, "country": "AUS", "type": " ", "limit": 200},
-        )
-        if r.status_code != 200:
-            return None
-        meetings = r.json().get("data", {}).get("meetings", [])
-    except Exception as e:
-        logger.warning(f"fetch_single_race_results: failed to fetch meetings list: {e}")
+    all_meetings = []
+    for d in dates_to_try:
+        try:
+            r = client.get(
+                f"{API_BASE}/racing/meetings",
+                params={"date_from": d, "date_to": d, "country": "AUS", "type": " ", "limit": 200},
+            )
+            if r.status_code == 200:
+                meetings = r.json().get("data", {}).get("meetings", [])
+                all_meetings.extend(meetings)
+        except Exception as e:
+            logger.warning(f"fetch_single_race_results: failed to fetch meetings for {d}: {e}")
+
+    if not all_meetings:
+        logger.warning(f"fetch_single_race_results: no meetings found on any date")
         return None
 
     race_id = None
-    for m in meetings:
+    for m in all_meetings:
         if m.get("name", "").lower().strip() == meeting_name.lower().strip():
             for race in m.get("races", []):
                 if race.get("race_number") == race_number:
@@ -194,7 +224,7 @@ def fetch_single_race_results(meeting_name: str, race_number: int) -> Optional[D
             break
 
     if not race_id:
-        available = [m.get("name", "?") for m in meetings[:10]]
+        available = [m.get("name", "?") for m in all_meetings[:10]]
         logger.warning(
             f"fetch_single_race_results: meeting '{meeting_name}' race {race_number} not found. "
             f"Available meetings: {available}"

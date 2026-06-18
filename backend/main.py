@@ -12,7 +12,12 @@ from database import engine, Base, SessionLocal
 from models import Meeting
 from router import router
 from seed_data import seed_database
-from status_manager import refresh_meeting_status, scrape_all_bookmakers
+from status_updater import update_meeting_statuses
+from results_ingestor import ingest_race_results
+from points_calculator import recalculate_all_points
+from status_manager import scrape_all_bookmakers
+from db_writer import start_writer, stop_writer
+from scrapers.shared import shutdown_pool
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,12 +49,10 @@ def _seed_sync():
         seed_database(db)
     finally:
         db.close()
-    # Run initial bookmaker scrape right after seeding to get prices ASAP
     try:
         scrape_all_bookmakers()
     except Exception as e:
         logger.error(f"Initial bookmaker scrape failed: {e}", exc_info=True)
-
 
 
 @asynccontextmanager
@@ -57,17 +60,43 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up...")
     Base.metadata.create_all(bind=engine)
 
+    # Start the single DB writer thread
+    start_writer()
+
     logger.info("Seeding database in background...")
     asyncio.create_task(_seed_background())
 
+    # Split status engine into 3 focused jobs:
+    # 1. Status updater: time-based transitions (every 30s)
     scheduler.add_job(
-        refresh_meeting_status,
+        update_meeting_statuses,
         "interval",
         seconds=30,
-        id="refresh_status",
-        name="Refresh meeting status",
+        id="status_updater",
+        name="Update meeting statuses",
         replace_existing=True,
     )
+    # 2. Results ingestor: fetch race results from APIs (every 30s)
+    scheduler.add_job(
+        ingest_race_results,
+        "interval",
+        seconds=30,
+        id="results_ingestor",
+        name="Ingest race results",
+        replace_existing=True,
+        # Offset by 10s so it runs AFTER status_updater
+        next_run_time=None,
+    )
+    # 3. Points calculator: recalculate from DB results (every 60s)
+    scheduler.add_job(
+        recalculate_all_points,
+        "interval",
+        seconds=60,
+        id="points_calculator",
+        name="Calculate participant points",
+        replace_existing=True,
+    )
+    # Bookmaker price scraper (every 120s)
     scheduler.add_job(
         scrape_all_bookmakers,
         "interval",
@@ -85,17 +114,19 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     scheduler.start()
-    logger.info("Scheduler started.")
+    logger.info("Scheduler started with 3-job status engine + bookmaker scraper")
 
     yield
 
     logger.info("Shutting down...")
     scheduler.shutdown(wait=True)
+    stop_writer()
+    shutdown_pool()
 
 
 app = FastAPI(
     title="Jockey & Driver Challenge API",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 

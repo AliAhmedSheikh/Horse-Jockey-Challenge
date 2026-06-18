@@ -17,10 +17,13 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor2.execute("SELECT race_odds_json FROM prices LIMIT 1")
         cursor2.close()
     except Exception:
-        cursor2 = dbapi_connection.cursor()
-        cursor2.execute("ALTER TABLE prices ADD COLUMN race_odds_json TEXT")
-        dbapi_connection.commit()
-        cursor2.close()
+        try:
+            cursor2 = dbapi_connection.cursor()
+            cursor2.execute("ALTER TABLE prices ADD COLUMN race_odds_json TEXT")
+            dbapi_connection.commit()
+            cursor2.close()
+        except Exception:
+            pass
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -83,9 +83,12 @@ def _fetch_with_browser(url: str, check_json: bool = True) -> Optional[dict]:
             viewport={"width": 1920, "height": 1080},
         )
 
-        # We need Akamai cookies. If the context is brand new, load the main page first.
-        # Check if we already have cookies in a shared context
-        page = context.new_page()
+        try:
+            from playwright_stealth import stealth_sync
+            page = context.new_page()
+            stealth_sync(page)
+        except ImportError:
+            page = context.new_page()
 
         # Load racing page to get past Akamai challenge
         try:
@@ -94,13 +97,17 @@ def _fetch_with_browser(url: str, check_json: bool = True) -> Optional[dict]:
                 wait_until="domcontentloaded",
                 timeout=30000,
             )
-            # Wait a bit for Akamai challenge to complete
-            page.wait_for_timeout(5000)
+            page.wait_for_timeout(8000)
+
+            # Try to accept cookies if present
+            try:
+                page.click('button:has-text("Accept")', timeout=3000)
+            except Exception:
+                pass
+            page.wait_for_timeout(2000)
         except Exception as e:
             logger.warning(f"Sportsbet: Page load timed out or failed: {e}")
-            # Sometimes Akamai challenge takes longer, try to continue anyway
 
-        # Now make the API call from within the browser context
         result = page.evaluate(f"""
             async () => {{
                 try {{
@@ -139,6 +146,57 @@ def _fetch_with_browser(url: str, check_json: bool = True) -> Optional[dict]:
         return None
 
 
+def _fetch_html_meetings(aus_date: str) -> Optional[List[Dict]]:
+    """Fallback: scrape the Sportsbet racing HTML page directly for meeting data."""
+    browser = _get_browser()
+    if not browser:
+        return None
+
+    try:
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080},
+        )
+
+        try:
+            from playwright_stealth import stealth_sync
+            page = context.new_page()
+            stealth_sync(page)
+        except ImportError:
+            page = context.new_page()
+
+        page.goto(f"{API_BASE}/racing/thoroughbred", wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(10000)
+
+        html = page.content()
+        context.close()
+
+        if not html or "access denied" in html.lower() or "blocked" in html.lower():
+            logger.warning("Sportsbet: HTML page access denied or blocked")
+            return None
+
+        import re
+        meetings = []
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'html.parser')
+
+        for card in soup.find_all(['div', 'a'], attrs={'data-test': re.compile(r'meeting|event', re.I)}):
+            name_el = card.find(['span', 'h3', 'h4'], string=True)
+            if name_el:
+                meetings.append({"name": name_el.get_text(strip=True)})
+
+        if not meetings:
+            for link in soup.find_all('a', href=re.compile(r'/racing/')):
+                text = link.get_text(strip=True)
+                if text and len(text) > 2:
+                    meetings.append({"name": text})
+
+        return meetings if meetings else None
+    except Exception as e:
+        logger.warning(f"Sportsbet: HTML scrape failed: {e}")
+        return None
+
+
 def _discover_meetings(aus_date: str) -> Optional[List[Dict]]:
     """Discover racing meetings from Sportsbet API."""
     cache_key = f"meetings_{aus_date}"
@@ -155,6 +213,12 @@ def _discover_meetings(aus_date: str) -> Optional[List[Dict]]:
         # Try v2 endpoint
         url = RACING_MEETINGS_V2_URL.format(date=aus_date)
         data = _fetch_with_browser(url)
+
+    if not data:
+        # Try HTML page scraping
+        html_meetings = _fetch_html_meetings(aus_date)
+        if html_meetings:
+            data = {"meetings": html_meetings}
 
     if not data:
         return None

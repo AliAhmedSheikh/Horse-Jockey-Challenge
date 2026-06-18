@@ -59,7 +59,7 @@ def _fetch_races(racing_type: int, region: int = 2) -> List[Dict]:
     params = {
         "racingType": racing_type,
         "region": region,
-        "raceCount": 50,
+        "raceCount": 200,
         "runnerCount": 30,
         "fixedPricesOnly": "true",
     }
