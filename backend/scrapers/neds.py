@@ -11,7 +11,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
-from utils import MIN_PRICE, MAX_PRICE
+from utils import MIN_PRICE, MAX_PRICE, CHALLENGE_MARGINS, CHALLENGE_STRATEGIES
 
 API_BASE = "https://api.neds.com.au/gql/router"
 HEADERS = {
@@ -205,7 +205,7 @@ def _build_jockey_prices(meetings: List[Dict], mtype: str) -> List[Dict]:
         if not meeting.get("races"):
             continue
 
-        jockey_prices = {}
+        all_rider_prices = {}
         all_race_runners = []
 
         for race in meeting["races"]:
@@ -214,8 +214,7 @@ def _build_jockey_prices(meetings: List[Dict], mtype: str) -> List[Dict]:
             for r in runners:
                 rider = r["jockey"]
                 price = round(max(MIN_PRICE, min(MAX_PRICE, float(r["price"]))), 2)
-                if rider not in jockey_prices or price < jockey_prices[rider]:
-                    jockey_prices[rider] = price
+                all_rider_prices.setdefault(rider, []).append(price)
                 all_race_runners.append({
                     "race_number": race["number"],
                     "runner": r["name"],
@@ -223,8 +222,23 @@ def _build_jockey_prices(meetings: List[Dict], mtype: str) -> List[Dict]:
                     "price": price,
                 })
 
-        if not jockey_prices:
+        if not all_rider_prices:
             continue
+
+        bm = "Neds"
+        margin = CHALLENGE_MARGINS.get(bm, 0)
+        strategy = CHALLENGE_STRATEGIES.get(bm, "best")
+        jockey_prices = {}
+        for rider, prices in all_rider_prices.items():
+            if strategy == "avg":
+                derived = sum(prices) / len(prices)
+            elif strategy == "median":
+                s = sorted(prices)
+                mid = len(s) // 2
+                derived = s[mid] if len(s) % 2 else (s[mid - 1] + s[mid]) / 2
+            else:
+                derived = min(prices)
+            jockey_prices[rider] = round(max(MIN_PRICE, min(MAX_PRICE, derived * (1 + margin))), 2)
 
         participants = [
             {"name": name, "price": price, "race_odds": {}}

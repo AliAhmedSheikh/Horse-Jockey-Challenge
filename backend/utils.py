@@ -7,6 +7,32 @@ MIN_PRICE = 1.50
 MAX_PRICE = 100.0
 POINTS_TABLE = {1: 3, 2: 2, 3: 1}
 
+# Bookmaker-specific challenge margins (overround applied when deriving
+# challenge prices from per-race fixed win odds). Each bookmaker applies
+# a different margin, creating realistic price differentiation.
+# Positive = longer price (more overround), negative = shorter price (less overround)
+CHALLENGE_MARGINS = {
+    "Ladbrokes": 0.0,
+    "TAB": 0.04,
+    "TABtouch": 0.02,
+    "Sportsbet": 0.03,
+    "PointsBet": -0.03,
+    "Neds": 0.05,
+}
+
+# Derivation strategies per bookmaker for challenge price from per-race odds
+# "best" = shortest price across all races (most conservative)
+# "avg"  = average price across all races
+# "median" = median price across all races
+CHALLENGE_STRATEGIES = {
+    "Ladbrokes": "best",
+    "TAB": "best",
+    "TABtouch": "best",
+    "Sportsbet": "best",
+    "PointsBet": "best",
+    "Neds": "best",
+}
+
 
 def weighted_shuffle(participants, db: Session, meeting_id: str):
     shuffled = list(participants)

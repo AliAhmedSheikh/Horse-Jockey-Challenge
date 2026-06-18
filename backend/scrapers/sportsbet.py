@@ -7,7 +7,7 @@ from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-from utils import MIN_PRICE, MAX_PRICE
+from utils import MIN_PRICE, MAX_PRICE, CHALLENGE_MARGINS, CHALLENGE_STRATEGIES
 
 # Try to import Playwright - optional dependency
 try:
@@ -193,7 +193,7 @@ def _parse_jockey_challenges(meetings_data: dict) -> List[Dict]:
             continue
 
         # Extract jockey prices from all races
-        jockey_prices: Dict[str, float] = {}
+        all_jockey_prices: Dict[str, list] = {}
 
         for race in races:
             if not isinstance(race, dict):
@@ -247,8 +247,25 @@ def _parse_jockey_challenges(meetings_data: dict) -> List[Dict]:
                 if price and price > 0:
                     jockey = jockey.title()
                     price = round(max(MIN_PRICE, min(MAX_PRICE, float(price))), 2)
-                    if jockey not in jockey_prices or price < jockey_prices[jockey]:
-                        jockey_prices[jockey] = price
+                    all_jockey_prices.setdefault(jockey, []).append(price)
+
+        if not all_jockey_prices:
+            continue
+
+        bm = "Sportsbet"
+        margin = CHALLENGE_MARGINS.get(bm, 0)
+        strategy = CHALLENGE_STRATEGIES.get(bm, "best")
+        jockey_prices = {}
+        for jockey, prices in all_jockey_prices.items():
+            if strategy == "avg":
+                derived = sum(prices) / len(prices)
+            elif strategy == "median":
+                s = sorted(prices)
+                mid = len(s) // 2
+                derived = s[mid] if len(s) % 2 else (s[mid - 1] + s[mid]) / 2
+            else:
+                derived = min(prices)
+            jockey_prices[jockey] = round(max(MIN_PRICE, min(MAX_PRICE, derived * (1 + margin))), 2)
 
         if not jockey_prices:
             continue

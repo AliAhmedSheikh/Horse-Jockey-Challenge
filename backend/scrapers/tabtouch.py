@@ -8,7 +8,7 @@ from typing import List, Dict, Optional
 import httpx
 import urllib3
 from bs4 import BeautifulSoup
-from utils import MIN_PRICE, MAX_PRICE
+from utils import MIN_PRICE, MAX_PRICE, CHALLENGE_MARGINS, CHALLENGE_STRATEGIES
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -394,12 +394,26 @@ class TABtouchScraper:
 
             races = mtg["races"]
             if races:
+                all_driver_prices = {}
                 with ThreadPoolExecutor(max_workers=5) as ex:
                     futs = {ex.submit(_process_race, meeting_id, date_str, ri): ri for ri in races}
                     for f in as_completed(futs):
                         for rc, price in f.result():
-                            if rc not in driver_prices or price < driver_prices[rc]:
-                                driver_prices[rc] = price
+                            all_driver_prices.setdefault(rc, []).append(price)
+
+                bm = "TABtouch"
+                margin = CHALLENGE_MARGINS.get(bm, 0)
+                strategy = CHALLENGE_STRATEGIES.get(bm, "best")
+                for name, prices in all_driver_prices.items():
+                    if strategy == "avg":
+                        derived = sum(prices) / len(prices)
+                    elif strategy == "median":
+                        s = sorted(prices)
+                        mid = len(s) // 2
+                        derived = s[mid] if len(s) % 2 else (s[mid - 1] + s[mid]) / 2
+                    else:
+                        derived = min(prices)
+                    driver_prices[name] = round(max(MIN_PRICE, min(MAX_PRICE, derived * (1 + margin))), 2)
 
             if driver_prices:
                 participants = [
@@ -483,12 +497,26 @@ class TABtouchScraper:
 
             races = mtg["races"]
             if races:
+                all_jockey_prices = {}
                 with ThreadPoolExecutor(max_workers=5) as ex:
                     futs = {ex.submit(_process_race, meeting_id, date_str, ri): ri for ri in races}
                     for f in as_completed(futs):
                         for rc, price in f.result():
-                            if rc not in jockey_prices or price < jockey_prices[rc]:
-                                jockey_prices[rc] = price
+                            all_jockey_prices.setdefault(rc, []).append(price)
+
+                bm = "TABtouch"
+                margin = CHALLENGE_MARGINS.get(bm, 0)
+                strategy = CHALLENGE_STRATEGIES.get(bm, "best")
+                for name, prices in all_jockey_prices.items():
+                    if strategy == "avg":
+                        derived = sum(prices) / len(prices)
+                    elif strategy == "median":
+                        s = sorted(prices)
+                        mid = len(s) // 2
+                        derived = s[mid] if len(s) % 2 else (s[mid - 1] + s[mid]) / 2
+                    else:
+                        derived = min(prices)
+                    jockey_prices[name] = round(max(MIN_PRICE, min(MAX_PRICE, derived * (1 + margin))), 2)
 
             if jockey_prices:
                 participants = [

@@ -11,7 +11,7 @@ from scrapers.neds import NedsScraper
 
 logger = logging.getLogger(__name__)
 
-from utils import MIN_PRICE, MAX_PRICE
+from utils import MIN_PRICE, MAX_PRICE, CHALLENGE_MARGINS
 
 # Map bookmaker names to PuntersEdge API keys (first found wins)
 PE_KEY_MAP = {
@@ -247,7 +247,7 @@ def _derive_markets_via_ratios(
             )
             continue
         races = m.get("races", [])
-        jockey_prices = {}
+        all_jockey_prices = {}
         for race in races:
             race_num = race.get("race_number")
             ratio = race_ratios.get(race_num)
@@ -265,8 +265,14 @@ def _derive_markets_via_ratios(
                     derived_price = round(max(MIN_PRICE, min(MAX_PRICE, float(lad_price) * ratio)), 2)
                 except (ValueError, TypeError):
                     continue
-                if jn not in jockey_prices or derived_price < jockey_prices[jn]:
-                    jockey_prices[jn] = derived_price
+                all_jockey_prices.setdefault(jn, []).append(derived_price)
+
+        bm = bookmaker_name
+        margin = CHALLENGE_MARGINS.get(bm, 0)
+        jockey_prices = {}
+        for jn, prices in all_jockey_prices.items():
+            base_price = sum(prices) / len(prices)
+            jockey_prices[jn] = round(max(MIN_PRICE, min(MAX_PRICE, base_price * (1 + margin))), 2)
         if jockey_prices:
             market = dict(m)
             market["bookmaker"] = bookmaker_name

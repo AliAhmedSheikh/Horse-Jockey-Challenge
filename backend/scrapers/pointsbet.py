@@ -9,7 +9,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
-from utils import MIN_PRICE, MAX_PRICE
+from utils import MIN_PRICE, MAX_PRICE, CHALLENGE_MARGINS, CHALLENGE_STRATEGIES
 
 API_BASE = "https://api.au.pointsbet.com"
 HEADERS = {
@@ -102,7 +102,7 @@ def _build_jockey_prices(meetings_data: List[Dict], mtype: str) -> List[Dict]:
 
     result = []
     for venue, races in venue_races.items():
-        jockey_best_price = {}
+        all_rider_prices = {}
         jockey_rides = {}
 
         for race in races:
@@ -130,18 +130,27 @@ def _build_jockey_prices(meetings_data: List[Dict], mtype: str) -> List[Dict]:
                         continue
                     price = round(max(MIN_PRICE, min(MAX_PRICE, float(price))), 2)
                     jockey_rides[rider] = jockey_rides.get(rider, 0) + 1
-                    if rider not in jockey_best_price or price < jockey_best_price[rider]:
-                        jockey_best_price[rider] = price
+                    all_rider_prices.setdefault(rider, []).append(price)
 
-        if not jockey_best_price:
+        if not all_rider_prices:
             continue
 
-        # Adjust prices: more rides = slightly shorter price (more chances to score)
-        # adjusted_price = best_price * (0.98 ** (num_rides - 1))
+        bm = "PointsBet"
+        margin = CHALLENGE_MARGINS.get(bm, 0)
+        strategy = CHALLENGE_STRATEGIES.get(bm, "best")
         jockey_prices = {}
-        for rider, best_price in jockey_best_price.items():
-            num_rides = jockey_rides[rider]
-            adjusted = round(best_price * (0.98 ** (num_rides - 1)), 2)
+        for rider, prices in all_rider_prices.items():
+            num_rides = jockey_rides.get(rider, 1)
+            if strategy == "avg":
+                derived = sum(prices) / len(prices)
+            elif strategy == "median":
+                s = sorted(prices)
+                mid = len(s) // 2
+                derived = s[mid] if len(s) % 2 else (s[mid - 1] + s[mid]) / 2
+            else:
+                derived = min(prices)
+            ride_adj = 0.98 ** (num_rides - 1)
+            adjusted = round(derived * ride_adj * (1 + margin), 2)
             jockey_prices[rider] = max(MIN_PRICE, min(MAX_PRICE, adjusted))
 
         participants = [
