@@ -280,6 +280,43 @@ def scrape_all_bookmakers():
         invalidate_neds_cache()
     except Exception:
         pass
+    # Invalidate TAB scraper caches
+    try:
+        from scrapers.tab import _event_cache as tab_event_cache, _event_cache_lock as tab_lock
+        with tab_lock:
+            tab_event_cache.clear()
+    except Exception:
+        pass
+    # Invalidate TABtouch scraper caches
+    try:
+        from scrapers.tabtouch import _event_cache as tt_event_cache, _event_cache_lock as tt_lock
+        with tt_lock:
+            tt_event_cache.clear()
+    except Exception:
+        pass
+    # Invalidate PointsBet scraper cache
+    try:
+        from scrapers.pointsbet import _cache as pb_cache, _cache_lock as pb_lock
+        with pb_lock:
+            pb_cache.clear()
+    except Exception:
+        pass
+    # Invalidate Sportsbet scraper cache
+    try:
+        from scrapers.sportsbet import _cache as sb_cache, _cache_lock as sb_lock
+        with sb_lock:
+            sb_cache.clear()
+    except Exception:
+        pass
+    # Invalidate PuntersEdge cache
+    try:
+        from scrapers.puntersedge import _shared_cache_lock as pe_lock
+        import scrapers.puntersedge as pe_mod
+        with pe_lock:
+            pe_mod._shared_cache = None
+            pe_mod._shared_cache_time = 0
+    except Exception:
+        pass
     try:
         from router import _cache as router_cache
         router_cache.clear()
