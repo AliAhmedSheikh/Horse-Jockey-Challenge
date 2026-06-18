@@ -170,13 +170,21 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
     total_races = meeting.total_races if meeting else 8
     best_race_odds_json = None
     best_count = 0
+    best_has_horses = False
     for pr in accurate_prices:
         if pr.race_odds_json:
             try:
                 rd = json.loads(pr.race_odds_json)
-                if isinstance(rd, dict) and len(rd) > best_count:
-                    best_count = len(rd)
-                    best_race_odds_json = pr.race_odds_json
+                if isinstance(rd, dict):
+                    has_horses = any(isinstance(v, dict) and v.get("horse") for v in rd.values())
+                    count = len(rd)
+                    if has_horses and (not best_has_horses or count > best_count):
+                        best_race_odds_json = pr.race_odds_json
+                        best_count = count
+                        best_has_horses = True
+                    elif not best_has_horses and count > best_count:
+                        best_count = count
+                        best_race_odds_json = pr.race_odds_json
             except (json.JSONDecodeError, ValueError):
                 pass
     if not best_race_odds_json and meeting_race_odds:
@@ -362,13 +370,21 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
 
     best_race_odds_json = None
     best_count = 0
+    best_has_horses = False
     for pr in accurate_prices:
         if pr.race_odds_json:
             try:
                 rd = json.loads(pr.race_odds_json)
-                if isinstance(rd, dict) and len(rd) > best_count:
-                    best_count = len(rd)
-                    best_race_odds_json = pr.race_odds_json
+                if isinstance(rd, dict):
+                    has_horses = any(isinstance(v, dict) and v.get("horse") for v in rd.values())
+                    count = len(rd)
+                    if has_horses and (not best_has_horses or count > best_count):
+                        best_race_odds_json = pr.race_odds_json
+                        best_count = count
+                        best_has_horses = True
+                    elif not best_has_horses and count > best_count:
+                        best_count = count
+                        best_race_odds_json = pr.race_odds_json
             except (json.JSONDecodeError, ValueError):
                 pass
 
@@ -440,10 +456,11 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
             except (json.JSONDecodeError, ValueError):
                 pass
 
-    for race_num in sorted(race_odds.keys()):
-        ride = race_odds[race_num]
-        odds = ride.get("odds", 0)
-        horse = ride.get("horse", "")
+    all_race_nums = sorted(set(list(race_odds.keys()) + list(results_map.keys())))
+    for race_num in all_race_nums:
+        ride = race_odds.get(race_num, {})
+        odds = ride.get("odds", 0) if isinstance(ride, dict) else 0
+        horse = ride.get("horse", "") if isinstance(ride, dict) else ""
         result = results_map.get(race_num)
 
         if result and result.position is not None:
