@@ -115,12 +115,13 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                         win_price = float(odds.get("fixed_win", 0) or 0)
                     except (ValueError, TypeError):
                         continue
-                    # Harness runners often have fixed_win=0 — skip if no price available
                     if win_price > 0:
                         win_price = max(MIN_PRICE, min(MAX_PRICE, win_price))
                     else:
                         continue
-                    jp.append((jockey, win_price))
+                    horse = (runner.get("horse_name") or runner.get("competitor_name") or
+                             runner.get("horse") or runner.get("name") or "").strip()
+                    jp.append((jockey, win_price, horse))
                 return rd, jp
             except Exception as e:
                 logger.warning(f"Failed to fetch race {race.get('id')}: {e}")
@@ -135,13 +136,13 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                     if rd:
                         races_data.append(rd)
                         rn = rd.get("race_number", 0)
-                        for nm, pr in jp:
-                            if nm not in seen or pr < seen[nm]:
-                                seen[nm] = pr
-                            jockey_race_odds.setdefault(nm, {})[rn] = pr
+                        for nm, pr, horse in jp:
+                            if nm not in seen or pr < seen[nm][0]:
+                                seen[nm] = (pr, horse)
+                            jockey_race_odds.setdefault(nm, {})[rn] = {"odds": pr, "horse": horse}
 
         if seen:
-            parts = [{"name": n, "price": p, "race_odds": jockey_race_odds.get(n, {})} for n, p in seen.items()]
+            parts = [{"name": n, "price": p[0], "race_odds": jockey_race_odds.get(n, {})} for n, p in seen.items()]
             parts.sort(key=lambda x: x["price"] if x["price"] > 0 else float('inf'))
             total_racing_races = len([r for r in races if r.get("race_number", 0) > 0])
             market = {

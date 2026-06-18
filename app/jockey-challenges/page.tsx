@@ -1,17 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import type { Participant } from "@/data/types";
 import ChallengeTable from "@/components/ChallengeTable";
 import DataCard from "@/components/DataCard";
+import ParticipantDetailModal from "@/components/ParticipantDetailModal";
 import { IconUser, IconTrendingUp, IconChevronRight } from "@/data/icons";
 
 export default function JockeyChallengesPage() {
   const router = useRouter();
   const { data, error, isLoading } = useSWR<{ jockeys: Participant[] }>("/api/dashboard", fetcher, { refreshInterval: 30000 });
   const jockeys = data?.jockeys ?? [];
+  const [detailModal, setDetailModal] = useState<{ participantId: string; meetingId: string } | null>(null);
 
   const byMeeting: Record<string, Participant[]> = {};
   for (const j of jockeys) {
@@ -67,10 +70,17 @@ export default function JockeyChallengesPage() {
                 </button>
               )}
             </div>
-            <ChallengeTable participants={participants} type="jockey" />
+            <ChallengeTable participants={participants} type="jockey" onShowDetail={(pid, mid) => setDetailModal({ participantId: pid, meetingId: mid })} />
           </div>
         );
       })}
+      {detailModal && (
+        <ParticipantDetailModal
+          participantId={detailModal.participantId}
+          meetingId={detailModal.meetingId}
+          onClose={() => setDetailModal(null)}
+        />
+      )}
     </div>
   );
 }

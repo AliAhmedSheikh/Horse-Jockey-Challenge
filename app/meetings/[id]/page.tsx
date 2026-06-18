@@ -6,7 +6,8 @@ import { fetcher } from "@/lib/api";
 import type { Meeting, Participant, MeetingPrediction } from "@/data/types";
 import { BOOKMAKERS, ACCURATE_BOOKMAKERS } from "@/data/types";
 import { IconUser, IconCar, IconStar, IconChevronRight, IconInfo } from "@/data/icons";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
+import ParticipantDetailModal from "@/components/ParticipantDetailModal";
 
 const statusLabels: Record<string, string> = {
   Live: "Live",
@@ -66,6 +67,8 @@ export default function MeetingDetailPage() {
     fetcher,
     { refreshInterval: 30000 }
   );
+
+  const [detailModal, setDetailModal] = useState<{ participantId: string; meetingId: string } | null>(null);
 
   const refreshAll = useCallback(() => {
     mutateMeeting();
@@ -257,7 +260,12 @@ export default function MeetingDetailPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-900 dark:text-white">{p.name}</span>
+                      <button
+                        onClick={() => setDetailModal({ participantId: p.id, meetingId: params.id as string })}
+                        className="text-sm font-semibold text-slate-900 dark:text-white hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer text-left"
+                      >
+                        {p.name}
+                      </button>
                       {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
                     </div>
                   </td>
@@ -296,7 +304,12 @@ export default function MeetingDetailPage() {
           ) : sorted.map((p) => (
             <div key={p.id} className="bg-slate-50 dark:bg-slate-700/20 rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-slate-900 dark:text-white">{p.name}</span>
+                <button
+                  onClick={() => setDetailModal({ participantId: p.id, meetingId: params.id as string })}
+                  className="text-sm font-bold text-slate-900 dark:text-white hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer text-left"
+                >
+                  {p.name}
+                </button>
                 <span className={p.overlayPercent > 0 ? "text-sm font-semibold text-emerald-500" : "text-sm font-semibold text-red-500"}>
                   {p.overlayPercent > 0 ? "+" : ""}{p.overlayPercent.toFixed(1)}%
                 </span>
@@ -417,6 +430,13 @@ export default function MeetingDetailPage() {
           )}
         </div>
       </div>
+      {detailModal && (
+        <ParticipantDetailModal
+          participantId={detailModal.participantId}
+          meetingId={detailModal.meetingId}
+          onClose={() => setDetailModal(null)}
+        />
+      )}
     </div>
   );
 }

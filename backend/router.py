@@ -30,6 +30,8 @@ from schemas import (
     BetUpdate,
     BetOut,
     BetStats,
+    ParticipantDetail,
+    RideDetail,
 )
 
 router = APIRouter()
@@ -58,7 +60,13 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
         try:
             raw = json.loads(race_odds_json)
             if isinstance(raw, dict):
-                race_odds = {int(k): float(v) for k, v in raw.items() if float(v) > 0}
+                for k, v in raw.items():
+                    if isinstance(v, dict):
+                        odds_val = float(v.get("odds", 0) or 0)
+                    else:
+                        odds_val = float(v)
+                    if odds_val > 0:
+                        race_odds[int(k)] = odds_val
         except (json.JSONDecodeError, ValueError, TypeError):
             pass
 
@@ -253,10 +261,13 @@ def _participant_to_frontend(p: Participant, db: Session, value_threshold: float
                 try:
                     rd = json.loads(pr.race_odds_json)
                     if isinstance(rd, dict):
-                        for rn_str, odds in rd.items():
+                        for rn_str, odds_val in rd.items():
                             try:
                                 rn = int(rn_str)
-                                o = float(odds)
+                                if isinstance(odds_val, dict):
+                                    o = float(odds_val.get("odds", 0) or 0)
+                                else:
+                                    o = float(odds_val)
                                 if o > 0:
                                     race_odds_agg.setdefault(rn, []).append(o)
                             except (ValueError, TypeError):
@@ -344,6 +355,154 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
         r.isProjectedWinner = (r.id == winner.id) if winner else False
 
     return result
+
+
+@router.get("/meetings/{meeting_id}/participants/{participant_id}/detail")
+def get_participant_detail(meeting_id: str, participant_id: str, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    participant = db.query(Participant).filter(
+        Participant.id == participant_id,
+        Participant.meeting_id == meeting_id,
+    ).first()
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    prices = db.query(Price).filter(Price.participant_id == participant_id).all()
+    accurate_prices = [pr for pr in prices if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
+    bookmaker_prices = [pr.price for pr in accurate_prices]
+    avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
+
+    best_race_odds_json = None
+    best_count = 0
+    for pr in accurate_prices:
+        if pr.race_odds_json:
+            try:
+                rd = json.loads(pr.race_odds_json)
+                if isinstance(rd, dict) and len(rd) > best_count:
+                    best_count = len(rd)
+                    best_race_odds_json = pr.race_odds_json
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+    total_races = meeting.total_races or 8
+    ai_price = _compute_ai_price(avg_bookmaker, participant.current_points, participant.completed_races, total_races, best_race_odds_json)
+    overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
+
+    remaining = total_races - participant.completed_races
+    if participant.completed_races == 0:
+        implied = 1.0 / max(avg_bookmaker, 1.01)
+        top3_prob = min(0.85, implied * 1.5)
+        expected_pts_per_race = top3_prob * 2.0
+    else:
+        expected_pts_per_race = participant.current_points / participant.completed_races if participant.completed_races > 0 else 0.67
+    projected_additional = round(expected_pts_per_race * remaining, 1)
+    projected_final = round(participant.current_points + projected_additional, 1)
+
+    implied_win = 1.0 / max(avg_bookmaker, 1.01)
+    ride_density = (total_races - remaining) / max(total_races, 1)
+    win_prob = min(0.95, implied_win * (1.0 + ride_density * 0.2))
+
+    value_threshold = _load_value_threshold(db)
+    value_rating = compute_value_rating(ai_price, avg_bookmaker, value_threshold)
+
+    rides = []
+    race_odds = {}
+    if best_race_odds_json:
+        try:
+            raw = json.loads(best_race_odds_json)
+            if isinstance(raw, dict):
+                for k, v in raw.items():
+                    if isinstance(v, dict):
+                        race_odds[int(k)] = v
+                    else:
+                        race_odds[int(k)] = {"odds": float(v), "horse": ""}
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    existing_results = db.query(Result).filter(
+        Result.meeting_id == meeting_id,
+        Result.participant_id == participant_id,
+    ).all()
+    results_map = {r.race_number: r for r in existing_results}
+
+    best_bookmaker_prices = {}
+    for pr in accurate_prices:
+        if pr.race_odds_json:
+            try:
+                rd = json.loads(pr.race_odds_json)
+                if isinstance(rd, dict):
+                    for rn_str, odds_val in rd.items():
+                        rn = int(rn_str)
+                        if isinstance(odds_val, dict):
+                            o = float(odds_val.get("odds", 0) or 0)
+                        else:
+                            o = float(odds_val)
+                        if o > 0:
+                            if rn not in best_bookmaker_prices or o < best_bookmaker_prices[rn]["price"]:
+                                best_bookmaker_prices[rn] = {"bookmaker": pr.bookmaker_name, "price": o}
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+    for race_num in sorted(race_odds.keys()):
+        ride = race_odds[race_num]
+        odds = ride.get("odds", 0)
+        horse = ride.get("horse", "")
+        result = results_map.get(race_num)
+
+        if result and result.position is not None:
+            if result.position == 1:
+                status = "Won"
+            elif result.position == 2:
+                status = "2nd"
+            elif result.position == 3:
+                status = "3rd"
+            elif result.position <= 4:
+                status = "Placed"
+            else:
+                status = "Unplaced"
+        elif race_num <= meeting.completed_races:
+            status = "Completed"
+        else:
+            status = "Upcoming"
+
+        best = best_bookmaker_prices.get(race_num, {"bookmaker": "N/A", "price": 0})
+        race_implied = 1.0 / max(odds, MIN_PRICE)
+        race_top3 = min(0.85, race_implied * 1.5)
+        race_expected_pts = round(race_top3 * 2.0, 2)
+
+        rides.append(RideDetail(
+            raceNumber=race_num,
+            horseName=horse,
+            odds=round(odds, 2),
+            bestBookmaker=best["bookmaker"],
+            bestPrice=round(best["price"], 2),
+            expectedPoints=race_expected_pts,
+            winProbability=round(race_implied * 100, 1),
+            status=status,
+            position=result.position if result and result.position else None,
+            pointsAwarded=result.points_added if result and result.points_added else None,
+        ))
+
+    return ParticipantDetail(
+        id=participant_id,
+        name=participant.name,
+        meetingName=meeting.name,
+        meetingType=meeting.type.value if hasattr(meeting.type, 'value') else meeting.type,
+        currentPoints=participant.current_points,
+        projectedFinalPoints=projected_final,
+        projectedAdditionalPoints=projected_additional,
+        aiPrice=round(ai_price, 2),
+        bookmakerPrice=round(avg_bookmaker, 2),
+        overlayPercent=overlay,
+        winProbability=round(win_prob * 100, 1),
+        valueRating=value_rating,
+        remainingRides=remaining,
+        totalRaces=total_races,
+        completedRaces=participant.completed_races,
+        rides=rides,
+    )
 
 
 @router.get("/meetings/{meeting_id}/prices")
@@ -504,10 +663,13 @@ def get_dashboard(db: Session = Depends(get_db)):
                     try:
                         rd = json.loads(pr.race_odds_json)
                         if isinstance(rd, dict):
-                            for rn_str, odds in rd.items():
+                            for rn_str, odds_val in rd.items():
                                 try:
                                     rn = int(rn_str)
-                                    o = float(odds)
+                                    if isinstance(odds_val, dict):
+                                        o = float(odds_val.get("odds", 0) or 0)
+                                    else:
+                                        o = float(odds_val)
                                     if o > 0:
                                         race_odds_agg.setdefault(rn, []).append(o)
                                 except (ValueError, TypeError):

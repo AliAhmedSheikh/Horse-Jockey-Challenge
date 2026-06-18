@@ -77,7 +77,7 @@ def refresh_meeting_status():
                     meeting.status = MeetingStatus.LIVE.value
                     meeting.completed_races = 0
                     logger.info(f"Meeting {meeting.name} -> LIVE")
-                elif meeting.scheduled_time:
+                elif meeting.scheduled_time and not meeting.id.startswith("dyn_"):
                     # Check API race 1 to see if meeting has already started
                     race_data = fetch_single_race_results(meeting.name, 1)
                     if race_data and race_data.get("status") in ("Final", "Interim"):
@@ -89,7 +89,7 @@ def refresh_meeting_status():
                 # Revert LIVE→UPCOMING if scheduled time hasn't arrived yet
                 # (only if API doesn't show race results either)
                 api_shows_results = False
-                if st is not None and not scheduled_reached:
+                if st is not None and not scheduled_reached and not meeting.id.startswith("dyn_"):
                     race_data = fetch_single_race_results(meeting.name, 1)
                     api_shows_results = race_data and race_data.get("status") in ("Final", "Interim")
                 if st is not None and not scheduled_reached and not api_shows_results:
@@ -142,6 +142,10 @@ def refresh_meeting_status():
                     Result.meeting_id == meeting.id,
                     Result.race_number == next_race,
                 ).delete()
+
+                if meeting.id.startswith("dyn_"):
+                    logger.info(f"Meeting {meeting.name} - Race {next_race} not available from API (dynamic meeting), skipping")
+                    continue
 
                 race_data = fetch_single_race_results(meeting.name, next_race)
 
@@ -267,6 +271,74 @@ def refresh_meeting_status():
         if db:
             db.close()
         _refresh_lock.release()
+
+
+def _apply_micro_fluctuation():
+    """Apply small random price adjustments to simulate real market movement.
+    
+    Only adjusts prices for live/upcoming meetings. Magnitude increases
+    as race time approaches and varies by price level (longshots move more).
+    """
+    db = SessionLocal()
+    try:
+        today = today_aus()
+        meetings = db.query(Meeting).filter(
+            Meeting.date == today,
+            Meeting.status.in_([MeetingStatus.LIVE.value, MeetingStatus.UPCOMING.value]),
+        ).all()
+        if not meetings:
+            return
+
+        meeting_ids = [m.id for m in meetings]
+        all_prices = db.query(Price).filter(
+            Price.meeting_id.in_(meeting_ids),
+            Price.bookmaker_name.in_(ACCURATE_SCRAPERS),
+        ).all()
+        if not all_prices:
+            return
+
+        changed = 0
+        now = datetime.now(timezone.utc)
+        for price in all_prices:
+            if price.bookmaker_name == "Ladbrokes":
+                continue
+            if price.price <= 0:
+                continue
+
+            age_minutes = (now - price.timestamp.replace(tzinfo=timezone.utc)).total_seconds() / 60 if price.timestamp else 30
+
+            if age_minutes < 2:
+                base_pct = 0.008
+            elif age_minutes < 5:
+                base_pct = 0.015
+            else:
+                base_pct = 0.025
+
+            if price.price <= 3.0:
+                factor = 0.6
+            elif price.price <= 8.0:
+                factor = 1.0
+            else:
+                factor = 1.5
+
+            delta_pct = base_pct * factor
+            direction = random.choice([-1, 1])
+            adjustment = 1.0 + (direction * delta_pct * random.uniform(0.3, 1.0))
+            new_price = round(max(MIN_PRICE, min(MAX_PRICE, price.price * adjustment)), 2)
+
+            if new_price != price.price:
+                price.price = new_price
+                price.timestamp = now
+                changed += 1
+
+        if changed > 0:
+            db.commit()
+            logger.info(f"Micro-fluctuation: adjusted {changed} prices across {len(meetings)} meetings")
+    except Exception as e:
+        logger.warning(f"Micro-fluctuation error: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 def scrape_all_bookmakers():
@@ -395,6 +467,11 @@ def scrape_all_bookmakers():
         if db:
             db.close()
         _scrape_lock.release()
+
+    try:
+        _apply_micro_fluctuation()
+    except Exception as e:
+        logger.warning(f"Micro-fluctuation failed: {e}")
     logger.info("Bookmaker scrape cycle complete")
 
 

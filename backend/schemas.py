@@ -146,3 +146,35 @@ class BetStats(BaseModel):
     lossCount: int
     pendingCount: int
     winRate: float
+
+
+class RideDetail(BaseModel):
+    raceNumber: int
+    horseName: str
+    odds: float
+    bestBookmaker: str
+    bestPrice: float
+    expectedPoints: float
+    winProbability: float
+    status: str
+    position: Optional[int] = None
+    pointsAwarded: Optional[float] = None
+
+
+class ParticipantDetail(BaseModel):
+    id: str
+    name: str
+    meetingName: str
+    meetingType: str
+    currentPoints: float
+    projectedFinalPoints: float
+    projectedAdditionalPoints: float
+    aiPrice: float
+    bookmakerPrice: float
+    overlayPercent: float
+    winProbability: float
+    valueRating: str
+    remainingRides: int
+    totalRaces: int
+    completedRaces: int
+    rides: List[RideDetail]

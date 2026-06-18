@@ -7,6 +7,7 @@ import Link from "next/link";
 interface ChallengeCardProps {
   participant: Participant;
   type: "jockey" | "driver";
+  onShowDetail?: (participantId: string, meetingId: string) => void;
 }
 
 const statusColors = {
@@ -28,6 +29,7 @@ const ratingColors = {
 export default function ChallengeCard({
   participant,
   type,
+  onShowDetail,
 }: ChallengeCardProps) {
   const isPositive = participant.overlayPercent > 0;
   const detailPath = `/meetings/${participant.meetingId}`;
@@ -51,9 +53,16 @@ export default function ChallengeCard({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onShowDetail?.(participant.id, participant.meetingId);
+                  }}
+                  className="text-sm font-semibold text-slate-900 dark:text-white hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer"
+                >
                   {participant.name}
-                </h3>
+                </button>
                 {participant.isProjectedWinner && (
                   <IconStar className="w-3.5 h-3.5 text-amber-400" />
                 )}

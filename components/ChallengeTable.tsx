@@ -8,6 +8,7 @@ import ChallengeCard from "./ChallengeCard";
 interface ChallengeTableProps {
   participants: Participant[];
   type: "jockey" | "driver";
+  onShowDetail?: (participantId: string, meetingId: string) => void;
 }
 
 const statusBadge = (status: string) => {
@@ -38,6 +39,7 @@ const statusBadge = (status: string) => {
 export default function ChallengeTable({
   participants,
   type,
+  onShowDetail,
 }: ChallengeTableProps) {
   const sorted = [...participants].sort((a, b) => b.currentPoints - a.currentPoints);
   return (
@@ -118,9 +120,12 @@ export default function ChallengeTable({
                         </div>
                         <div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[140px]">
+                            <button
+                              onClick={() => onShowDetail?.(p.id, p.meetingId)}
+                              className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[140px] hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer text-left"
+                            >
                               {p.name}
-                            </span>
+                            </button>
                             {p.isProjectedWinner && (
                               <IconStar className="w-3 h-3 text-amber-400" />
                             )}
@@ -195,7 +200,7 @@ export default function ChallengeTable({
 
       <div className="md:hidden space-y-3">
         {sorted.map((p) => (
-          <ChallengeCard key={p.id + "-mobile"} participant={p} type={type} />
+          <ChallengeCard key={p.id + "-mobile"} participant={p} type={type} onShowDetail={onShowDetail} />
         ))}
       </div>
     </>

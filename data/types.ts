@@ -96,3 +96,35 @@ export interface MeetingPrediction {
   projectedWinner: string;
   predictions: Prediction[];
 }
+
+export interface RideDetail {
+  raceNumber: number;
+  horseName: string;
+  odds: number;
+  bestBookmaker: string;
+  bestPrice: number;
+  expectedPoints: number;
+  winProbability: number;
+  status: string;
+  position: number | null;
+  pointsAwarded: number | null;
+}
+
+export interface ParticipantDetail {
+  id: string;
+  name: string;
+  meetingName: string;
+  meetingType: string;
+  currentPoints: number;
+  projectedFinalPoints: number;
+  projectedAdditionalPoints: number;
+  aiPrice: number;
+  bookmakerPrice: number;
+  overlayPercent: number;
+  winProbability: number;
+  valueRating: string;
+  remainingRides: number;
+  totalRaces: number;
+  completedRaces: number;
+  rides: RideDetail[];
+}
