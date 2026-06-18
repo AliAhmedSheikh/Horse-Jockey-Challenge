@@ -137,12 +137,6 @@ def refresh_meeting_status():
                     p.completed_races = len(set(r.race_number for r in prev_results))
                     p.remaining_races = meeting.total_races - p.completed_races
 
-                # Delete existing results for this race to handle re-runs cleanly
-                db.query(Result).filter(
-                    Result.meeting_id == meeting.id,
-                    Result.race_number == next_race,
-                ).delete()
-
                 # Check if last race results already exist in DB (auto-finish)
                 if next_race == meeting.total_races:
                     last_race_results = db.query(Result).filter(
@@ -157,6 +151,12 @@ def refresh_meeting_status():
                         db.commit()
                         continue
 
+                # Delete existing results for this race to handle re-runs cleanly
+                db.query(Result).filter(
+                    Result.meeting_id == meeting.id,
+                    Result.race_number == next_race,
+                ).delete()
+
                 race_data = fetch_single_race_results(meeting.name, next_race)
 
                 if race_data is None:
@@ -170,7 +170,7 @@ def refresh_meeting_status():
                         p.completed_races += 1
                         p.remaining_races = meeting.total_races - p.completed_races
                         if pos <= riders:
-                            added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
+                            added = race_points(pos)
                             p.current_points += added
                             result = Result(
                                 meeting_id=meeting.id,

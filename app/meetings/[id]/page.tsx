@@ -239,13 +239,13 @@ export default function MeetingDetailPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
               {participantsLoading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading participants...
                   </td>
                 </tr>
               ) : participantsEmpty ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     No participants loaded
                   </td>
                 </tr>

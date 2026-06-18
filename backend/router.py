@@ -56,7 +56,6 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
         return 3.0
 
     base_price = avg_bookmaker
-    race_progress = completed_races / max(total_races, 1)
 
     if current_points >= 9:
         perf_factor = 0.85
@@ -66,8 +65,6 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
         perf_factor = 0.93
     elif current_points > 0:
         perf_factor = 0.97
-    elif completed_races > 0:
-        perf_factor = 1.12
     else:
         perf_factor = 1.12
 
@@ -383,11 +380,16 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
     if participant.completed_races == 0:
         implied = 1.0 / max(avg_bookmaker, 1.01)
         top3_prob = min(0.85, implied * 1.5)
-        expected_pts_per_race = top3_prob * 2.0
+        projected = round(top3_prob * 2.0 * total_races, 1)
     else:
-        expected_pts_per_race = participant.current_points / participant.completed_races if participant.completed_races > 0 else 0.67
-    projected_additional = round(expected_pts_per_race * remaining, 1)
-    projected_final = round(participant.current_points + projected_additional, 1)
+        avg_per_race = participant.current_points / participant.completed_races
+        meeting_completed = meeting.completed_races if meeting else 0
+        if meeting_completed > 0:
+            participation_rate = min(participant.completed_races / meeting_completed, 1.0)
+            estimated_remaining_rides = round(remaining * participation_rate, 1)
+        else:
+            estimated_remaining_rides = remaining
+        projected = round(participant.current_points + avg_per_race * estimated_remaining_rides, 1)
 
     implied_win = 1.0 / max(avg_bookmaker, 1.01)
     ride_density = (total_races - remaining) / max(total_races, 1)
@@ -484,8 +486,8 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
         meetingName=meeting.name,
         meetingType=meeting.type.value if hasattr(meeting.type, 'value') else meeting.type,
         currentPoints=participant.current_points,
-        projectedFinalPoints=projected_final,
-        projectedAdditionalPoints=projected_additional,
+        projectedFinalPoints=projected,
+        projectedAdditionalPoints=round(projected - participant.current_points, 1),
         aiPrice=round(ai_price, 2),
         bookmakerPrice=round(avg_bookmaker, 2),
         overlayPercent=overlay,
@@ -609,7 +611,6 @@ def get_dashboard(db: Session = Depends(get_db)):
     today = today_aus()
     meetings = db.query(Meeting).filter(
         Meeting.date == today,
-        Meeting.status != MeetingStatus.FINISHED.value
     ).options(
         joinedload(Meeting.participants)
     ).all()
@@ -1095,15 +1096,15 @@ def delete_bet(bet_id: int, db: Session = Depends(get_db)):
 def get_bet_stats(db: Session = Depends(get_db)):
     bets = db.query(Bet).all()
     total_bets = len(bets)
-    total_staked = sum(b.stake for b in bets)
-    total_returned = sum(b.potential_return for b in bets if b.result == "won")
+    settled_bets = [b for b in bets if b.result in ("won", "lost")]
+    settled_staked = sum(b.stake for b in settled_bets)
     total_pnl = sum(b.pnl for b in bets)
     win_count = sum(1 for b in bets if b.result == "won")
     loss_count = sum(1 for b in bets if b.result == "lost")
     pending_count = sum(1 for b in bets if b.result == "pending")
     settled = win_count + loss_count
     win_rate = (win_count / settled * 100) if settled > 0 else 0.0
-    roi = (total_pnl / total_staked * 100) if total_staked > 0 else 0.0
+    roi = (total_pnl / settled_staked * 100) if settled_staked > 0 else 0.0
 
     pnl_by_day = {}
     for b in bets:
@@ -1119,8 +1120,8 @@ def get_bet_stats(db: Session = Depends(get_db)):
 
     return BetStats(
         totalBets=total_bets,
-        totalStaked=round(total_staked, 2),
-        totalReturned=round(total_returned, 2),
+        totalStaked=round(settled_staked, 2),
+        totalReturned=round(sum(b.potential_return for b in settled_bets), 2),
         totalPnl=round(total_pnl, 2),
         roi=round(roi, 1),
         winCount=win_count,

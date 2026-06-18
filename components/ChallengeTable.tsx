@@ -192,7 +192,7 @@ export default function ChallengeTable({
         <div className="flex items-start gap-2">
           <IconInfo className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            <span className="font-semibold text-slate-600 dark:text-slate-300">Ladbrokes</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">Neds</span> — live scraped prices.
+            <span className="font-semibold text-slate-600 dark:text-slate-300">Ladbrokes</span> — live scraped prices.
             <span className="font-semibold text-slate-600 dark:text-slate-300"> TAB</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">TABtouch</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">Sportsbet</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">PointsBet</span> — via PuntersEdge derivation.
           </p>
         </div>

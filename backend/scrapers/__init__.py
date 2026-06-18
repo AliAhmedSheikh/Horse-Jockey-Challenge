@@ -355,10 +355,10 @@ class SportsbetScraper:
         self.name = "Sportsbet"
 
     def scrape_jockey_challenges(self) -> List[Dict]:
-        return _derive_markets("Sportsbet")
+        return [m for m in _derive_markets("Sportsbet") if m.get("type") == "jockey"]
 
     def scrape_driver_challenges(self) -> List[Dict]:
-        return _derive_markets("Sportsbet")
+        return [m for m in _derive_markets("Sportsbet") if m.get("type") == "driver"]
 
     def close(self):
         pass

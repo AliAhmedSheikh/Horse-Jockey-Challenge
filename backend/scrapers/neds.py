@@ -98,8 +98,8 @@ def _fetch_meetings(mtype: str) -> List[Dict]:
 
     Returns list of meeting dicts with {name, id, races: [{id, number}]}
     """
-    from datetime import date
-    today = date.today().isoformat()
+    from time_utils import today_aus
+    today = today_aus()
     data = _gql("RacingHomeScreenWeb", {"date": today})
     if not data:
         return []

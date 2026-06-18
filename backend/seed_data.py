@@ -759,7 +759,7 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
                 riders = min(len(shuffled), random.randint(3, max(3, meeting.total_races)))
                 for pos, p in enumerate(shuffled, 1):
                     if pos <= riders:
-                        added = {1: 3, 2: 2, 3: 1}.get(pos, 0)
+                        added = race_points(pos)
                         cumulative_points[p.id] += added
                         race_counts[p.id] += 1
                         result = Result(
