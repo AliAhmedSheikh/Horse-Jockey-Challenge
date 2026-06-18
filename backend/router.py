@@ -77,7 +77,7 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
         ride_bonus = 1.0 + (ride_density - 0.5) * 0.3
         ride_bonus = max(0.7, min(1.3, ride_bonus))
 
-        base_ai_price = 1.0 / max(total_implied_win * ride_bonus, 0.01)
+        base_ai_price = 1.0 / max(avg_implied_win * ride_bonus, 0.01)
         base_ai_price = max(MIN_PRICE, min(MAX_PRICE, base_ai_price))
     else:
         base_ai_price = avg_bookmaker
