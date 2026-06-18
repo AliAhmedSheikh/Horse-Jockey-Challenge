@@ -157,17 +157,6 @@ def refresh_meeting_status():
                         db.commit()
                         continue
 
-                if meeting.id.startswith("dyn_"):
-                    if next_race == meeting.total_races:
-                        meeting.status = MeetingStatus.FINISHED.value
-                        for p in participants:
-                            p.remaining_races = 0
-                        logger.info(f"Meeting {meeting.name} -> FINISHED (dynamic meeting, last race not available from API)")
-                        db.commit()
-                    else:
-                        logger.info(f"Meeting {meeting.name} - Race {next_race} not available from API (dynamic meeting), skipping")
-                    continue
-
                 race_data = fetch_single_race_results(meeting.name, next_race)
 
                 if race_data is None:
