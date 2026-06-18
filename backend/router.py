@@ -45,15 +45,44 @@ CACHE_TTL = 30
 
 
 def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_races: int, total_races: int, race_odds_json: str = None) -> float:
-    """Compute AI price using implied probabilities from per-race odds.
+    """Compute AI price: challenge market price is primary, performance adjusts, horse odds are secondary.
 
-    When race_odds_json is available (dict of {race_number: odds}), we compute
-    a probability-weighted AI price based on the sum of implied win probabilities
-    across all rides. This is more accurate than just using the average bookmaker
-    price because it accounts for the number of rides and each ride's quality.
+    Formula:
+      1. Base = Ladbrokes/challenge market price
+      2. Performance adjustment (primary) — outperforming shortens price, underperforming lengthens
+      3. Horse odds adjustment (secondary) — ride density provides minor tweak
     """
     if avg_bookmaker <= 0:
         return 3.0
+
+    base_price = avg_bookmaker
+
+    race_progress = completed_races / max(total_races, 1)
+
+    if completed_races == 0:
+        ai_price = base_price
+    else:
+        implied_prob = 1.0 / max(base_price, MIN_PRICE)
+        top3_prob = min(0.85, implied_prob * 1.5)
+        expected_pts_per_race = top3_prob * 2.0
+        expected_total = expected_pts_per_race * completed_races
+
+        perf_ratio = current_points / max(expected_total, 0.01)
+        perf_ratio = max(0.2, min(5.0, perf_ratio))
+
+        perf_confidence = min(0.7, race_progress * 0.8)
+
+        if perf_ratio > 1.0:
+            price_adj = 1.0 - (perf_ratio - 1.0) * 0.15
+        else:
+            price_adj = 1.0 + (1.0 - perf_ratio) * 0.25
+
+        performance_price = base_price * max(0.5, price_adj)
+
+        ai_price = base_price * (1 - perf_confidence) + performance_price * perf_confidence
+
+        if race_progress >= 1.0:
+            ai_price = performance_price
 
     race_odds = {}
     if race_odds_json:
@@ -70,54 +99,12 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
         except (json.JSONDecodeError, ValueError, TypeError):
             pass
 
-    if race_odds and len(race_odds) > 0:
+    if race_odds and completed_races > 0:
         num_rides = len(race_odds)
-
-        total_implied_win = sum(1.0 / max(odds, MIN_PRICE) for odds in race_odds.values())
-
-        avg_implied_win = total_implied_win / num_rides
-
-        top3_prob_per_race = min(0.85, avg_implied_win * 1.5)
-        expected_pts_per_race = top3_prob_per_race * 2.0
-        total_expected_points = expected_pts_per_race * total_races
-
         ride_density = num_rides / max(total_races, 1)
-        ride_bonus = 1.0 + (ride_density - 0.5) * 0.3
-        ride_bonus = max(0.7, min(1.3, ride_bonus))
-
-        base_ai_price = 1.0 / max(avg_implied_win * ride_bonus, 0.01)
-        base_ai_price = max(MIN_PRICE, min(MAX_PRICE, base_ai_price))
-    else:
-        base_ai_price = avg_bookmaker
-
-    race_progress = completed_races / max(total_races, 1)
-
-    if completed_races == 0:
-        if race_odds:
-            return round(base_ai_price, 2)
-        return round(avg_bookmaker, 2)
-
-    implied_prob = 1.0 / max(avg_bookmaker, MIN_PRICE)
-    top3_prob = min(0.85, implied_prob * 1.5)
-    expected_pts_per_race_old = top3_prob * 2.0
-
-    expected_points = expected_pts_per_race_old * completed_races
-    perf_ratio = current_points / max(expected_points, 0.01)
-    perf_ratio = max(0.2, min(5.0, perf_ratio))
-
-    perf_confidence = min(0.7, race_progress * 0.8)
-
-    if perf_ratio > 1.0:
-        price_adj = 1.0 - (perf_ratio - 1.0) * 0.15
-    else:
-        price_adj = 1.0 + (1.0 - perf_ratio) * 0.25
-
-    performance_price = base_ai_price * max(0.5, price_adj)
-
-    ai_price = base_ai_price * (1 - perf_confidence) + performance_price * perf_confidence
-
-    if race_progress >= 1.0:
-        ai_price = performance_price
+        ride_factor = 1.0 + (ride_density - 0.5) * 0.1
+        ride_factor = max(0.9, min(1.1, ride_factor))
+        ai_price = ai_price * ride_factor
 
     return round(max(MIN_PRICE, min(MAX_PRICE, ai_price)), 2)
 
