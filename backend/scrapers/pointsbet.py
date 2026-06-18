@@ -102,7 +102,8 @@ def _build_jockey_prices(meetings_data: List[Dict], mtype: str) -> List[Dict]:
 
     result = []
     for venue, races in venue_races.items():
-        jockey_prices = {}
+        jockey_best_price = {}
+        jockey_rides = {}
 
         for race in races:
             runner_map = {}
@@ -128,11 +129,20 @@ def _build_jockey_prices(meetings_data: List[Dict], mtype: str) -> List[Dict]:
                     if not rider:
                         continue
                     price = round(max(MIN_PRICE, min(MAX_PRICE, float(price))), 2)
-                    if rider not in jockey_prices or price < jockey_prices[rider]:
-                        jockey_prices[rider] = price
+                    jockey_rides[rider] = jockey_rides.get(rider, 0) + 1
+                    if rider not in jockey_best_price or price < jockey_best_price[rider]:
+                        jockey_best_price[rider] = price
 
-        if not jockey_prices:
+        if not jockey_best_price:
             continue
+
+        # Adjust prices: more rides = slightly shorter price (more chances to score)
+        # adjusted_price = best_price * (0.98 ** (num_rides - 1))
+        jockey_prices = {}
+        for rider, best_price in jockey_best_price.items():
+            num_rides = jockey_rides[rider]
+            adjusted = round(best_price * (0.98 ** (num_rides - 1)), 2)
+            jockey_prices[rider] = max(MIN_PRICE, min(MAX_PRICE, adjusted))
 
         participants = [
             {"name": name, "price": price}
@@ -177,29 +187,29 @@ class PointsBetScraper:
 
     def scrape_driver_challenges(self) -> List[Dict]:
         from time_utils import today_aus
-        # Try harness racing - racingType might be different
-        # PointsBet uses racingType=1 for thoroughbred, let's also check greyhound
-        # For harness, we need to find the right racingType
-        # First try fetching all types and filter for harness
-        all_races = []
-        for rt in [1, 3, 5, 7]:  # Try various racing types
-            races = _fetch_races(racing_type=rt, region=2)
-            for race in races:
-                if race.get("racingType", "").lower() in ("harness", "trot"):
-                    all_races.append(race)
-        
+        # racingType=3 is harness racing on PointsBet
+        all_races = list(_fetch_races(racing_type=3, region=2))
+
         if not all_races:
-            # Also try fetching from all regions
+            # Fall back: fetch all types and filter for harness
+            for rt in [1, 3, 5, 7]:
+                races = _fetch_races(racing_type=rt, region=2)
+                for race in races:
+                    if race.get("racingType", "").lower() in ("harness", "trot"):
+                        all_races.append(race)
+
+        if not all_races:
+            # Try all regions as last resort
             for rt in [1, 3, 5, 7]:
                 races = _fetch_races(racing_type=rt, region=3)
                 for race in races:
                     if race.get("racingType", "").lower() in ("harness", "trot"):
                         all_races.append(race)
-        
+
         if not all_races:
             logger.info("PointsBet driver: no AUS harness races found")
             return []
-        
+
         return _build_jockey_prices(all_races, "driver")
 
     def close(self):

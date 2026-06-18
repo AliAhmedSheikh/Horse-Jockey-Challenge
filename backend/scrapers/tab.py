@@ -17,6 +17,7 @@ BASE = "https://www.tabtouch.com.au"
 
 _NON_AU_PATTERN = re.compile(r'\s+-\s+\w{2,4}\s*$')
 _JOCKEY_CHALLENGE_RE = re.compile(r'(.+?)\s+Jockey Challenge\s+3,2,1\s+Points', re.IGNORECASE)
+_DRIVER_CHALLENGE_RE = re.compile(r'(.+?)\s+Driver\s+(?:Challenge|Wins)\s+3,2,1\s+Points', re.IGNORECASE)
 _GLOBALS_PATTERN = re.compile(r'globals\.fixedOddsBettingData\s*=\s*({.*?});', re.DOTALL)
 _EVENT_ID_PATTERN = re.compile(r'/event-(\d+)')
 
@@ -156,6 +157,118 @@ def _fetch_event_from_html(event_id: int, date_str: str) -> Optional[Dict]:
         return data
     except Exception as e:
         logger.warning(f"TABtouch event page {event_id} error: {e}")
+        return None
+
+
+def _get_driver_challenge_events(date_str: str) -> List[Dict]:
+    """Fetch the TABtouch driver challenge listing page and extract events."""
+    cache_key = f"driver_events_{date_str}"
+    now = time.time()
+    with _event_cache_lock:
+        if cache_key in _event_cache:
+            entry = _event_cache[cache_key]
+            if isinstance(entry, tuple) and now - entry[1] < _CACHE_TTL:
+                return entry[0]
+
+    url = f"{BASE}/racing/driver-challenge/{date_str}"
+    try:
+        client = _get_client()
+        r = client.get(url)
+        if r.status_code != 200:
+            logger.warning(f"TABtouch driver challenge listing returned {r.status_code}")
+            return []
+
+        soup = BeautifulSoup(r.text, 'html.parser')
+        table = soup.find('table')
+        if not table:
+            logger.info("TABtouch driver challenge listing: no events table found")
+            return []
+
+        events = []
+        rows = table.find_all('tr')
+        for row in rows[1:]:
+            cells = row.find_all('td')
+            if len(cells) < 4:
+                continue
+            link = cells[2].find('a')
+            if not link:
+                continue
+            event_name = link.get_text(strip=True)
+            href = link.get('href', '')
+            m = _EVENT_ID_PATTERN.search(href)
+            if not m:
+                continue
+            event_id = int(m.group(1))
+            events.append({
+                "event_id": event_id,
+                "event_name": event_name,
+                "href": href,
+            })
+
+        with _event_cache_lock:
+            _event_cache[cache_key] = (events, time.time())
+        return events
+    except Exception as e:
+        logger.warning(f"TABtouch driver challenge listing error: {e}")
+        return []
+
+
+def _fetch_driver_challenge_event(event_id: int, date_str: str) -> Optional[Dict]:
+    """Fetch a specific driver challenge event from the TABtouch JSON API."""
+    cache_key = f"driver_event_{event_id}"
+    now = time.time()
+    with _event_cache_lock:
+        if cache_key in _event_cache:
+            entry = _event_cache[cache_key]
+            if isinstance(entry, tuple) and now - entry[1] < _CACHE_TTL:
+                return entry[0]
+
+    url = f"{BASE}/api/fixed-odds/refresh/driverchallenge/{date_str}/event-{event_id}"
+    try:
+        client = _get_client()
+        r = client.get(url)
+        if r.status_code != 200:
+            return None
+
+        data = r.json()
+        if data.get("responseCode") != "Success":
+            return None
+
+        with _event_cache_lock:
+            _event_cache[cache_key] = (data, time.time())
+        return data
+    except Exception as e:
+        logger.warning(f"TABtouch driver challenge event {event_id} error: {e}")
+        return None
+
+
+def _fetch_driver_event_from_html(event_id: int, date_str: str) -> Optional[Dict]:
+    """Fallback: fetch driver challenge event page HTML and extract globals.fixedOddsBettingData."""
+    cache_key = f"driver_event_{event_id}"
+    now = time.time()
+    with _event_cache_lock:
+        if cache_key in _event_cache:
+            entry = _event_cache[cache_key]
+            if isinstance(entry, tuple) and now - entry[1] < _CACHE_TTL:
+                return entry[0]
+
+    url = f"{BASE}/racing/driver-challenge/{date_str}/event-{event_id}"
+    try:
+        client = _get_client()
+        r = client.get(url)
+        if r.status_code != 200:
+            return None
+
+        m = _GLOBALS_PATTERN.search(r.text)
+        if not m:
+            return None
+
+        data = json.loads(m.group(1))
+        with _event_cache_lock:
+            _event_cache[cache_key] = (data, time.time())
+        return data
+    except Exception as e:
+        logger.warning(f"TABtouch driver challenge event page {event_id} error: {e}")
         return None
 
 
@@ -323,10 +436,91 @@ class TABScraper:
         return result
 
     def scrape_driver_challenges(self) -> List[Dict]:
-        """TABtouch driver challenges are derived from harness race win odds."""
+        """TABtouch driver challenges via dedicated endpoint, falling back to race pages."""
         from time_utils import today_aus
         date_str = today_aus()
 
+        result = self._scrape_driver_from_endpoint(date_str)
+        if result:
+            return result
+
+        return self._scrape_driver_from_race_pages(date_str)
+
+    def _scrape_driver_from_endpoint(self, date_str: str) -> List[Dict]:
+        """Try the dedicated driver challenge listing + event API."""
+        events = _get_driver_challenge_events(date_str)
+        if not events:
+            return []
+
+        meetings = _get_todays_meetings()
+        meeting_race_counts = {}
+        for mtg in meetings:
+            if mtg["type"] == "driver":
+                meeting_race_counts[mtg["meeting_name"]] = len(mtg["races"])
+
+        result = []
+        for event in events:
+            event_name = event["event_name"]
+            event_id = event["event_id"]
+
+            m = _DRIVER_CHALLENGE_RE.match(event_name)
+            if not m:
+                continue
+            meeting_name = m.group(1).strip()
+
+            data = _fetch_driver_challenge_event(event_id, date_str)
+            if not data:
+                data = _fetch_driver_event_from_html(event_id, date_str)
+            if not data:
+                continue
+
+            propositions = data.get("propositions", [])
+            if not propositions:
+                continue
+
+            participants = []
+            for prop in propositions:
+                name = (prop.get("name") or "").strip()
+                if not name:
+                    continue
+                if "/" in name or "Any Other" in name or "Dead Heat" in name:
+                    continue
+                if "must complete" in name.lower():
+                    continue
+                is_open = data.get("isOpen", False)
+                if is_open and (prop.get("showRacingStatusText") or not prop.get("showBetButton")):
+                    continue
+                try:
+                    price = float(prop.get("winReturn", 0) or 0)
+                except (ValueError, TypeError):
+                    continue
+                if price > 0:
+                    price = round(max(MIN_PRICE, min(MAX_PRICE, price)), 2)
+                    participants.append({"name": name, "price": price})
+
+            if not participants:
+                continue
+
+            participants.sort(key=lambda x: x["price"])
+            total_races = meeting_race_counts.get(meeting_name, 0)
+            market = {
+                "meeting_name": meeting_name,
+                "type": "driver",
+                "participants": participants,
+                "bookmaker": "TAB",
+                "total_races": total_races,
+                "races": [],
+            }
+            result.append(market)
+            logger.info(
+                f"TAB driver (endpoint): {meeting_name} "
+                f"({len(participants)} participants, {total_races} races)"
+            )
+
+        return result
+
+    def _scrape_driver_from_race_pages(self, date_str: str) -> List[Dict]:
+        """Fallback: derive driver challenge prices from individual race pages."""
         meetings = _get_todays_meetings()
         if not meetings:
             return []
@@ -406,7 +600,7 @@ class TABScraper:
                 }
                 result.append(market)
                 logger.info(
-                    f"TAB driver: {mtg['meeting_name']} "
+                    f"TAB driver (race pages): {mtg['meeting_name']} "
                     f"({len(participants)} participants, {len(mtg['races'])} races)"
                 )
 

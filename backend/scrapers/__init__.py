@@ -1,4 +1,5 @@
 import logging
+from difflib import SequenceMatcher
 from typing import List, Dict
 
 from scrapers.base import LadbrokesAPIScraper, _fetch_all_meetings
@@ -85,6 +86,27 @@ def _compute_venue_ratios(
     return ratios
 
 
+def _fuzzy_match_horse(target: str, candidates: dict, threshold: float = 0.85) -> str:
+    """Fuzzy match a horse name against candidate keys.
+
+    First tries exact match (case-insensitive already handled by caller).
+    If no exact match, uses SequenceMatcher to find best fuzzy match above threshold.
+    Returns the matched candidate key, or empty string if no match found.
+    """
+    if target in candidates:
+        return target
+    best_score = 0.0
+    best_key = ""
+    for key in candidates:
+        score = SequenceMatcher(None, target, key).ratio()
+        if score > best_score:
+            best_score = score
+            best_key = key
+    if best_score >= threshold:
+        return best_key
+    return ""
+
+
 def _derive_markets_via_horses(
     markets: List[Dict], pe_prices: Dict, pe_keys: List[str], bookmaker_name: str
 ) -> List[Dict]:
@@ -147,9 +169,10 @@ def _derive_markets_via_horses(
                 horse = rn_to_horse.get(rn)
                 if not horse:
                     continue
-                horse_prices = pe_race.get(horse)
-                if not horse_prices:
+                matched_key = _fuzzy_match_horse(horse, pe_race)
+                if not matched_key:
                     continue
+                horse_prices = pe_race[matched_key]
                 for pk in pe_keys:
                     bp = horse_prices.get(pk)
                     if bp and bp > 0:
@@ -172,8 +195,9 @@ def _derive_markets_via_horses(
                             cn = comp.get("name") or comp.get("competitor_name") or ""
                     horse = cn.strip().lower() if cn else ""
                     pe_race = venue_data.get(race.get("race_number"), {})
-                    in_pe = horse in pe_race if horse else False
-                    pe_keys_found = list(pe_race.get(horse, {}).keys()) if horse and in_pe else []
+                    matched_key = _fuzzy_match_horse(horse, pe_race) if horse else ""
+                    in_pe = bool(matched_key)
+                    pe_keys_found = list(pe_race.get(matched_key, {}).keys()) if matched_key else []
                     logger.info(
                         f"  sample jockey='{jn}' rn={rn} horse='{horse}' "
                         f"in_PE={in_pe} PE_keys={pe_keys_found} "
