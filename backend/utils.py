@@ -213,7 +213,18 @@ def names_lastname_fallback(a: str, b: str) -> bool:
     return len(wa[-1]) >= 3 and len(wb[-1]) >= 3 and wa[-1] == wb[-1]
 
 
-def compute_value_rating(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0) -> str:
+def filter_spikes(prices: list, spike_multiplier: float = 3.0) -> list:
+    """Remove outlier bookmaker prices that are more than spike_multiplier
+    times the median of the remaining prices. Returns filtered list."""
+    if len(prices) <= 2:
+        return prices
+    sorted_prices = sorted(prices)
+    median = sorted_prices[len(sorted_prices) // 2]
+    filtered = [p for p in prices if p <= median * spike_multiplier]
+    return filtered if filtered else prices
+
+
+def compute_value_rating(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0, is_top2: bool = False) -> str:
     if bookmaker_price <= 0 or ai_price <= 0:
         return "Neutral"
     overlay = (bookmaker_price - ai_price) / ai_price * 100
@@ -224,11 +235,13 @@ def compute_value_rating(bookmaker_price: float, ai_price: float, strong_value_t
     elif overlay > -5:
         return "Neutral"
     else:
+        if is_top2:
+            return "Value"
         return "Avoid"
 
 
-def compute_status(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0) -> str:
-    rating = compute_value_rating(bookmaker_price, ai_price, strong_value_threshold)
+def compute_status(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0, is_top2: bool = False) -> str:
+    rating = compute_value_rating(bookmaker_price, ai_price, strong_value_threshold, is_top2)
     if rating in ("Strong Value", "Value"):
         return "value"
     elif rating == "Neutral":

@@ -13,7 +13,7 @@ from sqlalchemy import desc, asc, func
 from database import get_db, SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus, FormulaSetting, Bet
 from time_utils import today_aus
-from utils import compute_value_rating, compute_status, MIN_PRICE, MAX_PRICE
+from utils import compute_value_rating, compute_status, filter_spikes, MIN_PRICE, MAX_PRICE
 from schemas import (
     MeetingOut,
     ParticipantOut,
@@ -189,10 +189,11 @@ def _load_value_threshold(db: Session) -> float:
     return row.value if row else DEFAULT_SETTINGS.get("valueThreshold", 15.0)
 
 
-def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting], prices: List, value_threshold: float = 15.0, meeting_race_odds: dict = None) -> ParticipantOut:
+def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting], prices: List, value_threshold: float = 15.0, meeting_race_odds: dict = None, is_top2: bool = False) -> ParticipantOut:
     accurate_prices = [pr for pr in prices if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
     bookmaker_prices = [pr.price for pr in accurate_prices]
-    avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
+    filtered_prices = filter_spikes(bookmaker_prices)
+    avg_bookmaker = sum(filtered_prices) / len(filtered_prices) if filtered_prices else 3.0
     total_races = meeting.total_races if meeting else 8
     best_race_odds_json = None
     best_count = 0
@@ -223,23 +224,24 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
         else:
             estimated_remaining_rides = remaining
         projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
-    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold)
+    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold, is_top2)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in accurate_prices}
     return ParticipantOut(
         id=p.id, name=p.name, meetingName=meeting.name if meeting else "", meetingId=p.meeting_id,
         bookmakerPrice=round(avg_bookmaker, 2), bookmakerPrices=bookmaker_prices_dict, aiPrice=ai_price, overlayPercent=overlay,
         valueRating=value_rating, currentPoints=p.current_points, projectedFinalPoints=projected,
-        status=compute_status(avg_bookmaker, ai_price, value_threshold), isProjectedWinner=False,
+        status=compute_status(avg_bookmaker, ai_price, value_threshold, is_top2), isProjectedWinner=False,
     )
 
 
-def _participant_to_frontend(p: Participant, db: Session, value_threshold: float = 15.0) -> ParticipantOut:
+def _participant_to_frontend(p: Participant, db: Session, value_threshold: float = 15.0, is_top2: bool = False) -> ParticipantOut:
     prices = db.query(Price).filter(Price.participant_id == p.id).all()
     meeting = db.query(Meeting).filter(Meeting.id == p.meeting_id).first()
 
     accurate_prices = [pr for pr in prices if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
     bookmaker_prices = [pr.price for pr in accurate_prices]
-    avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
+    filtered_prices = filter_spikes(bookmaker_prices)
+    avg_bookmaker = sum(filtered_prices) / len(filtered_prices) if filtered_prices else 3.0
 
     total = meeting.total_races if meeting else 8
     best_race_odds_json = None
@@ -295,7 +297,7 @@ def _participant_to_frontend(p: Participant, db: Session, value_threshold: float
             estimated_remaining_rides = remaining
         projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
 
-    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold)
+    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold, is_top2)
     bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in accurate_prices}
 
     return ParticipantOut(
@@ -310,7 +312,7 @@ def _participant_to_frontend(p: Participant, db: Session, value_threshold: float
         valueRating=value_rating,
         currentPoints=p.current_points,
         projectedFinalPoints=projected,
-        status=compute_status(avg_bookmaker, ai_price, value_threshold),
+        status=compute_status(avg_bookmaker, ai_price, value_threshold, is_top2),
         isProjectedWinner=False,
     )
 
@@ -349,7 +351,10 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
     ).order_by(desc(Participant.current_points)).all()
 
     value_threshold = _load_value_threshold(db)
-    result = [_participant_to_frontend(p, db, value_threshold) for p in participants]
+    result = []
+    for i, p in enumerate(participants):
+        is_top2 = i < 2
+        result.append(_participant_to_frontend(p, db, value_threshold, is_top2))
     winner = max(result, key=lambda x: x.currentPoints) if result else None
     for r in result:
         r.isProjectedWinner = (r.id == winner.id) if winner else False
@@ -372,7 +377,8 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
     prices = db.query(Price).filter(Price.participant_id == participant_id).all()
     accurate_prices = [pr for pr in prices if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
     bookmaker_prices = [pr.price for pr in accurate_prices]
-    avg_bookmaker = sum(bookmaker_prices) / len(bookmaker_prices) if bookmaker_prices else 3.0
+    filtered_prices = filter_spikes(bookmaker_prices)
+    avg_bookmaker = sum(filtered_prices) / len(filtered_prices) if filtered_prices else 3.0
 
     best_race_odds_json = None
     best_count = 0
@@ -405,7 +411,11 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
     win_prob = min(0.95, implied_win * (1.0 + ride_density * 0.2))
 
     value_threshold = _load_value_threshold(db)
-    value_rating = compute_value_rating(ai_price, avg_bookmaker, value_threshold)
+
+    all_parts = db.query(Participant).filter(Participant.meeting_id == meeting_id).order_by(desc(Participant.current_points)).all()
+    is_top2 = any(part.id == participant_id for part in all_parts[:2])
+
+    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold, is_top2)
 
     rides = []
     race_odds = {}
@@ -694,10 +704,18 @@ def get_dashboard(db: Session = Depends(get_db)):
     jockeys = []
     drivers = []
     value_threshold = _load_value_threshold(db)
+
+    top2_by_meeting = {}
+    for mid, plist in participants_by_meeting.items():
+        sortedplist = sorted(plist, key=lambda x: x.current_points, reverse=True)
+        top2_ids = {p.id for p in sortedplist[:2]}
+        top2_by_meeting[mid] = top2_ids
+
     for p in all_participants:
         meeting = meeting_map.get(p.meeting_id)
         prs = prices_by_participant.get(p.id, [])
-        fp = _participant_to_frontend_with_data(p, meeting, prs, value_threshold, meeting_race_odds_map.get(p.meeting_id))
+        is_top2 = p.id in top2_by_meeting.get(p.meeting_id, set())
+        fp = _participant_to_frontend_with_data(p, meeting, prs, value_threshold, meeting_race_odds_map.get(p.meeting_id), is_top2)
         if meeting and meeting.type == "jockey":
             jockeys.append(fp)
         else:
@@ -709,7 +727,8 @@ def get_dashboard(db: Session = Depends(get_db)):
         m = meeting_map.get(r.meeting_id)
         if p and m:
             prs = [pr for pr in prices_by_participant.get(p.id, []) if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
-            avg_bm = sum(pr.price for pr in prs) / len(prs) if prs else 3.0
+            raw_bm = [pr.price for pr in prs]
+            avg_bm = sum(filter_spikes(raw_bm)) / len(filter_spikes(raw_bm)) if raw_bm else 3.0
             best_rj = None
             best_c = 0
             for pr in prs:
