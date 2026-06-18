@@ -715,6 +715,19 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
             logger.warning(f"Could not load price_map for meeting {meeting.name}: {e}")
 
         if use_real:
+            # Load Ladbrokes race_odds_json for determining who declared in each race
+            lad_price_rows = db.query(Price).filter(
+                Price.meeting_id == meeting.id,
+                Price.bookmaker_name == "Ladbrokes",
+            ).all()
+            lad_odds_by_pid = {}
+            for lpr in lad_price_rows:
+                if lpr.race_odds_json:
+                    try:
+                        lad_odds_by_pid[lpr.participant_id] = json.loads(lpr.race_odds_json)
+                    except (json.JSONDecodeError, ValueError):
+                        lad_odds_by_pid[lpr.participant_id] = {}
+
             for race_info in sorted(completed, key=lambda x: x.get("race_number", 0)):
                 rn = race_info.get("race_number")
                 real_positions = _get_real_race_positions(race_info, participants, price_map)
@@ -736,13 +749,20 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
                             timestamp=datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 30)),
                         )
                         db.add(result)
-                # Only non-placed matched participants get completed_races
-                all_matched = set()
-                if real_positions:
-                    for p2, pos2 in real_positions:
-                        all_matched.add(p2.id)
+                # Determine which participants have Ladbrokes odds for this race
+                odds_declared_pids = set()
+                for pid, race_odds in lad_odds_by_pid.items():
+                    if isinstance(race_odds, dict):
+                        for k in race_odds.keys():
+                            if int(k) == rn:
+                                odds_declared_pids.add(pid)
+                                break
+                # Create result records for participants with odds but not yet matched
                 for p in participants:
-                    if p.id not in placed_ids and p.id in all_matched:
+                    if p.id in placed_ids:
+                        continue
+                    if p.id in odds_declared_pids:
+                        race_counts[p.id] += 1
                         result = Result(
                             meeting_id=meeting.id,
                             participant_id=p.id,

@@ -14,6 +14,7 @@ from utils import weighted_shuffle, race_points, normalise_name, names_match, MI
 
 _refresh_lock = threading.Lock()
 _scrape_lock = threading.Lock()
+_already_repaired = set()
 
 from scrapers.base import fetch_single_race_results, invalidate_cache
 from seed_data import _get_real_race_positions, seed_database
@@ -66,6 +67,50 @@ def refresh_meeting_status():
             seed_database(db)
 
         meetings = db.query(Meeting).all()
+
+        # One-time repair: fix FINISHED meetings with incomplete results
+        for meeting in meetings:
+            if meeting.id in _already_repaired:
+                continue
+            if meeting.status not in (MeetingStatus.FINISHED.value, "Completed"):
+                continue
+            participants = db.query(Participant).filter(
+                Participant.meeting_id == meeting.id
+            ).all()
+            if not participants or len(participants) < 3:
+                continue
+
+            # Count how many participants actually have result records
+            participants_with_results = db.query(Result.participant_id).filter(
+                Result.meeting_id == meeting.id,
+            ).distinct().count()
+
+            # Count total results
+            result_count = db.query(Result).filter(
+                Result.meeting_id == meeting.id,
+            ).count()
+
+            # A healthy meeting should have results for most participants across multiple races
+            # If fewer than half of participants have any results, or results < 2x participant count,
+            # the meeting is likely incomplete
+            participant_ratio = participants_with_results / len(participants) if participants else 0
+            result_ratio = result_count / len(participants) if participants else 0
+
+            if participant_ratio < 0.5 or (meeting.total_races > 3 and result_ratio < 2):
+                logger.info(
+                    f"Repair: {meeting.name} has {participants_with_results}/{len(participants)} "
+                    f"participants with results, {result_count} total — resetting for re-processing"
+                )
+                db.query(Result).filter(Result.meeting_id == meeting.id).delete()
+                for p in participants:
+                    p.current_points = 0
+                    p.completed_races = 0
+                    p.remaining_races = meeting.total_races
+                meeting.completed_races = 0
+                meeting.status = MeetingStatus.LIVE.value
+                _already_repaired.add(meeting.id)
+                db.commit()
+
         for meeting in meetings:
             st = meeting.scheduled_time
             if st is not None and st.tzinfo is None:
@@ -211,13 +256,6 @@ def refresh_meeting_status():
                     price_map = {pr.participant_id: pr.price for pr in price_rows}
                     real_positions = _get_real_race_positions(race_data, participants, price_map) if race_data else None
 
-                    if real_positions is None and race_data.get("results"):
-                        logger.warning(
-                            f"Meeting {meeting.name} - Race {next_race}: API has {len(race_data.get('results',[]))} "
-                            f"results but still could not match via any strategy. Skipping."
-                        )
-                        continue
-
                     placed_ids = set()
                     if real_positions:
                         race_positions = [pos for _, pos in real_positions]
@@ -237,18 +275,39 @@ def refresh_meeting_status():
                                 timestamp=datetime.now(timezone.utc),
                             )
                             db.add(result)
-                    # Get all participant IDs that were matched to API results in this race
-                    from seed_data import _get_real_race_positions as _grrp
-                    # Re-fetch to get all matched participants, not just placed ones
-                    all_matched_race = _get_real_race_positions(race_data, participants, {})
+
+                    # Also get all participants matched by name (even non-placed)
                     all_matched_pids = set()
-                    if all_matched_race:
-                        for p2, pos2 in all_matched_race:
+                    if real_positions:
+                        for p2, _ in real_positions:
                             all_matched_pids.add(p2.id)
-                    
-                    # Non-placed participants who DID have a runner in this race
+
+                    # Determine who has Ladbrokes odds for this race (declared to ride)
+                    odds_declared_pids = set()
+                    for pr in price_rows:
+                        if pr.race_odds_json:
+                            try:
+                                rd = json.loads(pr.race_odds_json)
+                                if isinstance(rd, dict):
+                                    # race_odds_json keys are race numbers (strings or ints)
+                                    for k in rd.keys():
+                                        if int(k) == next_race:
+                                            odds_declared_pids.add(pr.participant_id)
+                                            break
+                            except (json.JSONDecodeError, ValueError, TypeError):
+                                pass
+
+                    # Create result records for ALL participants declared in this race
+                    # who don't already have one (from API name matching)
+                    matched_count = len(placed_ids)
+                    odds_count = len(odds_declared_pids)
+                    total_count = 0
                     for p in participants:
-                        if p.id not in placed_ids and p.id in all_matched_pids:
+                        if p.id in placed_ids:
+                            # Already has a result from API matching
+                            continue
+                        if p.id in odds_declared_pids or p.id in all_matched_pids:
+                            # Has odds for this race or matched by name — they rode
                             p.completed_races += 1
                             p.remaining_races = meeting.total_races - p.completed_races
                             result = Result(
@@ -261,9 +320,26 @@ def refresh_meeting_status():
                                 timestamp=datetime.now(timezone.utc),
                             )
                             db.add(result)
+                            total_count += 1
+                        elif not odds_declared_pids and not all_matched_pids:
+                            # No odds data at all (no Ladbrokes race_odds_json) — fall back
+                            # to recording all participants as having raced with 0 points
+                            p.completed_races += 1
+                            p.remaining_races = meeting.total_races - p.completed_races
+                            result = Result(
+                                meeting_id=meeting.id,
+                                participant_id=p.id,
+                                final_points=p.current_points,
+                                position=99,
+                                race_number=next_race,
+                                points_added=0,
+                                timestamp=datetime.now(timezone.utc),
+                            )
+                            db.add(result)
+                            total_count += 1
                     meeting.completed_races = next_race
                     _broadcast_race_update(meeting.id, meeting.name, next_race, meeting.completed_races, meeting.total_races)
-                    logger.info(f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} (REAL results)")
+                    logger.info(f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} (REAL: {matched_count} placed, {odds_count} odds, {total_count} additional)")
                 logger.info(f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} completed")
 
                 if next_race >= meeting.total_races:
