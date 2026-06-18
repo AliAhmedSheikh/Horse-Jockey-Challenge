@@ -45,44 +45,33 @@ CACHE_TTL = 30
 
 
 def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_races: int, total_races: int, race_odds_json: str = None) -> float:
-    """Compute AI price: challenge market price is primary, performance adjusts, horse odds are secondary.
+    """Compute AI price: challenge market price is primary, points performance adjusts, horse odds are secondary.
 
     Formula:
-      1. Base = Ladbrokes/challenge market price
-      2. Performance adjustment (primary) — outperforming shortens price, underperforming lengthens
+      1. Base = Ladbrokes/challenge market price (after spike filter)
+      2. Points adjustment (primary) — top 3 shorten 10-15%, 0pts lengthens 10-15%
       3. Horse odds adjustment (secondary) — ride density provides minor tweak
     """
     if avg_bookmaker <= 0:
         return 3.0
 
     base_price = avg_bookmaker
-
     race_progress = completed_races / max(total_races, 1)
 
-    if completed_races == 0:
-        ai_price = base_price
+    if current_points >= 9:
+        perf_factor = 0.85
+    elif current_points >= 6:
+        perf_factor = 0.88
+    elif current_points >= 3:
+        perf_factor = 0.93
+    elif current_points > 0:
+        perf_factor = 0.97
+    elif completed_races > 0:
+        perf_factor = 1.12
     else:
-        implied_prob = 1.0 / max(base_price, MIN_PRICE)
-        top3_prob = min(0.85, implied_prob * 1.5)
-        expected_pts_per_race = top3_prob * 2.0
-        expected_total = expected_pts_per_race * completed_races
+        perf_factor = 1.12
 
-        perf_ratio = current_points / max(expected_total, 0.01)
-        perf_ratio = max(0.2, min(5.0, perf_ratio))
-
-        perf_confidence = min(0.7, race_progress * 0.8)
-
-        if perf_ratio > 1.0:
-            price_adj = 1.0 - (perf_ratio - 1.0) * 0.15
-        else:
-            price_adj = 1.0 + (1.0 - perf_ratio) * 0.25
-
-        performance_price = base_price * max(0.5, price_adj)
-
-        ai_price = base_price * (1 - perf_confidence) + performance_price * perf_confidence
-
-        if race_progress >= 1.0:
-            ai_price = performance_price
+    ai_price = base_price * perf_factor
 
     race_odds = {}
     if race_odds_json:
@@ -102,8 +91,8 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
     if race_odds and completed_races > 0:
         num_rides = len(race_odds)
         ride_density = num_rides / max(total_races, 1)
-        ride_factor = 1.0 + (ride_density - 0.5) * 0.1
-        ride_factor = max(0.9, min(1.1, ride_factor))
+        ride_factor = 1.0 + (ride_density - 0.5) * 0.06
+        ride_factor = max(0.94, min(1.06, ride_factor))
         ai_price = ai_price * ride_factor
 
     return round(max(MIN_PRICE, min(MAX_PRICE, ai_price)), 2)
@@ -345,6 +334,13 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
     winner = max(result, key=lambda x: x.currentPoints) if result else None
     for r in result:
         r.isProjectedWinner = (r.id == winner.id) if winner else False
+
+    # Ensure leader always has shortest AI price
+    if len(result) >= 2 and winner:
+        current_shortest = min(result, key=lambda x: x.aiPrice)
+        if winner.aiPrice > current_shortest.aiPrice:
+            winner.aiPrice = round(current_shortest.aiPrice * 0.97, 2)
+            winner.overlayPercent = round((winner.bookmakerPrice - winner.aiPrice) / winner.aiPrice * 100, 1)
 
     return result
 
@@ -707,6 +703,20 @@ def get_dashboard(db: Session = Depends(get_db)):
             jockeys.append(fp)
         else:
             drivers.append(fp)
+
+    # Post-processing: ensure leader always has shortest AI price in each meeting
+    for participant_list in [jockeys, drivers]:
+        by_mtg = {}
+        for fp in participant_list:
+            by_mtg.setdefault(fp.meetingId, []).append(fp)
+        for mtg_id, mtg_parts in by_mtg.items():
+            if len(mtg_parts) < 2:
+                continue
+            leader = max(mtg_parts, key=lambda x: x.currentPoints)
+            current_shortest = min(mtg_parts, key=lambda x: x.aiPrice)
+            if leader.aiPrice > current_shortest.aiPrice:
+                leader.aiPrice = round(current_shortest.aiPrice * 0.97, 2)
+                leader.overlayPercent = round((leader.bookmakerPrice - leader.aiPrice) / leader.aiPrice * 100, 1)
 
     race_results = []
     for r in (sorted(all_results, key=lambda x: x.timestamp or datetime.now(timezone.utc), reverse=True)[:30]):

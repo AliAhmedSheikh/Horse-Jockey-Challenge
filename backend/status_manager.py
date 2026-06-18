@@ -143,8 +143,29 @@ def refresh_meeting_status():
                     Result.race_number == next_race,
                 ).delete()
 
+                # Check if last race results already exist in DB (auto-finish)
+                if next_race == meeting.total_races:
+                    last_race_results = db.query(Result).filter(
+                        Result.meeting_id == meeting.id,
+                        Result.race_number == next_race,
+                    ).count()
+                    if last_race_results > 0:
+                        meeting.status = MeetingStatus.FINISHED.value
+                        for p in participants:
+                            p.remaining_races = 0
+                        logger.info(f"Meeting {meeting.name} -> FINISHED (last race results exist in DB)")
+                        db.commit()
+                        continue
+
                 if meeting.id.startswith("dyn_"):
-                    logger.info(f"Meeting {meeting.name} - Race {next_race} not available from API (dynamic meeting), skipping")
+                    if next_race == meeting.total_races:
+                        meeting.status = MeetingStatus.FINISHED.value
+                        for p in participants:
+                            p.remaining_races = 0
+                        logger.info(f"Meeting {meeting.name} -> FINISHED (dynamic meeting, last race not available from API)")
+                        db.commit()
+                    else:
+                        logger.info(f"Meeting {meeting.name} - Race {next_race} not available from API (dynamic meeting), skipping")
                     continue
 
                 race_data = fetch_single_race_results(meeting.name, next_race)
@@ -188,7 +209,7 @@ def refresh_meeting_status():
                     logger.info(f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} ({riders} riders, weighted shuffle)")
                 else:
                     status = race_data.get("status", "")
-                    if status not in ("Final", "Interim"):
+                    if status not in ("Final", "Interim", "Closed", "Results"):
                         # Race not ready yet - skip this cycle
                         logger.info(f"Meeting {meeting.name} - Race {next_race} not ready (status={status})")
                         continue
