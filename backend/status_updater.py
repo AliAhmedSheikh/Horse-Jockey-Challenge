@@ -131,6 +131,11 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
 
 def _recalculate_participant_state(db, meeting, participants):
     """Recalculate participant points/completed from DB Results table."""
+    max_race = db.query(Result.race_number).filter(
+        Result.meeting_id == meeting.id,
+    ).order_by(Result.race_number.desc()).first()
+    if max_race:
+        meeting.completed_races = max_race[0]
     next_race = meeting.completed_races + 1
     for p in participants:
         prev_results = db.query(Result).filter(
