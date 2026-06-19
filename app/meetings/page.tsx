@@ -1,12 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import type { Meeting, Participant } from "@/data/types";
 import DataCard from "@/components/DataCard";
 import ChallengeTable from "@/components/ChallengeTable";
-import { IconCalendar, IconUser, IconCar, IconChevronRight, IconTrendingUp } from "@/data/icons";
+import ParticipantDetailModal from "@/components/ParticipantDetailModal";
+import { IconCalendar, IconUser, IconCar, IconChevronRight, IconArrowLeft, IconTrendingUp } from "@/data/icons";
 
 const statusLabels: Record<string, string> = {
   Live: "Live",
@@ -32,9 +33,11 @@ interface DashboardData {
 }
 
 export default function MeetingsPage() {
-  const router = useRouter();
   const { data, error, isLoading } = useSWR<DashboardData>("/api/dashboard", fetcher, { refreshInterval: 30000 });
   const { data: meetingsData, error: meetingsError } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
+
+  const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
+  const [detailModal, setDetailModal] = useState<{ participantId: string; meetingId: string } | null>(null);
 
   const jockeys = data?.jockeys ?? [];
   const drivers = data?.drivers ?? [];
@@ -52,6 +55,13 @@ export default function MeetingsPage() {
     driverByMeeting[d.meetingName].push(d);
   }
 
+  const allByMeeting: Record<string, Participant[]> = { ...jockeyByMeeting, ...driverByMeeting };
+  const selectedParts = selectedMeeting ? allByMeeting[selectedMeeting] ?? [] : [];
+  const selectedMeetingObj = meetings.find((m) => m.name === selectedMeeting);
+  const selectedMeetingType = selectedParts[0]?.meetingId
+    ? meetings.find((m) => m.id === selectedParts[0].meetingId)?.type
+    : undefined;
+
   if (isLoading) {
     return (
       <div className="page-transition text-center py-20">
@@ -68,178 +78,138 @@ export default function MeetingsPage() {
     );
   }
 
+  const meetingList = Object.entries(allByMeeting).map(([name, parts]) => {
+    const mObj = meetings.find((m) => m.name === name);
+    const leader = parts.reduce((best, p) => (p.currentPoints > best.currentPoints ? p : best), parts[0]);
+    return {
+      name,
+      meetingId: parts[0]?.meetingId ?? "",
+      count: parts.length,
+      type: mObj?.type ?? "Jockey",
+      status: mObj?.status ?? "Not Started",
+      completedRaces: mObj?.completedRaces ?? 0,
+      totalRaces: mObj?.totalRaces ?? 0,
+      projectedWinner: mObj?.projectedWinner ?? leader.name,
+      leader,
+      valuePicks: parts.filter((p) => p.status === "value").length,
+    };
+  });
+
+  const totalValue = [...jockeys, ...drivers].filter((p) => p.status === "value").length;
+
   return (
-    <div className="page-transition space-y-8">
+    <div className="page-transition space-y-6">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
-          Meetings
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Track all Jockey and Driver race meetings
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <DataCard
-          title="Total Meetings"
-          value={meetings.length}
-          subtitle="All race meetings"
-          icon={<IconCalendar className="w-5 h-5" />}
-        />
-        <DataCard
-          title="Live Now"
-          value={meetings.filter((m) => m.status === "Live").length}
-          subtitle="Currently in progress"
-          trend="up"
-          trendLabel="Active"
-        />
-        <DataCard
-          title="Completed Today"
-          value={meetings.filter((m) => m.status === "Completed").length}
-          subtitle="Finalized meetings"
-        />
-      </div>
-
-      {/* Jockey Challenges */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <IconUser className="w-5 h-5 text-blue-500" />
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Jockey Challenges</h2>
-        </div>
-
-        {Object.keys(jockeyByMeeting).length === 0 ? (
-          <div className="card p-8 text-center">
-            <p className="text-sm text-slate-500 dark:text-slate-400">No jockey challenges available</p>
+        {selectedMeeting ? (
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSelectedMeeting(null)} className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+              <IconArrowLeft className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            </button>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{selectedMeeting}</h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {selectedMeetingType === "Jockey" ? "Jockey" : "Driver"} Challenge — {selectedParts.length} participants
+                {selectedMeetingObj && ` — ${selectedMeetingObj.completedRaces}/${selectedMeetingObj.totalRaces} races`}
+              </p>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {Object.entries(jockeyByMeeting).map(([meetingName, participants]) => {
-              const meetingId = participants[0]?.meetingId;
-              return (
-                <div key={meetingName} className="card p-4 md:p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">{meetingName}</h3>
-                    {meetingId && (
-                      <button onClick={() => router.push(`/meetings/${meetingId}`)} className="flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 transition-colors">
-                        View Details <IconChevronRight className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                  <ChallengeTable participants={participants} type="jockey" />
-                </div>
-              );
-            })}
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Meetings</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Track all Jockey and Driver race meetings
+            </p>
           </div>
         )}
-      </section>
+      </div>
 
-      {/* Driver Challenges */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <IconCar className="w-5 h-5 text-emerald-500" />
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Driver Challenges</h2>
+      {!selectedMeeting && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+          <DataCard
+            title="Total Meetings"
+            value={meetings.length}
+            subtitle="All race meetings"
+            icon={<IconCalendar className="w-5 h-5" />}
+          />
+          <DataCard
+            title="Live Now"
+            value={meetings.filter((m) => m.status === "Live").length}
+            subtitle="Currently in progress"
+            trend="up"
+            trendLabel="Active"
+          />
+          <DataCard
+            title="Total Value"
+            value={totalValue}
+            subtitle="Value picks across all meetings"
+            icon={<IconTrendingUp className="w-5 h-5" />}
+          />
         </div>
+      )}
 
-        {Object.keys(driverByMeeting).length === 0 ? (
+      {!selectedMeeting ? (
+        meetingList.length === 0 ? (
           <div className="card p-8 text-center">
-            <p className="text-sm text-slate-500 dark:text-slate-400">No driver challenges available</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">No meetings available today</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {Object.entries(driverByMeeting).map(([meetingName, participants]) => {
-              const meetingId = participants[0]?.meetingId;
-              return (
-                <div key={meetingName} className="card p-4 md:p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">{meetingName}</h3>
-                    {meetingId && (
-                      <button onClick={() => router.push(`/meetings/${meetingId}`)} className="flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 transition-colors">
-                        View Details <IconChevronRight className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                  <ChallengeTable participants={participants} type="driver" />
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Meeting Cards */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <IconCalendar className="w-5 h-5 text-slate-500" />
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">All Meetings</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {meetings.map((m) => (
-            <div
-              key={m.id}
-              onClick={() => router.push(`/meetings/${m.id}`)}
-              className="card p-4 md:p-5 card-hover cursor-pointer group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      m.type === "Jockey"
-                        ? "bg-blue-50 dark:bg-blue-500/10 text-blue-500"
-                        : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500"
-                    }`}
-                  >
-                    {m.type === "Jockey" ? (
-                      <IconUser className="w-5 h-5" />
-                    ) : (
-                      <IconCar className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      {m.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={statusStyles[m.status]}>{statusLabels[m.status] || m.status}</span>
-                      <span className="text-[10px] text-slate-400">{m.type} Challenge</span>
+          <div className="space-y-2">
+            {meetingList.map((m) => (
+              <button
+                key={m.name}
+                onClick={() => setSelectedMeeting(m.name)}
+                className="card w-full p-4 text-left hover:border-amber-500/50 transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {m.type === "Jockey" ? (
+                        <IconUser className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      ) : (
+                        <IconCar className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      )}
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{m.name}</h3>
+                      <span className={`${statusStyles[m.status]} flex-shrink-0`}>{statusLabels[m.status] || m.status}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 ml-6">
+                      <span>{m.completedRaces}/{m.totalRaces} races</span>
+                      <span>{m.count} participants</span>
+                      <span>{m.valuePicks} value picks</span>
+                      <span>Leader: {m.leader.name} ({m.leader.currentPoints}pts)</span>
                     </div>
                   </div>
+                  <IconChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors flex-shrink-0 ml-2" />
                 </div>
-                <IconChevronRight className="w-5 h-5 text-slate-400 group-hover:text-amber-500 transition-colors" />
-              </div>
-
-              <div className="flex items-center gap-4 text-sm">
-                <div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Races</p>
-                  <p className="font-semibold text-slate-900 dark:text-white mt-0.5">{m.completedRaces}/{m.totalRaces}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Leader</p>
-                  <p className="font-semibold text-slate-900 dark:text-white mt-0.5">{m.leaderboard[0]?.name || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Projected</p>
-                  <p className="font-semibold text-amber-500 mt-0.5">{m.projectedWinner || "—"}</p>
-                </div>
-              </div>
-
-              {m.status === "Live" && (
-                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50">
-                  <div className="flex items-center gap-2">
+                {m.status === "Live" && (
+                  <div className="flex items-center gap-2 mt-2 ml-6">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                     </span>
-                    <span className="text-xs font-medium text-emerald-500">
-                      Live — {m.latestUpdates.length} update{m.latestUpdates.length !== 1 ? "s" : ""}
-                    </span>
+                    <span className="text-[10px] font-medium text-emerald-500">Live</span>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </button>
+            ))}
+          </div>
+        )
+      ) : (
+        <div className="card p-4 md:p-5">
+          <ChallengeTable
+            participants={selectedParts}
+            type={selectedMeetingType === "Driver" ? "driver" : "jockey"}
+            onShowDetail={(pid, mid) => setDetailModal({ participantId: pid, meetingId: mid })}
+          />
         </div>
-      </section>
+      )}
+
+      {detailModal && (
+        <ParticipantDetailModal
+          participantId={detailModal.participantId}
+          meetingId={detailModal.meetingId}
+          onClose={() => setDetailModal(null)}
+        />
+      )}
     </div>
   );
 }

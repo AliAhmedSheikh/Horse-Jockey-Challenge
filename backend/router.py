@@ -480,9 +480,14 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
             status = "Upcoming"
 
         best = best_bookmaker_prices.get(race_num, {"bookmaker": "N/A", "price": 0})
-        race_implied = 1.0 / max(odds, MIN_PRICE)
-        race_top3 = min(0.85, race_implied * 1.5)
-        race_expected_pts = round(race_top3 * 2.0, 2)
+        if odds > 0:
+            race_implied = 1.0 / odds
+            race_top3 = min(0.85, race_implied * 1.5)
+            race_expected_pts = round(race_top3 * 2.0, 2)
+            win_prob = round(race_implied * 100, 1)
+        else:
+            race_expected_pts = None
+            win_prob = None
 
         rides.append(RideDetail(
             raceNumber=race_num,
@@ -491,7 +496,7 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
             bestBookmaker=best["bookmaker"],
             bestPrice=round(best["price"], 2),
             expectedPoints=race_expected_pts,
-            winProbability=round(race_implied * 100, 1),
+            winProbability=win_prob,
             status=status,
             position=result.position if result and result.position else None,
             pointsAwarded=result.points_added if result and result.points_added else None,
@@ -955,7 +960,9 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
         prs = prices_by_pid.get(p.id, [])
         accurate_prices = [pr for pr in prs if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
         bp_list = [pr.price for pr in accurate_prices]
-        avg_bm = sum(bp_list) / len(bp_list) if bp_list else 3.0
+        if not bp_list:
+            continue
+        avg_bm = sum(bp_list) / len(bp_list)
 
         implied_prob = 1.0 / max(avg_bm, MIN_PRICE)
         win_prob = min(0.85, implied_prob * 1.5)

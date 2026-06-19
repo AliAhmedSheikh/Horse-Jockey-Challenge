@@ -221,12 +221,10 @@ def seed_database(db: Session, force: bool = False):
         # Do NOT seed hardcoded fake meetings — they cause fake data in the UI
         return
 
-    # Also seed TAB meetings that weren't in Ladbrokes (e.g. driver challenges)
-    try:
-        if tab_jockey or tab_driver:
-            _seed_tab_meetings(db, tab_jockey, tab_driver)
-    except Exception as e:
-        logger.warning(f"TAB supplementary seeding failed: {e}")
+    # NOTE: _seed_tab_meetings disabled — it creates meetings from TAB data that don't
+    # exist in Ladbrokes. These meetings can never get race results (ingestor uses Ladbrokes API)
+    # and get stuck at 0/N completed races forever. All real challenge meetings are already
+    # seeded from the Ladbrokes API (filtered by TAB-known names above).
 
     # NOTE: _seed_driver_meetings_from_listing removed — it created fake driver meetings
     # from TAB race listings that weren't real challenges. Only Ladbrokes API meetings
@@ -352,10 +350,11 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                 races = market.get("races", [])
                 total_races = len([r for r in races if r.get("race_number", 0) > 0])
                 if total_races <= 0:
-                    logger.warning(
-                        f"Meeting {meeting_name}: no race count from API, defaulting to 8"
+                    logger.info(
+                        f"Meeting {meeting_name}: no race count from API, skipping "
+                        f"(no races to track)"
                     )
-                    total_races = 8
+                    continue
 
             def _parse_dt(s: str) -> datetime | None:
                 try:

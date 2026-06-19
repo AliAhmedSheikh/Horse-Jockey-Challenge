@@ -172,27 +172,27 @@ export default function ParticipantDetailModal({
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-                          {ride.horseName || <span className="italic text-slate-400">TBD</span>}
+                          {ride.horseName || <span className="italic text-slate-400">—</span>}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="text-sm font-mono font-semibold text-slate-900 dark:text-white">
-                          ${ride.odds.toFixed(2)}
+                          {ride.odds > 0 ? `$${ride.odds.toFixed(2)}` : <span className="text-slate-400">—</span>}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {ride.bestBookmaker} <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">${ride.bestPrice.toFixed(2)}</span>
+                          {ride.bestPrice > 0 ? <>{ride.bestBookmaker} <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">${ride.bestPrice.toFixed(2)}</span></> : <span className="text-slate-400">—</span>}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                          {ride.expectedPoints.toFixed(2)}
+                          {ride.expectedPoints != null ? ride.expectedPoints.toFixed(2) : <span className="text-slate-400">—</span>}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="text-sm font-mono text-slate-700 dark:text-slate-300">
-                          {ride.winProbability}%
+                          {ride.winProbability != null ? `${ride.winProbability}%` : <span className="text-slate-400">—</span>}
                         </span>
                       </td>
                       <td className="px-6 py-3 text-center">

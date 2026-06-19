@@ -42,6 +42,11 @@ export default function ChallengeTable({
   onShowDetail,
 }: ChallengeTableProps) {
   const sorted = [...participants].sort((a, b) => b.currentPoints - a.currentPoints);
+
+  const activeBookmakers = BOOKMAKERS.filter((bm) =>
+    participants.some((p) => p.bookmakerPrices?.[bm] != null)
+  );
+
   return (
     <>
       <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700/50">
@@ -50,7 +55,7 @@ export default function ChallengeTable({
             <colgroup>
               <col />
               <col className="w-[100px]" />
-              {BOOKMAKERS.map(bm => <col key={bm} className="w-[80px]" />)}
+              {activeBookmakers.map(bm => <col key={bm} className="w-[80px]" />)}
               <col className="w-[72px]" />
               <col className="w-[64px]" />
               <col className="w-[64px]" />
@@ -66,14 +71,9 @@ export default function ChallengeTable({
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Meeting
                 </th>
-                {BOOKMAKERS.map((bm) => (
-                  <th key={bm} className={`text-center px-2 py-3 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${ACCURATE_BOOKMAKERS.includes(bm) ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
+                {activeBookmakers.map((bm) => (
+                  <th key={bm} className="text-center px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     {bm}
-                    {!ACCURATE_BOOKMAKERS.includes(bm) && (
-                      <span className="block text-[8px] font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">
-                        Coming soon
-                      </span>
-                    )}
                   </th>
                 ))}
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -136,11 +136,10 @@ export default function ChallengeTable({
                     <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
                       {p.meetingName}
                     </td>
-                    {BOOKMAKERS.map((bm) => {
-                      const isAccurate = ACCURATE_BOOKMAKERS.includes(bm);
-                      const bp = isAccurate ? (p.bookmakerPrices?.[bm] ?? null) : null;
+                    {activeBookmakers.map((bm) => {
+                      const bp = p.bookmakerPrices?.[bm] ?? null;
                       return (
-                        <td key={bm} className={`px-2 py-3 text-sm text-right ${isAccurate ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>
+                        <td key={bm} className="px-2 py-3 text-sm text-right font-semibold text-slate-900 dark:text-white">
                           {bp != null ? `$${bp.toFixed(2)}` : "—"}
                         </td>
                       );

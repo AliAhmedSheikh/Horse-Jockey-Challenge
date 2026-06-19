@@ -94,6 +94,39 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
 
     # Check race status
     status = race_data.get("status", "")
+    if status in ("Abandoned", "Scratched", "Washout"):
+        logger.info(
+            f"Meeting {meeting.name} - Race {next_race} "
+            f"status='{status}' — skipping (0 pts for all)"
+        )
+        for p in participants:
+            existing = db.query(Result).filter(
+                Result.meeting_id == meeting.id,
+                Result.participant_id == p.id,
+                Result.race_number == next_race,
+            ).first()
+            if not existing:
+                db.add(Result(
+                    meeting_id=meeting.id,
+                    participant_id=p.id,
+                    race_number=next_race,
+                    position=99,
+                    points_added=0,
+                    final_points=0,
+                    timestamp=datetime.now(timezone.utc),
+                ))
+        meeting.completed_races = next_race
+        for attempt in range(5):
+            try:
+                db.commit()
+                break
+            except Exception as e:
+                if "database is locked" in str(e) and attempt < 4:
+                    db.rollback()
+                    time.sleep(1)
+                else:
+                    raise
+        return
     if status not in ("Final", "Interim", "Closed", "Results"):
         logger.info(
             f"Meeting {meeting.name} - Race {next_race} not ready "
