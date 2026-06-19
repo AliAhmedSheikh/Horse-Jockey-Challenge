@@ -11,5 +11,13 @@ __pycache__/
 tsconfig.tsbuildinfo
 next-env.d.ts
 backend/start.bat
-
 .vercel
+check*.py
+tmp_*.py
+debug_*.py
+diag*.py
+cleanup*.py
+verify_*.py
+fix_*.py
+test_*.py
+*.sql
