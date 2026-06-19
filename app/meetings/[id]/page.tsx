@@ -110,6 +110,11 @@ export default function MeetingDetailPage() {
   const sorted = participants ? [...participants].sort((a, b) => b.currentPoints - a.currentPoints) : [];
   const participantsEmpty = !participantsLoading && (!participants || participants.length === 0);
 
+  const activeBookmakers = BOOKMAKERS.filter((bm) =>
+    participants?.some((p) => p.bookmakerPrices?.[bm] != null)
+  );
+  const totalCols = 4 + activeBookmakers.length;
+
   return (
     <div className="page-transition space-y-6">
       <button
@@ -212,7 +217,7 @@ export default function MeetingDetailPage() {
             <colgroup>
               <col className="w-8" />
               <col />
-              {BOOKMAKERS.map(bm => <col key={bm} className="w-[72px]" />)}
+              {activeBookmakers.map(bm => <col key={bm} className="w-[72px]" />)}
               <col className="w-[72px]" />
               <col className="w-[72px]" />
               <col className="w-[64px]" />
@@ -222,7 +227,7 @@ export default function MeetingDetailPage() {
               <tr className="bg-slate-50 dark:bg-slate-800/80">
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
-                {BOOKMAKERS.map((bm) => (
+                {activeBookmakers.map((bm) => (
                    <th key={bm} className={`text-center px-2 py-3 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${ACCURATE_BOOKMAKERS.includes(bm) ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
                      {bm}
                      {!ACCURATE_BOOKMAKERS.includes(bm) && (
@@ -239,13 +244,13 @@ export default function MeetingDetailPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
               {participantsLoading ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={totalCols} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading participants...
                   </td>
                 </tr>
               ) : participantsEmpty ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={totalCols} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     No participants loaded
                   </td>
                 </tr>
@@ -269,7 +274,7 @@ export default function MeetingDetailPage() {
                       {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
                     </div>
                   </td>
-                  {BOOKMAKERS.map((bm) => {
+                  {activeBookmakers.map((bm) => {
                     const isAccurate = ACCURATE_BOOKMAKERS.includes(bm);
                     const bp = isAccurate ? (p.bookmakerPrices?.[bm] ?? null) : null;
                     return (
@@ -314,8 +319,8 @@ export default function MeetingDetailPage() {
                   {p.overlayPercent > 0 ? "+" : ""}{p.overlayPercent.toFixed(1)}%
                 </span>
               </div>
-              <div className="grid grid-cols-5 gap-1 text-center mb-2">
-                {BOOKMAKERS.map((bm) => {
+              <div className={`grid gap-1 text-center mb-2 ${activeBookmakers.length <= 3 ? "grid-cols-3" : activeBookmakers.length <= 4 ? "grid-cols-4" : "grid-cols-5"}`}>
+                {activeBookmakers.map((bm) => {
                   const isAccurate = ACCURATE_BOOKMAKERS.includes(bm);
                   const bp = isAccurate ? (p.bookmakerPrices?.[bm] ?? null) : null;
                   return (
@@ -348,8 +353,8 @@ export default function MeetingDetailPage() {
           <div className="flex items-start gap-2">
             <IconInfo className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              <span className="font-semibold text-slate-600 dark:text-slate-300">Ladbrokes</span> — live bookmaker fixed odds.
-              Other columns will be enabled once validated on an Australian server.
+              <span className="font-semibold text-slate-600 dark:text-slate-300">Ladbrokes</span> — live scraped prices.
+              <span className="font-semibold text-slate-600 dark:text-slate-300"> TAB</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">TABtouch</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">Sportsbet</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">PointsBet</span> — via PuntersEdge derivation.
             </p>
           </div>
         </div>
