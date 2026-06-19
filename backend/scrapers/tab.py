@@ -343,6 +343,77 @@ def _get_todays_meetings() -> List[Dict]:
         return []
 
 
+def _fetch_race_page_horse_data(meeting_id: str, date_str: str, races: List[Dict], role: str = "driver") -> Dict[str, Dict]:
+    """Fetch horse names + per-race odds from TAB race pages for a meeting.
+
+    Args:
+        meeting_id: TAB meeting ID (e.g. "WAG")
+        date_str: Date string (e.g. "2026-06-19")
+        races: List of dicts with "race_number" key
+        role: "driver" for harness, "jockey" for thoroughbred
+
+    Returns:
+        Dict mapping name -> {race_num: {"odds": float, "horse": str}}
+    """
+    name_race_odds = {}
+
+    def _fetch_one(mid, ds, ri):
+        rn = ri["race_number"]
+        url = f"{BASE}/racing/{ds}/{mid.lower()}/{rn}"
+        try:
+            client = _get_client()
+            r = client.get(url)
+            if r.status_code != 200:
+                return rn, []
+
+            pattern = re.compile(r'var model = ({.*?});', re.DOTALL)
+            m = pattern.search(r.text)
+            if not m:
+                return rn, []
+
+            model = json.loads(m.group(1))
+            results = []
+
+            starters = model.get("allStarters", [])
+            if not starters:
+                legs = model.get("pool", {}).get("legs", [])
+                if legs:
+                    starters = legs[0].get("starters", [])
+
+            for starter in starters:
+                if starter.get("isScratched") or starter.get("isFobScratched"):
+                    continue
+                name = (starter.get("jockey") or starter.get("associatedName") or starter.get("rider") or "").strip()
+                if not name or name.lower() in ("unknown", "n/a", "not declared", "n.r", "nr", "not riding", "scratching", ""):
+                    continue
+                horse = (starter.get("horseName") or starter.get("runnerName") or starter.get("name") or starter.get("horse") or "").strip()
+                try:
+                    raw_price = starter.get("fixedWinDividendDollars") or starter.get("winDividendDollars") or starter.get("fixedWinDiv") or "0"
+                    price_str = str(raw_price).replace("-", "").strip()
+                    price = float(price_str) if price_str else 0
+                except (ValueError, TypeError):
+                    continue
+                if price > 0 and horse:
+                    results.append((name, round(max(MIN_PRICE, min(MAX_PRICE, price)), 2), horse))
+            return rn, results
+        except Exception as e:
+            logger.warning(f"TAB {role} race page {mid} R{rn}: {e}")
+            return rn, []
+
+    if not races:
+        return name_race_odds
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        futs = {ex.submit(_fetch_one, meeting_id, date_str, ri): ri for ri in races}
+        for f in as_completed(futs):
+            rn, race_results = f.result()
+            for name, price, horse in race_results:
+                name_race_odds.setdefault(name, {})[rn] = {"odds": price, "horse": horse}
+
+    return name_race_odds
+
+
 class TABScraper:
     """Scrape TAB jockey/driver challenge odds via TABtouch API.
 
@@ -361,28 +432,26 @@ class TABScraper:
         if not events:
             return self._scrape_jockey_from_race_pages(date_str)
 
-        # Get race counts per meeting
         meetings = _get_todays_meetings()
         meeting_race_counts = {}
+        meeting_map = {}
         for mtg in meetings:
             if mtg["type"] == "jockey":
                 meeting_race_counts[mtg["meeting_name"]] = len(mtg["races"])
+                meeting_map[mtg["meeting_name"]] = mtg
 
         result = []
         for event in events:
             event_name = event["event_name"]
             event_id = event["event_id"]
 
-            # Only process Jockey Challenge 3,2,1 Points events
             m = _JOCKEY_CHALLENGE_RE.match(event_name)
             if not m:
                 continue
             meeting_name = m.group(1).strip()
 
-            # Try JSON API first (works for open events)
             data = _fetch_jockey_challenge_event(event_id, date_str)
             if not data:
-                # Fall back to HTML (works for closed events)
                 data = _fetch_event_from_html(event_id, date_str)
             if not data:
                 continue
@@ -396,13 +465,10 @@ class TABScraper:
                 name = (prop.get("name") or "").strip()
                 if not name:
                     continue
-                # Skip quinella-style entries (contain "/"), "Any Other", dead heat rules
                 if "/" in name or "Any Other" in name or "Dead Heat" in name:
                     continue
                 if "must complete" in name.lower():
                     continue
-                # For open events, skip if showBetButton=False or racing status text shown
-                # For closed/resulted events, showBetButton is False for all props — skip that check
                 is_open = data.get("isOpen", False)
                 if is_open and (prop.get("showRacingStatusText") or not prop.get("showBetButton")):
                     continue
@@ -419,6 +485,18 @@ class TABScraper:
 
             participants.sort(key=lambda x: x["price"])
             total_races = meeting_race_counts.get(meeting_name, 0)
+
+            race_page_data = _fetch_race_page_horse_data(
+                meeting_map[meeting_name]["meeting_id"] if meeting_name in meeting_map else "",
+                date_str,
+                meeting_map[meeting_name]["races"] if meeting_name in meeting_map else [],
+                "jockey",
+            )
+
+            for p in participants:
+                if p["name"] in race_page_data:
+                    p["race_odds"] = race_page_data[p["name"]]
+
             market = {
                 "meeting_name": meeting_name,
                 "type": "jockey",
@@ -430,7 +508,8 @@ class TABScraper:
             result.append(market)
             logger.info(
                 f"TAB jockey: {meeting_name} "
-                f"({len(participants)} participants, {total_races} races)"
+                f"({len(participants)} participants, {total_races} races, "
+                f"{sum(1 for p in participants if 'race_odds' in p)} with horse data)"
             )
 
         return result
@@ -454,9 +533,11 @@ class TABScraper:
 
         meetings = _get_todays_meetings()
         meeting_race_counts = {}
+        meeting_map = {}
         for mtg in meetings:
             if mtg["type"] == "driver":
                 meeting_race_counts[mtg["meeting_name"]] = len(mtg["races"])
+                meeting_map[mtg["meeting_name"]] = mtg
 
         result = []
         for event in events:
@@ -503,6 +584,18 @@ class TABScraper:
 
             participants.sort(key=lambda x: x["price"])
             total_races = meeting_race_counts.get(meeting_name, 0)
+
+            race_page_data = _fetch_race_page_horse_data(
+                meeting_map[meeting_name]["meeting_id"] if meeting_name in meeting_map else "",
+                date_str,
+                meeting_map[meeting_name]["races"] if meeting_name in meeting_map else [],
+                "driver",
+            )
+
+            for p in participants:
+                if p["name"] in race_page_data:
+                    p["race_odds"] = race_page_data[p["name"]]
+
             market = {
                 "meeting_name": meeting_name,
                 "type": "driver",
@@ -514,7 +607,8 @@ class TABScraper:
             result.append(market)
             logger.info(
                 f"TAB driver (endpoint): {meeting_name} "
-                f"({len(participants)} participants, {total_races} races)"
+                f"({len(participants)} participants, {total_races} races, "
+                f"{sum(1 for p in participants if 'race_odds' in p)} with horse data)"
             )
 
         return result
@@ -531,7 +625,6 @@ class TABScraper:
                 continue
 
             meeting_id = mtg["meeting_id"]
-            driver_prices = {}
 
             def _process_race(mid, ds, rn_info):
                 rn = rn_info["race_number"]
@@ -540,12 +633,12 @@ class TABScraper:
                     client = _get_client()
                     r = client.get(url)
                     if r.status_code != 200:
-                        return []
+                        return rn, []
 
                     pattern = re.compile(r'var model = ({.*?});', re.DOTALL)
                     m = pattern.search(r.text)
                     if not m:
-                        return []
+                        return rn, []
 
                     model = json.loads(m.group(1))
                     results = []
@@ -562,6 +655,7 @@ class TABScraper:
                         driver = (starter.get("jockey") or starter.get("associatedName") or starter.get("rider") or "").strip()
                         if not driver or driver.lower() in ("unknown", "n/a", "not declared", "n.r", "nr", "not riding", "scratching", ""):
                             continue
+                        horse = (starter.get("horseName") or starter.get("runnerName") or starter.get("name") or starter.get("horse") or "").strip()
                         try:
                             raw_price = starter.get("fixedWinDividendDollars") or starter.get("winDividendDollars") or starter.get("fixedWinDiv") or "0"
                             price_str = str(raw_price).replace("-", "").strip()
@@ -569,54 +663,61 @@ class TABScraper:
                         except (ValueError, TypeError):
                             continue
                         if price > 0:
-                            results.append((driver, round(max(MIN_PRICE, min(MAX_PRICE, price)), 2)))
-                    return results
+                            results.append((driver, round(max(MIN_PRICE, min(MAX_PRICE, price)), 2), horse))
+                    return rn, results
                 except Exception as e:
                     logger.warning(f"TAB driver race {mid} R{rn}: {e}")
-                    return []
+                    return rn, []
 
             races = mtg["races"]
             if races:
                 all_driver_prices = {}
+                all_race_odds = {}
                 from concurrent.futures import ThreadPoolExecutor, as_completed
                 with ThreadPoolExecutor(max_workers=5) as ex:
                     futs = {ex.submit(_process_race, meeting_id, date_str, ri): ri for ri in races}
                     for f in as_completed(futs):
-                        for rc, price in f.result():
-                            all_driver_prices.setdefault(rc, []).append(price)
+                        rn, race_results = f.result()
+                        for driver, price, horse in race_results:
+                            all_driver_prices.setdefault(driver, []).append(price)
+                            if horse:
+                                all_race_odds.setdefault(driver, {})[rn] = {"odds": price, "horse": horse}
 
                 bm = "TAB"
                 margin = CHALLENGE_MARGINS.get(bm, 0)
                 strategy = CHALLENGE_STRATEGIES.get(bm, "best")
+                driver_prices = {}
                 for name, prices in all_driver_prices.items():
                     if strategy == "avg":
                         derived = sum(prices) / len(prices)
                     elif strategy == "median":
                         s = sorted(prices)
-                        mid = len(s) // 2
-                        derived = s[mid] if len(s) % 2 else (s[mid - 1] + s[mid]) / 2
+                        mid_idx = len(s) // 2
+                        derived = s[mid_idx] if len(s) % 2 else (s[mid_idx - 1] + s[mid_idx]) / 2
                     else:
                         derived = min(prices)
                     driver_prices[name] = round(max(MIN_PRICE, min(MAX_PRICE, derived * (1 + margin))), 2)
 
-            if driver_prices:
-                participants = [
-                    {"name": name, "price": price}
-                    for name, price in sorted(driver_prices.items(), key=lambda x: x[1])
-                ]
-                market = {
-                    "meeting_name": mtg["meeting_name"],
-                    "type": "driver",
-                    "participants": participants,
-                    "bookmaker": "TAB",
-                    "total_races": len(mtg["races"]),
-                    "races": [],
-                }
-                result.append(market)
-                logger.info(
-                    f"TAB driver (race pages): {mtg['meeting_name']} "
-                    f"({len(participants)} participants, {len(mtg['races'])} races)"
-                )
+                if driver_prices:
+                    participants = []
+                    for name, price in sorted(driver_prices.items(), key=lambda x: x[1]):
+                        p = {"name": name, "price": price}
+                        if name in all_race_odds:
+                            p["race_odds"] = all_race_odds[name]
+                        participants.append(p)
+                    market = {
+                        "meeting_name": mtg["meeting_name"],
+                        "type": "driver",
+                        "participants": participants,
+                        "bookmaker": "TAB",
+                        "total_races": len(mtg["races"]),
+                        "races": [],
+                    }
+                    result.append(market)
+                    logger.info(
+                        f"TAB driver (race pages): {mtg['meeting_name']} "
+                        f"({len(participants)} participants, {len(mtg['races'])} races)"
+                    )
 
         return result
 
@@ -634,7 +735,6 @@ class TABScraper:
                 continue
 
             meeting_id = mtg["meeting_id"]
-            jockey_prices = {}
 
             def _process_race(mid, ds, ri):
                 rn = ri["race_number"]
@@ -643,12 +743,12 @@ class TABScraper:
                     client = _get_client()
                     r = client.get(url)
                     if r.status_code != 200:
-                        return []
+                        return rn, []
 
                     pattern = re.compile(r'var model = ({.*?});', re.DOTALL)
                     m = pattern.search(r.text)
                     if not m:
-                        return []
+                        return rn, []
 
                     model = json.loads(m.group(1))
                     results = []
@@ -665,6 +765,7 @@ class TABScraper:
                         jockey = (starter.get("jockey") or starter.get("associatedName") or starter.get("rider") or "").strip()
                         if not jockey or jockey.lower() in ("unknown", "n/a", "not declared", "n.r", "nr", "not riding", "scratching", ""):
                             continue
+                        horse = (starter.get("horseName") or starter.get("runnerName") or starter.get("name") or starter.get("horse") or "").strip()
                         try:
                             raw_price = starter.get("fixedWinDividendDollars") or starter.get("winDividendDollars") or starter.get("fixedWinDiv") or "0"
                             price_str = str(raw_price).replace("-", "").strip()
@@ -672,53 +773,60 @@ class TABScraper:
                         except (ValueError, TypeError):
                             continue
                         if price > 0:
-                            results.append((jockey, round(max(MIN_PRICE, min(MAX_PRICE, price)), 2)))
-                    return results
+                            results.append((jockey, round(max(MIN_PRICE, min(MAX_PRICE, price)), 2), horse))
+                    return rn, results
                 except Exception as e:
                     logger.warning(f"TAB jockey race {mid} R{rn}: {e}")
-                    return []
+                    return rn, []
 
             races = mtg["races"]
             if races:
                 all_jockey_prices = {}
+                all_race_odds = {}
                 with ThreadPoolExecutor(max_workers=5) as ex:
                     futs = {ex.submit(_process_race, meeting_id, date_str, ri): ri for ri in races}
                     for f in as_completed(futs):
-                        for rc, price in f.result():
-                            all_jockey_prices.setdefault(rc, []).append(price)
+                        rn, race_results = f.result()
+                        for jockey, price, horse in race_results:
+                            all_jockey_prices.setdefault(jockey, []).append(price)
+                            if horse:
+                                all_race_odds.setdefault(jockey, {})[rn] = {"odds": price, "horse": horse}
 
                 bm = "TAB"
                 margin = CHALLENGE_MARGINS.get(bm, 0)
                 strategy = CHALLENGE_STRATEGIES.get(bm, "best")
+                jockey_prices = {}
                 for name, prices in all_jockey_prices.items():
                     if strategy == "avg":
                         derived = sum(prices) / len(prices)
                     elif strategy == "median":
                         s = sorted(prices)
-                        mid = len(s) // 2
-                        derived = s[mid] if len(s) % 2 else (s[mid - 1] + s[mid]) / 2
+                        mid_idx = len(s) // 2
+                        derived = s[mid_idx] if len(s) % 2 else (s[mid_idx - 1] + s[mid_idx]) / 2
                     else:
                         derived = min(prices)
                     jockey_prices[name] = round(max(MIN_PRICE, min(MAX_PRICE, derived * (1 + margin))), 2)
 
-            if jockey_prices:
-                participants = [
-                    {"name": name, "price": price}
-                    for name, price in sorted(jockey_prices.items(), key=lambda x: x[1])
-                ]
-                market = {
-                    "meeting_name": mtg["meeting_name"],
-                    "type": "jockey",
-                    "participants": participants,
-                    "bookmaker": "TAB",
-                    "total_races": len(mtg["races"]),
-                    "races": [],
-                }
-                result.append(market)
-                logger.info(
-                    f"TAB jockey (race pages): {mtg['meeting_name']} "
-                    f"({len(participants)} participants, {len(mtg['races'])} races)"
-                )
+                if jockey_prices:
+                    participants = []
+                    for name, price in sorted(jockey_prices.items(), key=lambda x: x[1]):
+                        p = {"name": name, "price": price}
+                        if name in all_race_odds:
+                            p["race_odds"] = all_race_odds[name]
+                        participants.append(p)
+                    market = {
+                        "meeting_name": mtg["meeting_name"],
+                        "type": "jockey",
+                        "participants": participants,
+                        "bookmaker": "TAB",
+                        "total_races": len(mtg["races"]),
+                        "races": [],
+                    }
+                    result.append(market)
+                    logger.info(
+                        f"TAB jockey (race pages): {mtg['meeting_name']} "
+                        f"({len(participants)} participants, {len(mtg['races'])} races)"
+                    )
 
         return result
 
