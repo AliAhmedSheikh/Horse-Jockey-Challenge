@@ -484,10 +484,10 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
             race_implied = 1.0 / odds
             race_top3 = min(0.85, race_implied * 1.5)
             race_expected_pts = round(race_top3 * 2.0, 2)
-            win_prob = round(race_implied * 100, 1)
+            race_win_prob = round(race_implied * 100, 1)
         else:
             race_expected_pts = None
-            win_prob = None
+            race_win_prob = None
 
         rides.append(RideDetail(
             raceNumber=race_num,
@@ -496,7 +496,7 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
             bestBookmaker=best["bookmaker"],
             bestPrice=round(best["price"], 2),
             expectedPoints=race_expected_pts,
-            winProbability=win_prob,
+            winProbability=race_win_prob,
             status=status,
             position=result.position if result and result.position else None,
             pointsAwarded=result.points_added if result and result.points_added else None,

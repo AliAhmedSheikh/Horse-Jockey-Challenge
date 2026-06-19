@@ -103,8 +103,8 @@ export interface RideDetail {
   odds: number;
   bestBookmaker: string;
   bestPrice: number;
-  expectedPoints: number;
-  winProbability: number;
+  expectedPoints: number | null;
+  winProbability: number | null;
   status: string;
   position: number | null;
   pointsAwarded: number | null;

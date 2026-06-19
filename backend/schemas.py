@@ -154,8 +154,8 @@ class RideDetail(BaseModel):
     odds: float
     bestBookmaker: str
     bestPrice: float
-    expectedPoints: float
-    winProbability: float
+    expectedPoints: Optional[float] = None
+    winProbability: Optional[float] = None
     status: str
     position: Optional[int] = None
     pointsAwarded: Optional[float] = None
