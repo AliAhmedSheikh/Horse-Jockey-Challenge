@@ -213,18 +213,21 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                     if not existing_p:
                         existing_p = db.query(Participant).filter(Participant.id == pid).first()
                     if not existing_p:
-                        new_p = Participant(
-                            id=pid,
-                            meeting_id=meeting.id,
-                            name=p_name,
-                            current_points=0,
-                            completed_races=0,
-                            remaining_races=meeting.total_races,
-                        )
-                        db.add(new_p)
-                        db.flush()
-                        participants.append(new_p)
-                        added_count += 1
+                        if bookmaker_name == "Ladbrokes":
+                            new_p = Participant(
+                                id=pid,
+                                meeting_id=meeting.id,
+                                name=p_name,
+                                current_points=0,
+                                completed_races=0,
+                                remaining_races=meeting.total_races,
+                            )
+                            db.add(new_p)
+                            db.flush()
+                            participants.append(new_p)
+                            added_count += 1
+                        else:
+                            continue
 
                 price_key = (pid, bookmaker_name)
                 if price_key in processed_prices:

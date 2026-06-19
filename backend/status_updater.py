@@ -78,14 +78,6 @@ def _handle_upcoming(db, meeting, scheduled_reached, st, race_resolver):
         meeting.status = MeetingStatus.LIVE.value
         meeting.completed_races = 0
         logger.info(f"Meeting {meeting.name} -> LIVE")
-    elif meeting.scheduled_time and not meeting.id.startswith("dyn_"):
-        # Check API race 1 to see if meeting has already started
-        from scrapers.base import fetch_single_race_results
-        race_data = fetch_single_race_results(meeting.name, 1)
-        if race_data and race_data.get("status") in ("Final", "Interim"):
-            meeting.status = MeetingStatus.LIVE.value
-            meeting.completed_races = 0
-            logger.info(f"Meeting {meeting.name} -> LIVE (API race 1 completed)")
 
 
 def _handle_live(db, meeting, scheduled_reached, st, race_resolver):

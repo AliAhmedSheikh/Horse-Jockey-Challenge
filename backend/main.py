@@ -77,6 +77,7 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     # 2. Results ingestor: fetch race results from APIs (every 30s)
+    from datetime import datetime as _dt, timedelta as _td
     scheduler.add_job(
         ingest_race_results,
         "interval",
@@ -84,8 +85,7 @@ async def lifespan(app: FastAPI):
         id="results_ingestor",
         name="Ingest race results",
         replace_existing=True,
-        # Offset by 10s so it runs AFTER status_updater
-        next_run_time=None,
+        next_run_time=_dt.now() + _td(seconds=10),
     )
     # 3. Points calculator: recalculate from DB results (every 60s)
     scheduler.add_job(

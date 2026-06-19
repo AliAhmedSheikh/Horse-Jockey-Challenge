@@ -296,7 +296,7 @@ def _seed_driver_meetings_from_listing(db: Session):
             id=mid, name=mtg["meeting_name"], date=aus_date,
             status=MeetingStatus.UPCOMING.value, type="driver",
             total_races=total_races, completed_races=0,
-            scheduled_time=now_aus + timedelta(hours=1),
+            scheduled_time=datetime(now_aus.year, now_aus.month, now_aus.day, 17, 30, 0, tzinfo=AU_TZ),
         )
         db.add(meeting)
         db.flush()
@@ -381,7 +381,12 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                 if st:
                     scheduled = _parse_dt(st)
             if scheduled is None:
-                scheduled = now_aus + timedelta(hours=1 + counter)
+                from datetime import date as _date
+                try:
+                    _d = datetime.strptime(aus_date, "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    _d = today_aus()
+                scheduled = datetime(_d.year, _d.month, _d.day, 17, 30, 0, tzinfo=AU_TZ)
 
             meeting = Meeting(
                 id=mid,
@@ -462,7 +467,7 @@ def _seed_tab_meetings(db: Session, tab_jockey: list, tab_driver: list):
                 type=mtype,
                 total_races=total_races,
                 completed_races=0,
-                scheduled_time=now_aus + timedelta(hours=1),
+                scheduled_time=datetime(now_aus.year, now_aus.month, now_aus.day, 17, 30, 0, tzinfo=AU_TZ),
             )
             db.add(meeting)
             db.flush()
@@ -765,7 +770,12 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
             continue
 
         if not races_data:
-            # No API data available — leave as UPCOMING, let status_manager handle it
+            existing_results = db.query(Result).filter(Result.meeting_id == meeting.id).count()
+            if existing_results > 0:
+                logger.info(
+                    f"Meeting {meeting.name}: no API race data but has {existing_results} results — keeping"
+                )
+                continue
             meeting.status = MeetingStatus.UPCOMING.value
             for p in participants:
                 p.current_points = 0

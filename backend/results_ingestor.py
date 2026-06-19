@@ -14,6 +14,7 @@ Uses:
 """
 import json
 import logging
+import time
 from datetime import datetime, timezone
 
 from database import SessionLocal
@@ -21,7 +22,6 @@ from models import Meeting, Participant, Price, Result, MeetingStatus
 from resolvers import ParticipantResolver, RaceResolver
 from scrapers.base import fetch_single_race_results
 from scrapers.shared import get_race_cache, set_race_cache
-from db_writer import batch_upsert_results, update_participant_points
 from utils import race_points, names_match, names_lastname_fallback
 from seed_data import _get_real_race_positions
 
@@ -160,8 +160,19 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
             logger.warning(
                 f"Meeting {meeting.name} - Race {next_race}: "
                 f"could not match any API results to participants "
-                f"and no odds data — skipping"
+                f"and no odds data — skipping (advancing)"
             )
+            meeting.completed_races = next_race
+            for attempt in range(5):
+                try:
+                    db.commit()
+                    break
+                except Exception as e:
+                    if "database is locked" in str(e) and attempt < 4:
+                        db.rollback()
+                        time.sleep(1)
+                    else:
+                        raise
             return
         logger.warning(
             f"Meeting {meeting.name} - Race {next_race}: "
@@ -192,15 +203,47 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
                 "final_points": 0,
             })
 
-    # Batch insert results atomically
+    # Batch insert results atomically (direct to own session, not db_writer)
     if results_batch:
-        batch_upsert_results(results_batch)
+        from datetime import datetime as _dt, timezone as _tz
+        now = _dt.now(_tz.utc)
+        for r in results_batch:
+            existing = db.query(Result).filter(
+                Result.meeting_id == r["meeting_id"],
+                Result.participant_id == r["participant_id"],
+                Result.race_number == r["race_number"],
+            ).first()
+            if existing:
+                existing.position = r["position"]
+                existing.points_added = r["points_added"]
+                existing.final_points = r["final_points"]
+                existing.timestamp = now
+            else:
+                db.add(Result(
+                    meeting_id=r["meeting_id"],
+                    participant_id=r["participant_id"],
+                    race_number=r["race_number"],
+                    position=r["position"],
+                    points_added=r["points_added"],
+                    final_points=r["final_points"],
+                    timestamp=now,
+                ))
 
     matched_count = len(placed_ids)
     odds_count = len(odds_declared_pids)
     total_count = len(results_batch) - matched_count
     meeting.completed_races = next_race
-    db.commit()
+
+    for attempt in range(5):
+        try:
+            db.commit()
+            break
+        except Exception as e:
+            if "database is locked" in str(e) and attempt < 4:
+                db.rollback()
+                time.sleep(1)
+            else:
+                raise
 
     logger.info(
         f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} "
