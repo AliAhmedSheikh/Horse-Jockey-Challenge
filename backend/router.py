@@ -841,52 +841,60 @@ def put_settings(payload: FormulaSettingsOut, db: Session = Depends(get_db)):
 
 @router.post("/refresh")
 def refresh_data():
-    from status_manager import refresh_meeting_status, scrape_all_bookmakers
-    from seed_data import seed_database
-    db = SessionLocal()
-    try:
-        scrape_all_bookmakers()
-        refresh_meeting_status()
-        seed_database(db)
-        _cache.clear()
-        return {"status": "ok", "message": "Data refreshed"}
-    except Exception as e:
-        db.rollback()
-        _cache.clear()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
+    import threading
+    def _bg_refresh():
+        from status_manager import scrape_all_bookmakers
+        from status_updater import update_meeting_statuses
+        from points_calculator import recalculate_all_points
+        from seed_data import seed_database
+        db = SessionLocal()
+        try:
+            seed_database(db)
+            scrape_all_bookmakers()
+            update_meeting_statuses()
+            recalculate_all_points()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Background refresh failed: {e}", exc_info=True)
+        finally:
+            db.close()
+            _cache.clear()
+    t = threading.Thread(target=_bg_refresh, daemon=True)
+    t.start()
+    return {"status": "ok", "message": "Refresh started"}
 
 
 @router.post("/reseed")
 def reseed_data():
-    from status_manager import refresh_meeting_status, scrape_all_bookmakers
-    from seed_data import seed_database
-    db = SessionLocal()
-    try:
-        db.query(Result).delete()
-        db.query(Price).delete()
-        db.query(Bet).delete()
-        db.query(Participant).delete()
-        db.query(Meeting).delete()
-        db.commit()
-        _cache.clear()
-        seed_database(db, force=True)
-        scrape_all_bookmakers()
-        refresh_meeting_status()
-        _cache.clear()
-        meetings = db.query(Meeting).all()
-        participants = db.query(Participant).all()
-        return {
-            "status": "ok",
-            "message": f"Re-seeded: {len(meetings)} meetings, {len(participants)} participants",
-        }
-    except Exception as e:
-        db.rollback()
-        _cache.clear()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
+    import threading
+    def _bg_reseed():
+        from status_manager import scrape_all_bookmakers
+        from status_updater import update_meeting_statuses
+        from points_calculator import recalculate_all_points
+        from seed_data import seed_database
+        db = SessionLocal()
+        try:
+            db.query(Result).delete()
+            db.query(Price).delete()
+            db.query(Bet).delete()
+            db.query(Participant).delete()
+            db.query(Meeting).delete()
+            db.commit()
+            _cache.clear()
+            seed_database(db, force=True)
+            scrape_all_bookmakers()
+            update_meeting_statuses()
+            recalculate_all_points()
+            _cache.clear()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Background reseed failed: {e}", exc_info=True)
+            _cache.clear()
+        finally:
+            db.close()
+    t = threading.Thread(target=_bg_reseed, daemon=True)
+    t.start()
+    return {"status": "ok", "message": "Re-seed started"}
 
 
 from fastapi.responses import StreamingResponse

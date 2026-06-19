@@ -1,10 +1,11 @@
 """Results ingestor: fetch race results from APIs and create Result records.
 
 Responsibilities:
-- For each LIVE meeting, fetch the next race's results from Ladbrokes API
+- For each LIVE or UPCOMING meeting, fetch the next race's results from Ladbrokes API
 - Match API jockey/driver names to DB participants
 - Create Result records for placed and declared participants
 - Skip races that aren't ready yet (non-Final status)
+- Auto-finish meetings when API has no more race data
 - NEVER generate fake/simulated results
 
 Uses:
@@ -27,6 +28,10 @@ from seed_data import _get_real_race_positions
 
 logger = logging.getLogger(__name__)
 
+# Track consecutive API misses per meeting to auto-finish stale meetings
+_api_miss_counts = {}
+_AUTO_FINISH_THRESHOLD = 3
+
 
 def ingest_race_results():
     """Process one race per LIVE meeting.
@@ -41,7 +46,7 @@ def ingest_race_results():
 
     try:
         meetings = db.query(Meeting).filter(
-            Meeting.status.in_([MeetingStatus.LIVE.value])
+            Meeting.status.in_([MeetingStatus.LIVE.value, MeetingStatus.UPCOMING.value])
         ).all()
 
         if not meetings:
@@ -68,6 +73,9 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
     if not participants:
         return
 
+    # Auto-correct total_races from API if we can
+    _maybe_update_race_count(meeting)
+
     next_race = race_resolver.get_next_race(meeting.id, meeting.total_races)
     if next_race is None:
         # All races complete — status_updater will handle FINISHED transition
@@ -85,12 +93,26 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
     else:
         race_data = fetch_single_race_results(meeting.name, next_race)
         if race_data is None:
+            # Track consecutive misses — auto-finish if too many
+            _api_miss_counts[meeting.id] = _api_miss_counts.get(meeting.id, 0) + 1
+            if _api_miss_counts[meeting.id] >= _AUTO_FINISH_THRESHOLD and meeting.completed_races > 0:
+                logger.info(
+                    f"Meeting {meeting.name}: {meeting.completed_races}/{meeting.total_races} races "
+                    f"completed, {_api_miss_counts[meeting.id]} consecutive API misses — auto-finishing"
+                )
+                meeting.status = MeetingStatus.FINISHED.value
+                for p in participants:
+                    p.remaining_races = 0
+                _api_miss_counts.pop(meeting.id, None)
+                return
             logger.warning(
                 f"Meeting {meeting.name} - Race {next_race}: "
-                f"API returned no data, skipping (retry next cycle)"
+                f"API returned no data, skipping (retry next cycle, "
+                f"miss {_api_miss_counts.get(meeting.id, 0)}/{_AUTO_FINISH_THRESHOLD})"
             )
             return
         set_race_cache("ladbrokes", meeting.name, next_race, race_data)
+    _api_miss_counts.pop(meeting.id, None)
 
     # Check race status
     status = race_data.get("status", "")
@@ -282,3 +304,43 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
         f"Meeting {meeting.name} - Race {next_race}/{meeting.total_races} "
         f"({matched_count} placed, {odds_count} odds, {total_count} additional)"
     )
+
+
+def _maybe_update_race_count(meeting):
+    """Auto-correct total_races from Ladbrokes API if seed default was wrong."""
+    from scrapers.base import _get_client, API_BASE
+    from time_utils import today_aus
+    from datetime import date as _date, timedelta
+    from utils import normalise_name
+
+    today = today_aus()
+    today_date = _date.fromisoformat(today)
+    dates = [
+        today,
+        (today_date - timedelta(days=1)).isoformat(),
+        (today_date + timedelta(days=1)).isoformat(),
+    ]
+
+    client = _get_client()
+    for d in dates:
+        try:
+            r = client.get(
+                f"{API_BASE}/racing/meetings",
+                params={"date_from": d, "date_to": d, "country": "AUS", "type": " ", "limit": 200},
+            )
+            if r.status_code != 200:
+                continue
+            api_meetings = r.json().get("data", {}).get("meetings", [])
+            for api_m in api_meetings:
+                if normalise_name(api_m.get("name", "")) == normalise_name(meeting.name):
+                    actual = len([race for race in api_m.get("races", [])
+                                  if race.get("race_number", 0) > 0])
+                    if 0 < actual != meeting.total_races:
+                        logger.info(
+                            f"Correcting {meeting.name} total_races: "
+                            f"{meeting.total_races} -> {actual}"
+                        )
+                        meeting.total_races = actual
+                    return
+        except Exception:
+            pass

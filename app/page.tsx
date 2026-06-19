@@ -160,7 +160,7 @@ export default function DashboardPage() {
         <div className="card p-4 md:p-5 md:col-span-2">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Today's Meetings</h2>
           <div className="space-y-2">
-            {meetings.slice(0, 10).map((m) => (
+            {meetings.map((m) => (
               <div
                 key={m.id}
                 onClick={() => router.push(`/meetings/${m.id}`)}

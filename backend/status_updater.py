@@ -9,6 +9,7 @@ Responsibilities:
 Does NOT fetch race results or calculate points — that's results_ingestor's job.
 """
 import logging
+import threading
 from datetime import datetime, timezone, timedelta
 
 from database import SessionLocal
@@ -20,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 # Track meetings we've already repaired to avoid repeated resets
 _already_repaired = set()
+
+# Lock to prevent concurrent auto-seed calls
+_seed_lock = threading.Lock()
 
 
 def update_meeting_statuses():
@@ -36,9 +40,15 @@ def update_meeting_statuses():
         today = today_aus()
         today_count = db.query(Meeting).filter(Meeting.date == today).count()
         if today_count == 0:
-            logger.info("No meetings for today — running auto-seed")
-            from seed_data import seed_database
-            seed_database(db)
+            if _seed_lock.acquire(blocking=False):
+                try:
+                    logger.info("No meetings for today — running auto-seed")
+                    from seed_data import seed_database
+                    seed_database(db)
+                finally:
+                    _seed_lock.release()
+            else:
+                logger.info("Auto-seed already in progress, skipping")
 
         meetings = db.query(Meeting).all()
         resolver = MeetingResolver(db)
@@ -90,11 +100,17 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
         return
 
     # Revert LIVE→UPCOMING if scheduled time hasn't arrived yet
+    # Only check if meeting was recently transitioned (within 5 min) —
+    # skip the expensive API call for meetings that have been LIVE for a while
     api_shows_results = False
     if st is not None and not scheduled_reached and not meeting.id.startswith("dyn_"):
-        from scrapers.base import fetch_single_race_results
-        race_data = fetch_single_race_results(meeting.name, 1)
-        api_shows_results = race_data and race_data.get("status") in ("Final", "Interim")
+        # If meeting has completed races or was created more than 5 min ago, skip revert check
+        if meeting.completed_races == 0 and meeting.created_at:
+            age_minutes = (datetime.now(timezone.utc) - meeting.created_at).total_seconds() / 60
+            if age_minutes < 5:
+                from scrapers.base import fetch_single_race_results
+                race_data = fetch_single_race_results(meeting.name, 1)
+                api_shows_results = race_data and race_data.get("status") in ("Final", "Interim")
     if st is not None and not scheduled_reached and not api_shows_results:
         meeting.status = MeetingStatus.UPCOMING.value
         for p in participants:

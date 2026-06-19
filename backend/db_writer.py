@@ -48,9 +48,10 @@ def _writer_loop():
 
 def start_writer():
     """Start the background writer thread."""
-    global _writer_thread
+    global _writer_thread, _running
     with _writer_lock:
         if _writer_thread is None or not _writer_thread.is_alive():
+            _running = True
             _writer_thread = threading.Thread(target=_writer_loop, daemon=True, name="db-writer")
             _writer_thread.start()
             logger.info("DB writer thread started")

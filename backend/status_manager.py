@@ -26,7 +26,7 @@ from utils import normalise_name, names_match, MIN_PRICE, MAX_PRICE
 _scrape_lock = threading.Lock()
 
 from scrapers.base import invalidate_cache
-from scrapers import LadbrokesScraper, TABScraper, SportsbetScraper, PointsBetScraper, TABtouchScraper, NedsScraper
+from scrapers import LadbrokesScraper, TABScraper, SportsbetScraper, PointsBetScraper, TABtouchScraper
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +36,9 @@ BOOKMAKER_SCRAPERS = [
     ("Sportsbet", SportsbetScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
     ("PointsBet", PointsBetScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
     ("TABtouch", TABtouchScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
-    ("Neds", NedsScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
 ]
 
-ACCURATE_SCRAPERS = {"Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch", "Neds"}
+ACCURATE_SCRAPERS = {"Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"}
 
 
 def scrape_all_bookmakers():
@@ -48,11 +47,6 @@ def scrape_all_bookmakers():
         return
     logger.info("Starting bookmaker scrape cycle...")
     invalidate_cache()
-    from scrapers.neds import invalidate_cache as invalidate_neds_cache
-    try:
-        invalidate_neds_cache()
-    except Exception:
-        pass
     try:
         from scrapers.tab import _event_cache as tab_event_cache, _event_cache_lock as tab_lock
         with tab_lock:

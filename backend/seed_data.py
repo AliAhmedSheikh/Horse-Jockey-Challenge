@@ -1,6 +1,5 @@
 from datetime import datetime, timezone, timedelta
 import json
-import random
 import logging
 
 from sqlalchemy.orm import Session
@@ -206,9 +205,14 @@ def seed_database(db: Session, force: bool = False):
         api_jockey = filtered_jockey
         api_driver = filtered_driver
 
-    # Step 4: Seed meetings — prefer Ladbrokes data (has better pricing), fall back to TAB data
-    jockey_to_seed = api_jockey if api_jockey else tab_jockey
-    driver_to_seed = api_driver if api_driver else tab_driver
+    # Step 4: Merge Ladbrokes + TAB sources — Ladbrokes first (better pricing),
+    # then TAB for meetings Ladbrokes doesn't have (e.g. NZ meetings)
+    all_lad_jockey_names = {normalise_name(m["meeting_name"]) for m in api_jockey}
+    all_lad_driver_names = {normalise_name(m["meeting_name"]) for m in api_driver}
+    tab_only_jockey = [m for m in tab_jockey if normalise_name(m["meeting_name"]) not in all_lad_jockey_names]
+    tab_only_driver = [m for m in tab_driver if normalise_name(m["meeting_name"]) not in all_lad_driver_names]
+    jockey_to_seed = api_jockey + tab_only_jockey
+    driver_to_seed = api_driver + tab_only_driver
 
     if jockey_to_seed or driver_to_seed:
         _seed_from_api(db, jockey_to_seed, driver_to_seed)
@@ -351,10 +355,10 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                 total_races = len([r for r in races if r.get("race_number", 0) > 0])
                 if total_races <= 0:
                     logger.info(
-                        f"Meeting {meeting_name}: no race count from API, skipping "
-                        f"(no races to track)"
+                        f"Meeting {meeting_name}: no race count from API yet, "
+                        f"creating meeting anyway (race data may arrive later)"
                     )
-                    continue
+                    total_races = 10
 
             def _parse_dt(s: str) -> datetime | None:
                 try:
@@ -502,60 +506,6 @@ def _seed_tab_meetings(db: Session, tab_jockey: list, tab_driver: list):
             logger.info(f"Seeded TAB meeting: {meeting_name} ({len(participants)} participants)")
 
     db.commit()
-
-
-def _seed_from_fallback(db: Session):
-    aus_date = today_aus()
-    now_utc = datetime.now(timezone.utc)
-    now_aus = datetime.now(AU_TZ)
-    # Assign staggered times relative to now: some past (live), some future (upcoming)
-    # Offsets in hours: -3, -1, +1, +3, +5, +7
-    time_offsets = [-3, -1, 1, 3, 5, 7]
-    for i, meeting_data in enumerate(ALL_MEETINGS):
-        offset_h = time_offsets[i] if i < len(time_offsets) else i * 2
-        scheduled = now_aus + timedelta(hours=offset_h)
-        meeting = Meeting(
-            id=meeting_data["id"],
-            name=meeting_data["name"],
-            date=aus_date,
-            status=MeetingStatus.UPCOMING.value,
-            type=meeting_data["type"],
-            total_races=meeting_data["total_races"],
-            completed_races=0,
-            scheduled_time=scheduled,
-        )
-        db.add(meeting)
-        db.flush()
-
-        for p_data in meeting_data["participants"]:
-            pid = f"{meeting_data['id']}_{p_data['name'].lower().replace(' ', '_')}"
-            price_variation = random.uniform(-0.3, 0.3)
-            bookmaker_price = round(p_data["price"] * (1 + price_variation), 2)
-            if bookmaker_price < 1.5:
-                bookmaker_price = 1.5 + random.uniform(0, 2)
-
-            participant = Participant(
-                id=pid,
-                meeting_id=meeting.id,
-                name=p_data["name"],
-                current_points=0,
-                completed_races=0,
-                remaining_races=meeting_data["total_races"],
-            )
-            db.add(participant)
-            db.flush()
-
-            db.add(Price(
-                    participant_id=participant.id,
-                    meeting_id=meeting.id,
-                    bookmaker_name="Ladbrokes",
-                    price=round(max(MIN_PRICE, min(MAX_PRICE, bookmaker_price)), 2),
-                    timestamp=now_utc,
-                ))
-
-    db.commit()
-
-    _simulate_live_data(db)
 
 
 def _get_real_race_positions(race_data: dict, participants: list, price_map: dict = None):
@@ -729,13 +679,15 @@ def _get_real_race_positions(race_data: dict, participants: list, price_map: dic
 
 def _simulate_live_data(db: Session, meeting_races_map: dict = None):
     """Process meetings using ONLY real API data. Never generate fake results.
-    
+
     For meetings with real race data from Ladbrokes API: create Result records
     from actual race outcomes. For meetings without API data: leave as UPCOMING
     so the status_manager can fetch results when they become available.
+    Only processes today's meetings.
     """
     now_aus = datetime.now(AU_TZ)
-    meetings = db.query(Meeting).all()
+    aus_date = today_aus()
+    meetings = db.query(Meeting).filter(Meeting.date == aus_date).all()
     for meeting in meetings:
         participants = db.query(Participant).filter(
             Participant.meeting_id == meeting.id

@@ -60,7 +60,10 @@ def get_race_cache(source: str, meeting_name: str, race_number: int) -> Optional
 
 
 def set_race_cache(source: str, meeting_name: str, race_number: int, data: dict):
-    """Cache race data."""
+    """Cache race data. Skip caching Interim results — they may change to Final."""
+    status = data.get("status", "") if isinstance(data, dict) else ""
+    if status in ("Interim", ""):
+        return
     key = (source, meeting_name.lower().strip(), race_number)
     with _race_cache_lock:
         _race_cache[key] = {"data": data, "ts": time.time()}

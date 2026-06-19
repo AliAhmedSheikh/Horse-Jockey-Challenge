@@ -7,7 +7,6 @@ from scrapers.puntersedge import PuntersEdgeScraper
 from scrapers.tab import TABScraper
 from scrapers.tabtouch import TABtouchScraper
 from scrapers.pointsbet import PointsBetScraper
-from scrapers.neds import NedsScraper
 
 logger = logging.getLogger(__name__)
 
@@ -412,5 +411,4 @@ __all__ = [
     "SportsbetScraper",
     "PointsBetScraper",
     "TABtouchScraper",
-    "NedsScraper",
 ]
