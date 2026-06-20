@@ -319,8 +319,12 @@ def _parse_jockey_challenges(meetings_data: dict) -> List[Dict]:
         bm = "Sportsbet"
         margin = CHALLENGE_MARGINS.get(bm, 0)
         strategy = CHALLENGE_STRATEGIES.get(bm, "best")
+        total_race_count = len(races)
+        min_rides = max(1, int(total_race_count * 0.3))
         jockey_prices = {}
         for jockey, prices in all_jockey_prices.items():
+            if len(prices) < min_rides:
+                continue
             if strategy == "avg":
                 derived = sum(prices) / len(prices)
             elif strategy == "median":

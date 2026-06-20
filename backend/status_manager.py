@@ -38,7 +38,7 @@ BOOKMAKER_SCRAPERS = [
     ("TABtouch", TABtouchScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
 ]
 
-ACCURATE_SCRAPERS = {"TAB", "Sportsbet", "PointsBet", "TABtouch"}
+ACCURATE_SCRAPERS = {"Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"}
 
 
 def scrape_all_bookmakers():

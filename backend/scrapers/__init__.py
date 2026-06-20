@@ -247,6 +247,7 @@ def _derive_markets_via_ratios(
             continue
         races = m.get("races", [])
         all_jockey_prices = {}
+        total_race_count = len([r for r in races if r.get("race_number", 0) > 0])
         for race in races:
             race_num = race.get("race_number")
             ratio = race_ratios.get(race_num)
@@ -268,8 +269,11 @@ def _derive_markets_via_ratios(
 
         bm = bookmaker_name
         margin = CHALLENGE_MARGINS.get(bm, 0)
+        min_rides = max(1, int(total_race_count * 0.3))
         jockey_prices = {}
         for jn, prices in all_jockey_prices.items():
+            if len(prices) < min_rides:
+                continue
             base_price = sum(prices) / len(prices)
             jockey_prices[jn] = round(max(MIN_PRICE, min(MAX_PRICE, base_price * (1 + margin))), 2)
         if jockey_prices:

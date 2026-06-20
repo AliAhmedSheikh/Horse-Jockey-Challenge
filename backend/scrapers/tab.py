@@ -698,9 +698,23 @@ class TABScraper:
                         derived = min(prices)
                     driver_prices[name] = round(max(MIN_PRICE, min(MAX_PRICE, derived * (1 + margin))), 2)
 
-                if driver_prices:
+                total_races_count = len(mtg["races"])
+                min_rides = max(1, int(total_races_count * 0.3))
+                filtered_driver_prices = {
+                    name: price for name, price in driver_prices.items()
+                    if len(all_race_odds.get(name, {})) >= min_rides
+                }
+                filtered_count = len(driver_prices) - len(filtered_driver_prices)
+                if filtered_count > 0:
+                    logger.info(
+                        f"TAB driver (race pages): {mtg['meeting_name']} "
+                        f"filtered {filtered_count} drivers with <{min_rides} rides "
+                        f"({len(filtered_driver_prices)} remain of {len(driver_prices)})"
+                    )
+
+                if filtered_driver_prices:
                     participants = []
-                    for name, price in sorted(driver_prices.items(), key=lambda x: x[1]):
+                    for name, price in sorted(filtered_driver_prices.items(), key=lambda x: x[1]):
                         p = {"name": name, "price": price}
                         if name in all_race_odds:
                             p["race_odds"] = all_race_odds[name]
@@ -710,13 +724,13 @@ class TABScraper:
                         "type": "driver",
                         "participants": participants,
                         "bookmaker": "TAB",
-                        "total_races": len(mtg["races"]),
+                        "total_races": total_races_count,
                         "races": [],
                     }
                     result.append(market)
                     logger.info(
                         f"TAB driver (race pages): {mtg['meeting_name']} "
-                        f"({len(participants)} participants, {len(mtg['races'])} races)"
+                        f"({len(participants)} participants, {total_races_count} races)"
                     )
 
         return result
@@ -807,9 +821,23 @@ class TABScraper:
                         derived = min(prices)
                     jockey_prices[name] = round(max(MIN_PRICE, min(MAX_PRICE, derived * (1 + margin))), 2)
 
-                if jockey_prices:
+                total_races_count = len(mtg["races"])
+                min_rides = max(1, int(total_races_count * 0.3))
+                filtered_jockey_prices = {
+                    name: price for name, price in jockey_prices.items()
+                    if len(all_race_odds.get(name, {})) >= min_rides
+                }
+                filtered_count = len(jockey_prices) - len(filtered_jockey_prices)
+                if filtered_count > 0:
+                    logger.info(
+                        f"TAB jockey (race pages): {mtg['meeting_name']} "
+                        f"filtered {filtered_count} jockeys with <{min_rides} rides "
+                        f"({len(filtered_jockey_prices)} remain of {len(jockey_prices)})"
+                    )
+
+                if filtered_jockey_prices:
                     participants = []
-                    for name, price in sorted(jockey_prices.items(), key=lambda x: x[1]):
+                    for name, price in sorted(filtered_jockey_prices.items(), key=lambda x: x[1]):
                         p = {"name": name, "price": price}
                         if name in all_race_odds:
                             p["race_odds"] = all_race_odds[name]
@@ -819,13 +847,13 @@ class TABScraper:
                         "type": "jockey",
                         "participants": participants,
                         "bookmaker": "TAB",
-                        "total_races": len(mtg["races"]),
+                        "total_races": total_races_count,
                         "races": [],
                     }
                     result.append(market)
                     logger.info(
                         f"TAB jockey (race pages): {mtg['meeting_name']} "
-                        f"({len(participants)} participants, {len(mtg['races'])} races)"
+                        f"({len(participants)} participants, {total_races_count} races)"
                     )
 
         return result
