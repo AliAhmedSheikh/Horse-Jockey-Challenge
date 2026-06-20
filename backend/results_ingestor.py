@@ -235,28 +235,19 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
             f"have odds data — recording as non-placed"
         )
 
-    # Create zero-point results for declared participants not already placed
+    # Create zero-point results for ALL participants not already placed
+    # Every participant in a meeting rode in every race — they deserve a result record
     for p in participants:
         if p.id in placed_ids:
             continue
-        if p.id in odds_declared_pids or p.id in all_matched_pids:
-            results_batch.append({
-                "meeting_id": meeting.id,
-                "participant_id": p.id,
-                "race_number": next_race,
-                "position": 99,
-                "points_added": 0,
-                "final_points": 0,
-            })
-        elif not odds_declared_pids and not all_matched_pids and real_positions:
-            results_batch.append({
-                "meeting_id": meeting.id,
-                "participant_id": p.id,
-                "race_number": next_race,
-                "position": 99,
-                "points_added": 0,
-                "final_points": 0,
-            })
+        results_batch.append({
+            "meeting_id": meeting.id,
+            "participant_id": p.id,
+            "race_number": next_race,
+            "position": 99,
+            "points_added": 0,
+            "final_points": 0,
+        })
 
     # Batch insert results atomically (direct to own session, not db_writer)
     if results_batch:

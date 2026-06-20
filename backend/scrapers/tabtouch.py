@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 BASE = "https://www.tabtouch.com.au"
 
 _NON_AU_PATTERN = re.compile(r'\s+-\s+\w{2,4}\s*$')
+_NZ_VENUES = {"ellerslie", "riccarton", "addington", "forbury park", "invercargill", "cambridge", "alexandra park", "manukau", "christchurch"}
 _JOCKEY_CHALLENGE_RE = re.compile(r'(.+?)\s+Jockey Challenge\s+3,2,1\s+Points', re.IGNORECASE)
 _DRIVER_WINS_RE = re.compile(r'Driver Wins\s*-\s*(.+?)\s*\((.+?)\)', re.IGNORECASE)
 _GLOBALS_PATTERN = re.compile(r'globals\.fixedOddsBettingData\s*=\s*({.*?});', re.DOTALL)
@@ -205,7 +206,7 @@ def _get_todays_meetings() -> List[Dict]:
             else:
                 continue
 
-            if _NON_AU_PATTERN.search(meeting_name):
+            if _NON_AU_PATTERN.search(meeting_name) or meeting_name.lower().strip() in _NZ_VENUES:
                 continue
 
             try:
