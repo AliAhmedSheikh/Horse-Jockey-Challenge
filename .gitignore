@@ -20,4 +20,5 @@ cleanup*.py
 verify_*.py
 fix_*.py
 test_*.py
+probe_*.py
 *.sql

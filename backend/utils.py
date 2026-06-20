@@ -17,7 +17,6 @@ CHALLENGE_MARGINS = {
     "TABtouch": 0.02,
     "Sportsbet": 0.03,
     "PointsBet": -0.03,
-    "Neds": 0.05,
 }
 
 # Derivation strategies per bookmaker for challenge price from per-race odds
@@ -30,7 +29,6 @@ CHALLENGE_STRATEGIES = {
     "TABtouch": "best",
     "Sportsbet": "best",
     "PointsBet": "best",
-    "Neds": "best",
 }
 
 
