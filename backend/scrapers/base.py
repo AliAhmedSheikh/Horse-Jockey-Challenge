@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 from concurrent.futures import as_completed
+from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 import httpx
 
@@ -168,6 +169,13 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
             parts = [{"name": n, "price": p[0], "race_odds": jockey_race_odds.get(n, {})} for n, p in seen.items()]
             parts.sort(key=lambda x: x["price"] if x["price"] > 0 else float('inf'))
             total_racing_races = len([r for r in races if r.get("race_number", 0) > 0])
+            meeting_date_raw = m.get("date", "")
+            meeting_date_iso = ""
+            if meeting_date_raw:
+                try:
+                    meeting_date_iso = datetime.fromisoformat(meeting_date_raw.replace("Z", "+00:00")).strftime("%Y-%m-%d")
+                except (ValueError, TypeError):
+                    meeting_date_iso = meeting_date_raw[:10] if len(meeting_date_raw) >= 10 else ""
             market = {
                 "meeting_name": meeting_name,
                 "type": challenge_type,
@@ -175,6 +183,7 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
                 "bookmaker": "Ladbrokes",
                 "total_races": total_racing_races,
                 "races": races_data,
+                "date": meeting_date_iso,
             }
             if challenge_type == "driver":
                 driver_markets.append(market)

@@ -187,6 +187,7 @@ def seed_database(db: Session, force: bool = False):
     invalidate_cache()
 
     # Step 3: Filter Ladbrokes data to only real challenge meetings (known from TAB)
+    # Also filter to only today's date to prevent yesterday's meetings from being mislabeled
     all_real_names = set()
     try:
         all_real_names = {normalise_name(m["meeting_name"]) for m in tab_jockey + tab_driver}
@@ -195,15 +196,26 @@ def seed_database(db: Session, force: bool = False):
 
     if all_real_names:
         filtered_jockey = [m for m in api_jockey if normalise_name(m["meeting_name"]) in all_real_names]
-        filtered_driver = [m for m in api_driver if normalise_name(m["meeting_name"]) in all_real_names]
         dropped_jockey = [m["meeting_name"] for m in api_jockey if normalise_name(m["meeting_name"]) not in all_real_names]
-        dropped_driver = [m["meeting_name"] for m in api_driver if normalise_name(m["meeting_name"]) not in all_real_names]
         if dropped_jockey:
             logger.info(f"Filtered out non-challenge jockey meetings: {dropped_jockey}")
-        if dropped_driver:
-            logger.info(f"Filtered out non-challenge driver meetings: {dropped_driver}")
         api_jockey = filtered_jockey
-        api_driver = filtered_driver
+
+        # For driver meetings: if TAB found some, filter to TAB-known names.
+        # If TAB found NONE (common at midnight when TAB hasn't published yet),
+        # keep ALL Ladbrokes driver meetings rather than filtering them all out.
+        if tab_driver:
+            filtered_driver = [m for m in api_driver if normalise_name(m["meeting_name"]) in all_real_names]
+            dropped_driver = [m["meeting_name"] for m in api_driver if normalise_name(m["meeting_name"]) not in all_real_names]
+            if dropped_driver:
+                logger.info(f"Filtered out non-challenge driver meetings: {dropped_driver}")
+            api_driver = filtered_driver
+        else:
+            logger.info(f"TAB found 0 driver challenges — keeping all {len(api_driver)} Ladbrokes driver meetings")
+
+    # Filter to only today's date to prevent yesterday's meetings being mislabeled
+    api_jockey = [m for m in api_jockey if m.get("date", aus_date) == aus_date]
+    api_driver = [m for m in api_driver if m.get("date", aus_date) == aus_date]
 
     # Step 4: Merge Ladbrokes + TAB sources — Ladbrokes first (better pricing),
     # then TAB for meetings Ladbrokes doesn't have (e.g. NZ meetings)
@@ -326,8 +338,8 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
     counter = 0
     meeting_races_map = {}
 
-    # Skip meetings that already exist in DB for today
-    existing_names = {normalise_name(m.name) for m in db.query(Meeting).filter(Meeting.date == aus_date).all()}
+    # Skip meetings that already exist in DB for today (or for their meeting date)
+    existing_names_dates = {(normalise_name(m.name), m.date) for m in db.query(Meeting).all()}
     # Start counter from max existing numeric ID to avoid collisions
     existing_ids = [m.id for m in db.query(Meeting).all()]
     max_num = 0
@@ -342,7 +354,8 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
     for market_list, mtype in [(api_jockey, "jockey"), (api_driver, "driver")]:
         for market in market_list:
             meeting_name = market["meeting_name"]
-            if normalise_name(meeting_name) in existing_names:
+            meeting_date = market.get("date", aus_date) or aus_date
+            if (normalise_name(meeting_name), meeting_date) in existing_names_dates:
                 logger.debug(f"Skipping {meeting_name} — already in DB")
                 continue
             counter += 1
@@ -394,7 +407,7 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
             meeting = Meeting(
                 id=mid,
                 name=meeting_name,
-                date=aus_date,
+                date=meeting_date,
                 status=MeetingStatus.UPCOMING.value,
                 type=mtype,
                 total_races=total_races,
