@@ -166,9 +166,18 @@ def scrape_all_bookmakers():
                 db.query(Result).filter(Result.participant_id == op.id).delete(synchronize_session=False)
                 db.delete(op)
                 orphan_count += 1
+            else:
+                primary_prices = db.query(Price).filter(
+                    Price.participant_id == op.id,
+                    Price.bookmaker_name.in_(["TAB", "TABtouch"]),
+                ).count()
+                if primary_prices == 0:
+                    db.query(Result).filter(Result.participant_id == op.id).delete(synchronize_session=False)
+                    db.delete(op)
+                    orphan_count += 1
         if orphan_count:
             db.commit()
-            logger.info(f"Removed {orphan_count} orphan participants with no bookmaker prices")
+            logger.info(f"Removed {orphan_count} orphan participants with no TAB/TABtouch prices")
 
     except Exception as e:
         logger.error(f"Bookmaker scrape cycle failed: {e}", exc_info=True)
