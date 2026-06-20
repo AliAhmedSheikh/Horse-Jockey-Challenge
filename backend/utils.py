@@ -225,6 +225,11 @@ def filter_spikes(prices: list, spike_multiplier: float = 3.0) -> list:
 
 
 def compute_value_rating(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0, is_top2: bool = False) -> str:
+    """Compute value rating based on overlay (bookmaker vs AI price).
+
+    Positive overlay = bookmaker price > AI price = Value (bookmaker overpaying)
+    Negative overlay = bookmaker price < AI price = No Bet (AI thinks it's too short)
+    """
     if bookmaker_price <= 0 or ai_price <= 0:
         return "Neutral"
     overlay = (bookmaker_price - ai_price) / ai_price * 100
@@ -235,9 +240,7 @@ def compute_value_rating(bookmaker_price: float, ai_price: float, strong_value_t
     elif overlay > -5:
         return "Neutral"
     else:
-        if is_top2:
-            return "Value"
-        return "Avoid"
+        return "No Bet"
 
 
 def compute_status(bookmaker_price: float, ai_price: float, strong_value_threshold: float = 15.0, is_top2: bool = False) -> str:

@@ -59,25 +59,36 @@ def _fetch_all_meetings() -> Tuple[List[Dict], List[Dict]]:
     client = _get_client()
     all_meetings = []
     for d in dates_to_try:
-        try:
-            r = client.get(
-                f"{API_BASE}/racing/meetings",
-                params={"date_from": d, "date_to": d, "country": "AUS", "type": " ", "limit": 200},
-            )
-            if r.status_code == 200:
-                meetings = r.json().get("data", {}).get("meetings", [])
-                all_meetings.extend(meetings)
-        except Exception as e:
-            logger.warning(f"Failed to fetch meetings for {d}: {e}")
+        for country in ("AUS", "NZ"):
+            try:
+                r = client.get(
+                    f"{API_BASE}/racing/meetings",
+                    params={"date_from": d, "date_to": d, "country": country, "type": " ", "limit": 200},
+                )
+                if r.status_code == 200:
+                    meetings = r.json().get("data", {}).get("meetings", [])
+                    all_meetings.extend(meetings)
+            except Exception as e:
+                logger.warning(f"Failed to fetch meetings for {d}/{country}: {e}")
 
     if not all_meetings:
         logger.warning("Ladbrokes API returned no meetings on any date")
         return ([], [])
 
+    seen_ids = set()
+    unique_meetings = []
+    for m in all_meetings:
+        mid = m.get("id")
+        if mid and mid in seen_ids:
+            continue
+        if mid:
+            seen_ids.add(mid)
+        unique_meetings.append(m)
+
     jockey_markets = []
     driver_markets = []
 
-    for m in meetings:
+    for m in unique_meetings:
         category = m.get("category", "")
         meeting_name = m.get("name", "")
         races = m.get("races", [])
@@ -199,16 +210,17 @@ def fetch_single_race_results(meeting_name: str, race_number: int, date_override
     client = _get_client()
     all_meetings = []
     for d in dates_to_try:
-        try:
-            r = client.get(
-                f"{API_BASE}/racing/meetings",
-                params={"date_from": d, "date_to": d, "country": "AUS", "type": " ", "limit": 200},
-            )
-            if r.status_code == 200:
-                meetings = r.json().get("data", {}).get("meetings", [])
-                all_meetings.extend(meetings)
-        except Exception as e:
-            logger.warning(f"fetch_single_race_results: failed to fetch meetings for {d}: {e}")
+        for country in ("AUS", "NZ"):
+            try:
+                r = client.get(
+                    f"{API_BASE}/racing/meetings",
+                    params={"date_from": d, "date_to": d, "country": country, "type": " ", "limit": 200},
+                )
+                if r.status_code == 200:
+                    meetings = r.json().get("data", {}).get("meetings", [])
+                    all_meetings.extend(meetings)
+            except Exception as e:
+                logger.warning(f"fetch_single_race_results: failed to fetch meetings for {d}/{country}: {e}")
 
     if not all_meetings:
         logger.warning(f"fetch_single_race_results: no meetings found on any date")

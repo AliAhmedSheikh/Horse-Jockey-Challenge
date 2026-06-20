@@ -45,12 +45,13 @@ CACHE_TTL = 30
 
 
 def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_races: int, total_races: int, race_odds_json: str = None) -> float:
-    """Compute AI price: challenge market price is primary, points performance adjusts, horse odds are secondary.
+    """Compute AI price using bookmaker challenge price as anchor + performance adjustments.
 
     Formula:
-      1. Base = Ladbrokes/challenge market price (after spike filter)
-      2. Points adjustment (primary) — top 3 shorten 10-15%, 0pts lengthens 10-15%
-      3. Horse odds adjustment (secondary) — ride density provides minor tweak
+      1. Base = bookmaker average price (spike-filtered)
+      2. Pre-race (0 pts): AI = bookmaker price (no edge until performance data exists)
+      3. In-race (>0 pts): top performers shorten, poor performers lengthen
+      4. Ride density secondary tweak: more rides = slightly shorter
     """
     if avg_bookmaker <= 0:
         return 3.0
@@ -66,7 +67,7 @@ def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_rac
     elif current_points > 0:
         perf_factor = 0.97
     else:
-        perf_factor = 1.12
+        perf_factor = 1.0
 
     ai_price = base_price * perf_factor
 

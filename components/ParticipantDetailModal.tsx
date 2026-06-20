@@ -63,7 +63,7 @@ export default function ParticipantDetailModal({
   const valueColor = (rating: string) => {
     if (rating === "Strong Value") return "text-emerald-500";
     if (rating === "Value") return "text-emerald-400";
-    if (rating === "Avoid") return "text-red-500";
+    if (rating === "No Bet") return "text-red-500";
     return "text-slate-500 dark:text-slate-400";
   };
 

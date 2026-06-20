@@ -28,7 +28,7 @@ const statusBadge = (status: string) => {
     case "avoid":
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20">
-          Avoid
+          No Bet
         </span>
       );
     default:

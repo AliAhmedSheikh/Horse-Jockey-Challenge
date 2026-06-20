@@ -76,7 +76,7 @@ export default function ChallengeCard({
             statusColors[participant.status]
           }`}
         >
-          {participant.status === "value" ? "Value" : participant.status === "avoid" ? "Avoid" : "Neutral"}
+          {participant.status === "value" ? "Value" : participant.status === "avoid" ? "No Bet" : "Neutral"}
         </span>
       </div>
 
@@ -139,7 +139,7 @@ export default function ChallengeCard({
                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
                 : participant.valueRating === "Value"
                 ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20"
-                : participant.valueRating === "Avoid"
+                : participant.valueRating === "No Bet"
                 ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20"
                 : "bg-slate-50 text-slate-700 dark:bg-slate-500/10 dark:text-slate-400 border-slate-200 dark:border-slate-500/20"
             }`}
