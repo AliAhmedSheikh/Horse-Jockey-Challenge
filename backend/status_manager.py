@@ -231,7 +231,7 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                     if not existing_p:
                         existing_p = db.query(Participant).filter(Participant.id == pid).first()
                     if not existing_p:
-                        if bookmaker_name in ("Ladbrokes", "TAB", "TABtouch", "PointsBet"):
+                        if bookmaker_name in ("TAB", "TABtouch"):
                             new_p = Participant(
                                 id=pid,
                                 meeting_id=meeting.id,
