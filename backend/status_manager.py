@@ -116,6 +116,16 @@ def scrape_all_bookmakers():
             if deleted:
                 logger.info(f"Cleared {deleted} stale price records for {stale_bookmakers}")
 
+        # Clear ACCURATE_SCRAPERS prices before scrape so filtered-out participants become orphans
+        accurate_names = [bm for bm, _, _ in BOOKMAKER_SCRAPERS if bm in ACCURATE_SCRAPERS]
+        if accurate_names:
+            cleared = db.query(Price).filter(
+                Price.meeting_id.in_(meeting_ids),
+                Price.bookmaker_name.in_(accurate_names),
+            ).delete(synchronize_session=False)
+            if cleared:
+                logger.info(f"Cleared {cleared} ACCURATE_SCRAPERS prices before fresh scrape")
+
         for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:
             if bm_name not in ACCURATE_SCRAPERS:
                 continue
