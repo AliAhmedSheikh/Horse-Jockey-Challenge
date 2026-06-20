@@ -187,9 +187,10 @@ def seed_database(db: Session, force: bool = False):
     except Exception:
         pass
 
-    # Filter to only today's date to prevent yesterday's meetings being mislabeled
-    api_jockey = [m for m in api_jockey if m.get("date", aus_date) == aus_date]
-    api_driver = [m for m in api_driver if m.get("date", aus_date) == aus_date]
+    # NOTE: Do NOT filter by meeting date field — the Ladbrokes API returns UTC dates
+    # (e.g. date=2026-06-20 for a June 21 AEST meeting) while today_aus() returns AEST.
+    # The API query already filters by date_from/date_to using AEST dates, so all
+    # returned meetings are already the correct ones for today.
 
     # Step 4: Merge Ladbrokes + TAB sources — Ladbrokes first (better pricing),
     # then TAB for meetings Ladbrokes doesn't have (e.g. NZ meetings)
@@ -328,7 +329,7 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
     for market_list, mtype in [(api_jockey, "jockey"), (api_driver, "driver")]:
         for market in market_list:
             meeting_name = market["meeting_name"]
-            meeting_date = market.get("date", aus_date) or aus_date
+            meeting_date = aus_date
             if (normalise_name(meeting_name), meeting_date) in existing_names_dates:
                 logger.debug(f"Skipping {meeting_name} — already in DB")
                 continue
