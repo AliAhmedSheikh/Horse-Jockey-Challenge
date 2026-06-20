@@ -492,7 +492,7 @@ class TABtouchScraper:
             min_rides = max(1, int(total_races_count * 0.3))
             filtered_driver_prices = {
                 name: price for name, price in driver_prices.items()
-                if len(all_race_odds.get(name, {})) >= min_rides
+                if len(all_driver_prices.get(name, [])) >= min_rides
             }
             filtered_count = len(driver_prices) - len(filtered_driver_prices)
             if filtered_count > 0:
@@ -617,7 +617,7 @@ class TABtouchScraper:
             min_rides = max(1, int(total_races_count * 0.3))
             filtered_jockey_prices = {
                 name: price for name, price in jockey_prices.items()
-                if len(all_race_odds.get(name, {})) >= min_rides
+                if len(all_jockey_prices.get(name, [])) >= min_rides
             }
             filtered_count = len(jockey_prices) - len(filtered_jockey_prices)
             if filtered_count > 0:
