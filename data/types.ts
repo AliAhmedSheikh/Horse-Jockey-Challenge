@@ -7,7 +7,7 @@ export interface Participant {
   bookmakerPrices: Record<string, number>;
   aiPrice: number;
   overlayPercent: number;
-  valueRating: "Strong Value" | "Value" | "Neutral" | "Avoid";
+  valueRating: "Strong Value" | "Value" | "Neutral" | "No Bet";
   currentPoints: number;
   projectedFinalPoints: number;
   status: "value" | "neutral" | "avoid";
