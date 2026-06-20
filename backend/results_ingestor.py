@@ -1,7 +1,7 @@
 """Results ingestor: fetch race results from APIs and create Result records.
 
 Responsibilities:
-- For each LIVE or UPCOMING meeting, fetch the next race's results from Ladbrokes API
+- For each LIVE meeting, fetch the next race's results from Ladbrokes API
 - Match API jockey/driver names to DB participants
 - Create Result records for placed and declared participants
 - Skip races that aren't ready yet (non-Final status)
@@ -46,7 +46,7 @@ def ingest_race_results():
 
     try:
         meetings = db.query(Meeting).filter(
-            Meeting.status.in_([MeetingStatus.LIVE.value, MeetingStatus.UPCOMING.value])
+            Meeting.status.in_([MeetingStatus.LIVE.value])
         ).all()
 
         if not meetings:

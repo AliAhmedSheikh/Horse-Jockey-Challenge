@@ -736,9 +736,22 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
         if not races_data:
             existing_results = db.query(Result).filter(Result.meeting_id == meeting.id).count()
             if existing_results > 0:
-                logger.info(
-                    f"Meeting {meeting.name}: no API race data but has {existing_results} results — keeping"
-                )
+                # If meeting is still UPCOMING, clear stale results from previous seed cycles
+                if meeting.status == MeetingStatus.UPCOMING.value:
+                    logger.info(
+                        f"Meeting {meeting.name}: clearing {existing_results} stale results (meeting is UPCOMING)"
+                    )
+                    db.query(Result).filter(Result.meeting_id == meeting.id).delete()
+                    for p in participants:
+                        p.current_points = 0
+                        p.completed_races = 0
+                        p.remaining_races = meeting.total_races
+                    meeting.completed_races = 0
+                    db.commit()
+                else:
+                    logger.info(
+                        f"Meeting {meeting.name}: no API race data but has {existing_results} results — keeping"
+                    )
                 continue
             meeting.status = MeetingStatus.UPCOMING.value
             for p in participants:
