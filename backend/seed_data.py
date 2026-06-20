@@ -117,31 +117,20 @@ def seed_database(db: Session, force: bool = False):
                 )
             ).count()
             if participant_count > 0:
-                # Don't return early — check if all TAB challenge meetings are present.
-                # The TAB scraper may find meetings that haven't been seeded yet
-                # (e.g. jockey challenges added after initial seed).
-                # We still log and continue to the seed logic below, which will
-                # skip existing meetings and only add missing ones.
                 logger.info(
                     f"Database has {today_count} meetings for today ({today}) "
                     f"with {participant_count} participants — checking for missing meetings"
                 )
             else:
-                logger.warning(
+                # Don't delete meetings with 0 participants — they are real challenge
+                # meetings that simply haven't been populated by scrapers yet (e.g.
+                # TAB's challenge page changes throughout the day). Log and continue;
+                # the scrape cycle will populate them when bookmaker data arrives.
+                logger.info(
                     f"Found {today_count} meetings for today but 0 participants — "
-                    f"clearing and re-seeding for {today}"
+                    f"meetings will be populated by next scrape cycle"
                 )
-                db.query(Result).filter(Result.meeting_id.in_(
-                    db.query(Meeting.id).filter(Meeting.date == today)
-                )).delete(synchronize_session='fetch')
-                db.query(Price).filter(Price.meeting_id.in_(
-                    db.query(Meeting.id).filter(Meeting.date == today)
-                )).delete(synchronize_session='fetch')
-                db.query(ParticipantModel).filter(ParticipantModel.meeting_id.in_(
-                    db.query(Meeting.id).filter(Meeting.date == today)
-                )).delete(synchronize_session='fetch')
-                db.query(Meeting).filter(Meeting.date == today).delete()
-                db.commit()
+                # Still proceed to seed logic to add any missing meetings
         else:
             logger.info(f"Existing data is from a previous day, clearing and re-seeding for {today}")
             db.query(Result).filter(Result.meeting_id.in_(
@@ -186,32 +175,17 @@ def seed_database(db: Session, force: bool = False):
     api.close()
     invalidate_cache()
 
-    # Step 3: Filter Ladbrokes data to only real challenge meetings (known from TAB)
-    # Also filter to only today's date to prevent yesterday's meetings from being mislabeled
+    # Step 3: Use all Ladbrokes challenge meetings as the authoritative source.
+    # NOTE: Do NOT filter Ladbrokes meetings by TAB's challenge listing.
+    # TAB's challenge page changes throughout the day (different meetings at
+    # midnight vs 3am), causing a cascade: seed creates wrong meetings →
+    # orphan cleanup deletes participants → seed re-creates with whatever
+    # TAB currently shows. Ladbrokes is stable and is the source of truth.
     all_real_names = set()
     try:
         all_real_names = {normalise_name(m["meeting_name"]) for m in tab_jockey + tab_driver}
     except Exception:
         pass
-
-    if all_real_names:
-        filtered_jockey = [m for m in api_jockey if normalise_name(m["meeting_name"]) in all_real_names]
-        dropped_jockey = [m["meeting_name"] for m in api_jockey if normalise_name(m["meeting_name"]) not in all_real_names]
-        if dropped_jockey:
-            logger.info(f"Filtered out non-challenge jockey meetings: {dropped_jockey}")
-        api_jockey = filtered_jockey
-
-        # For driver meetings: if TAB found some, filter to TAB-known names.
-        # If TAB found NONE (common at midnight when TAB hasn't published yet),
-        # keep ALL Ladbrokes driver meetings rather than filtering them all out.
-        if tab_driver:
-            filtered_driver = [m for m in api_driver if normalise_name(m["meeting_name"]) in all_real_names]
-            dropped_driver = [m["meeting_name"] for m in api_driver if normalise_name(m["meeting_name"]) not in all_real_names]
-            if dropped_driver:
-                logger.info(f"Filtered out non-challenge driver meetings: {dropped_driver}")
-            api_driver = filtered_driver
-        else:
-            logger.info(f"TAB found 0 driver challenges — keeping all {len(api_driver)} Ladbrokes driver meetings")
 
     # Filter to only today's date to prevent yesterday's meetings being mislabeled
     api_jockey = [m for m in api_jockey if m.get("date", aus_date) == aus_date]

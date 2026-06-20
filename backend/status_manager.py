@@ -116,15 +116,14 @@ def scrape_all_bookmakers():
             if deleted:
                 logger.info(f"Cleared {deleted} stale price records for {stale_bookmakers}")
 
-        # Clear ACCURATE_SCRAPERS prices before scrape so filtered-out participants become orphans
-        accurate_names = [bm for bm, _, _ in BOOKMAKER_SCRAPERS if bm in ACCURATE_SCRAPERS]
-        if accurate_names:
-            cleared = db.query(Price).filter(
-                Price.meeting_id.in_(meeting_ids),
-                Price.bookmaker_name.in_(accurate_names),
-            ).delete(synchronize_session=False)
-            if cleared:
-                logger.info(f"Cleared {cleared} ACCURATE_SCRAPERS prices before fresh scrape")
+        # NOTE: Do NOT clear ACCURATE_SCRAPERS prices before scraping.
+        # Clearing prices triggers a cascade: TAB's challenge page changes
+        # throughout the day, so participants from meetings that TAB doesn't
+        # currently list lose all prices → orphan cleanup deletes them →
+        # meetings have 0 participants → seed deletes and re-seeds with wrong
+        # meetings. Instead, prices are simply overwritten during the scrape
+        # below. Only participants with 0 prices from ALL bookmakers are
+        # orphaned at the end of the cycle.
 
         for bm_name, scraper_cls, methods in BOOKMAKER_SCRAPERS:
             if bm_name not in ACCURATE_SCRAPERS:
@@ -166,18 +165,9 @@ def scrape_all_bookmakers():
                 db.query(Result).filter(Result.participant_id == op.id).delete(synchronize_session=False)
                 db.delete(op)
                 orphan_count += 1
-            else:
-                primary_prices = db.query(Price).filter(
-                    Price.participant_id == op.id,
-                    Price.bookmaker_name.in_(["TAB", "TABtouch"]),
-                ).count()
-                if primary_prices == 0:
-                    db.query(Result).filter(Result.participant_id == op.id).delete(synchronize_session=False)
-                    db.delete(op)
-                    orphan_count += 1
         if orphan_count:
             db.commit()
-            logger.info(f"Removed {orphan_count} orphan participants with no TAB/TABtouch prices")
+            logger.info(f"Removed {orphan_count} orphan participants with no prices from any bookmaker")
 
     except Exception as e:
         logger.error(f"Bookmaker scrape cycle failed: {e}", exc_info=True)
