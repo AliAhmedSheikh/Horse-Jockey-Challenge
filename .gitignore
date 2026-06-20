@@ -21,4 +21,6 @@ verify_*.py
 fix_*.py
 test_*.py
 probe_*.py
+analyze.py
+playwright_*.py
 *.sql
