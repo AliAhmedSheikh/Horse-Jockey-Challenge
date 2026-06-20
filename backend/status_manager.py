@@ -38,7 +38,7 @@ BOOKMAKER_SCRAPERS = [
     ("TABtouch", TABtouchScraper, ["scrape_jockey_challenges", "scrape_driver_challenges"]),
 ]
 
-ACCURATE_SCRAPERS = {"Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"}
+ACCURATE_SCRAPERS = {"TAB", "Sportsbet", "PointsBet", "TABtouch"}
 
 
 def scrape_all_bookmakers():
@@ -146,6 +146,20 @@ def scrape_all_bookmakers():
             finally:
                 scraper.close()
 
+        orphan_participants = db.query(Participant).filter(
+            Participant.meeting_id.in_(meeting_ids)
+        ).all()
+        orphan_count = 0
+        for op in orphan_participants:
+            op_prices = db.query(Price).filter(Price.participant_id == op.id).count()
+            if op_prices == 0:
+                db.query(Result).filter(Result.participant_id == op.id).delete(synchronize_session=False)
+                db.delete(op)
+                orphan_count += 1
+        if orphan_count:
+            db.commit()
+            logger.info(f"Removed {orphan_count} orphan participants with no bookmaker prices")
+
     except Exception as e:
         logger.error(f"Bookmaker scrape cycle failed: {e}", exc_info=True)
         if db:
@@ -207,7 +221,7 @@ def _update_prices_from_markets(db, meetings, markets, bookmaker_name):
                     if not existing_p:
                         existing_p = db.query(Participant).filter(Participant.id == pid).first()
                     if not existing_p:
-                        if bookmaker_name == "Ladbrokes":
+                        if bookmaker_name in ("Ladbrokes", "TAB", "TABtouch", "PointsBet"):
                             new_p = Participant(
                                 id=pid,
                                 meeting_id=meeting.id,
