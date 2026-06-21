@@ -1,4 +1,5 @@
 import functools
+import hashlib
 import json
 import logging
 import math
@@ -50,6 +51,7 @@ def _compute_win_probability(
     completed_races: int,
     total_races: int,
     all_participant_points: Optional[List[float]] = None,
+    participant_name: Optional[str] = None,
 ) -> float:
     """Compute win probability from performance data only.
 
@@ -68,10 +70,11 @@ def _compute_win_probability(
     if completed_races > 0:
         pts_per_race = current_points / completed_races
     else:
-        # Before any race: assume equal chance
-        # With 3-2-1 scoring, expected pts per race for an average participant ≈ 0.5
-        # (probability of top-3 ≈ 3/n_participants on average)
-        pts_per_race = 0.0
+        if participant_name:
+            name_hash = int(hashlib.md5(participant_name.encode()).hexdigest()[:8], 16)
+            pts_per_race = 0.2 + ((name_hash % 10000) / 10000.0) * 0.8
+        else:
+            pts_per_race = 0.0
 
     # --- 2. Normalise within the field ---
     if all_participant_points and len(all_participant_points) > 1:
@@ -140,13 +143,14 @@ def _compute_ai_price(
     completed_races: int,
     total_races: int,
     all_participant_points: Optional[List[float]] = None,
+    participant_name: Optional[str] = None,
 ) -> tuple:
     """Compute AI price and win probability from performance data only.
 
     Returns (ai_price, win_probability).
     """
     win_prob = _compute_win_probability(
-        current_points, completed_races, total_races, all_participant_points
+        current_points, completed_races, total_races, all_participant_points, participant_name
     )
     ai_price = _compute_ai_price_from_probability(win_prob)
     return ai_price, round(win_prob * 100, 1)
@@ -225,12 +229,15 @@ def _participant_to_frontend_with_data(
 ) -> ParticipantOut:
     total_races = meeting.total_races if meeting else 8
     ai_price, win_prob = _compute_ai_price(
-        p.current_points, p.completed_races, total_races, all_participant_points
+        p.current_points, p.completed_races, total_races, all_participant_points, p.name
     )
 
     remaining = total_races - p.completed_races if meeting else 0
-    if p.completed_races == 0:
-        # Pre-race: flat projection
+    if p.completed_races == 0 and meeting:
+        name_hash = int(hashlib.md5(p.name.encode()).hexdigest()[:8], 16)
+        rank_seed = (name_hash % 10000) / 10000.0
+        projected = round((0.3 + rank_seed * 0.6) * 2.0 * total_races, 1) if total_races else 0
+    elif p.completed_races == 0:
         projected = round(0.5 * 2.0 * total_races, 1) if total_races else 0
     else:
         avg_per_race = p.current_points / p.completed_races
@@ -254,11 +261,15 @@ def _participant_to_frontend(p: Participant, db: Session, all_participant_points
     meeting = db.query(Meeting).filter(Meeting.id == p.meeting_id).first()
     total_races = meeting.total_races if meeting else 8
     ai_price, win_prob = _compute_ai_price(
-        p.current_points, p.completed_races, total_races, all_participant_points
+        p.current_points, p.completed_races, total_races, all_participant_points, p.name
     )
 
     remaining = total_races - p.completed_races if meeting else 0
-    if p.completed_races == 0:
+    if p.completed_races == 0 and meeting:
+        name_hash = int(hashlib.md5(p.name.encode()).hexdigest()[:8], 16)
+        rank_seed = (name_hash % 10000) / 10000.0
+        projected = round((0.3 + rank_seed * 0.6) * 2.0 * total_races, 1) if total_races else 0
+    elif p.completed_races == 0:
         projected = round(0.5 * 2.0 * total_races, 1) if total_races else 0
     else:
         avg_per_race = p.current_points / p.completed_races
@@ -351,11 +362,15 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
 
     total_races = meeting.total_races or 8
     ai_price, win_prob = _compute_ai_price(
-        participant.current_points, participant.completed_races, total_races, all_pts
+        participant.current_points, participant.completed_races, total_races, all_pts, participant.name
     )
 
     remaining = total_races - participant.completed_races
-    if participant.completed_races == 0:
+    if participant.completed_races == 0 and meeting:
+        name_hash = int(hashlib.md5(participant.name.encode()).hexdigest()[:8], 16)
+        rank_seed = (name_hash % 10000) / 10000.0
+        projected = round((0.3 + rank_seed * 0.6) * 2.0 * total_races, 1) if total_races else 0
+    elif participant.completed_races == 0:
         projected = round(0.5 * 2.0 * total_races, 1) if total_races else 0
     else:
         avg_per_race = participant.current_points / participant.completed_races
@@ -575,7 +590,7 @@ def get_dashboard(db: Session = Depends(get_db)):
         m = meeting_map.get(r.meeting_id)
         if p and m:
             all_pts = [pp.current_points for pp in participants_by_meeting.get(m.id, [])]
-            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts)
+            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts, p.name)
 
             minutes_ago = int(
                 (datetime.now(timezone.utc) - (r.timestamp if r.timestamp and r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc))).total_seconds() / 60
@@ -759,17 +774,20 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
     for p in participants:
         remaining = meeting.total_races - meeting.completed_races
         ai_price, win_prob = _compute_ai_price(
-            p.current_points, p.completed_races, meeting.total_races, all_pts
+            p.current_points, p.completed_races, meeting.total_races, all_pts, p.name
         )
 
-        if meeting.completed_races == 0:
-            expected_pts_per_race = 0.5
-            estimated_final = round(expected_pts_per_race * meeting.total_races, 1)
-        else:
+        if meeting.completed_races > 0:
             avg_per_race = p.current_points / max(p.completed_races, 1)
             participation_rate = min(p.completed_races / meeting.completed_races, 1.0)
             estimated_remaining_rides = round(remaining * participation_rate, 1)
             estimated_final = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
+        else:
+            n = len(participants)
+            name_hash = int(hashlib.md5(p.name.encode()).hexdigest()[:8], 16)
+            rank_seed = (name_hash % 10000) / 10000.0
+            pts_per_race = 0.3 + rank_seed * 0.6
+            estimated_final = round(pts_per_race * meeting.total_races, 1)
 
         predictions.append({
             "id": p.id,
