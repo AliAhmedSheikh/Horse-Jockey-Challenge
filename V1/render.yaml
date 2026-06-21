@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: jockey-driver-api
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: PUNTERSEDGE_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://jockey-driver-dashboard.vercel.app
