@@ -151,7 +151,7 @@ export default function MeetingDetailPage() {
             <IconStar className="w-4 h-4 text-amber-500" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">Pre-Meeting Prediction</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-amber-50 dark:bg-amber-500/5 rounded-lg p-4 text-center">
               <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wider font-semibold">Projected Winner</p>
               <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">{prediction.projectedWinner}</p>
@@ -163,19 +163,6 @@ export default function MeetingDetailPage() {
                   <div key={p.id} className="flex items-center justify-between text-xs">
                     <span className="text-slate-700 dark:text-slate-300">{i + 1}. {p.name}</span>
                     <span className="font-semibold text-amber-500">{p.estimatedFinalPoints} pts</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-4">
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold mb-2">Win Probabilities</p>
-              <div className="space-y-1.5">
-                {prediction.predictions.slice(0, 4).map((p) => (
-                  <div key={p.id} className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(p.winProbability, 100)}%` }} />
-                    </div>
-                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 w-10 text-right">{p.winProbability}%</span>
                   </div>
                 ))}
               </div>

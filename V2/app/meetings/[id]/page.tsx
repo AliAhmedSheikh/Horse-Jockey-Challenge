@@ -151,7 +151,7 @@ export default function MeetingDetailPage() {
             <IconStar className="w-4 h-4 text-amber-500" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">Pre-Meeting Prediction</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-amber-50 dark:bg-amber-500/5 rounded-lg p-4 text-center">
               <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wider font-semibold">Projected Winner</p>
               <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">{prediction.projectedWinner}</p>
@@ -163,19 +163,6 @@ export default function MeetingDetailPage() {
                   <div key={p.id} className="flex items-center justify-between text-xs">
                     <span className="text-slate-700 dark:text-slate-300">{i + 1}. {p.name}</span>
                     <span className="font-semibold text-amber-500">{p.estimatedFinalPoints} pts</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-4">
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold mb-2">Win Probabilities</p>
-              <div className="space-y-1.5">
-                {prediction.predictions.slice(0, 4).map((p) => (
-                  <div key={p.id} className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(p.winProbability, 100)}%` }} />
-                    </div>
-                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 w-10 text-right">{p.winProbability}%</span>
                   </div>
                 ))}
               </div>
@@ -201,30 +188,28 @@ export default function MeetingDetailPage() {
           <table className="w-full table-fixed">
             <colgroup>
               <col className="w-[40px]" />
-              <col className="w-[40%]" />
-              <col className="w-[15%]" />
-              <col className="w-[15%]" />
-              <col className="w-[10%]" />
+              <col className="w-[50%]" />
+              <col className="w-[20%]" />
+              <col className="w-[20%]" />
             </colgroup>
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/80">
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-8">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI Price</th>
-                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Win %</th>
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pts</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
               {participantsLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading participants...
                   </td>
                 </tr>
               ) : participantsEmpty ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     No participants loaded
                   </td>
                 </tr>
@@ -252,9 +237,6 @@ export default function MeetingDetailPage() {
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</span>
                   </td>
                   <td className="px-2 py-3 text-right">
-                    <span className="text-sm text-slate-600 dark:text-slate-300">{p.winProbability}%</span>
-                  </td>
-                  <td className="px-2 py-3 text-right">
                     <span className="text-sm font-bold text-slate-900 dark:text-white">{p.currentPoints}</span>
                   </td>
                 </tr>
@@ -277,14 +259,10 @@ export default function MeetingDetailPage() {
                 </button>
                 {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">AI Price</p>
                   <p className="text-sm font-bold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</p>
-                </div>
-                <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Win %</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{p.winProbability}%</p>
                 </div>
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">Points</p>
