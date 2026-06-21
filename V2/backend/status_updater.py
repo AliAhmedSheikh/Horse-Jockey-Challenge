@@ -86,7 +86,8 @@ def _handle_upcoming(db, meeting, scheduled_reached, st, race_resolver):
     """Handle UPCOMING meeting transitions."""
     if scheduled_reached or (not meeting.scheduled_time and meeting.completed_races > 0):
         meeting.status = MeetingStatus.LIVE.value
-        meeting.completed_races = 0
+        if meeting.completed_races == 0:
+            meeting.completed_races = 0
         logger.info(f"Meeting {meeting.name} -> LIVE")
 
 
@@ -105,13 +106,15 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
     api_shows_results = False
     if st is not None and not scheduled_reached and not meeting.id.startswith("dyn_"):
         # If meeting has completed races or was created more than 5 min ago, skip revert check
-        if meeting.completed_races == 0 and meeting.created_at:
+        if meeting.completed_races > 0:
+            pass
+        elif meeting.created_at:
             age_minutes = (datetime.now(timezone.utc) - meeting.created_at).total_seconds() / 60
             if age_minutes < 5:
                 from scrapers.base import fetch_single_race_results
                 race_data = fetch_single_race_results(meeting.name, 1)
                 api_shows_results = race_data and race_data.get("status") in ("Final", "Interim")
-    if st is not None and not scheduled_reached and not api_shows_results:
+    if st is not None and not scheduled_reached and not api_shows_results and meeting.completed_races == 0:
         meeting.status = MeetingStatus.UPCOMING.value
         for p in participants:
             p.current_points = 0
@@ -199,3 +202,5 @@ def _handle_finished_repair(db, meeting):
         meeting.status = MeetingStatus.LIVE.value
         _already_repaired.add(meeting.id)
         db.commit()
+    else:
+        _already_repaired.add(meeting.id)

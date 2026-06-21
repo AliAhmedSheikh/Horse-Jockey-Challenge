@@ -158,9 +158,9 @@ export default function DashboardPage() {
         </div>
 
         <div className="card p-4 md:p-5 md:col-span-2">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Today's Meetings</h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Today&apos;s Meetings</h2>
           <div className="space-y-2">
-            {meetings.map((m) => (
+            {meetings.filter((m) => m.status !== "Completed").map((m) => (
               <div
                 key={m.id}
                 onClick={() => router.push(`/meetings/${m.id}`)}
@@ -178,12 +178,41 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                  m.status === "Live" ? "badge-value" : m.status === "Completed" ? "badge-completed" : "badge-upcoming"
+                  m.status === "Live" ? "badge-value" : "badge-upcoming"
                 }`}>
                   {m.status === "Not Started" ? "Upcoming" : m.status}
                 </span>
               </div>
             ))}
+            {meetings.some((m) => m.status === "Completed") && (
+              <>
+                <div className="border-t border-slate-200 dark:border-slate-700/50 my-2" />
+                <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Completed</p>
+                {meetings.filter((m) => m.status === "Completed").map((m) => (
+                  <div
+                    key={m.id}
+                    onClick={() => router.push(`/meetings/${m.id}`)}
+                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors opacity-60"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {m.type === "Jockey" ? (
+                        <IconUser className="w-4 h-4 text-slate-400" />
+                      ) : (
+                        <IconCar className="w-4 h-4 text-slate-400" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white">{m.name}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">{m.type} — {m.completedRaces}/{m.totalRaces} races</p>
+                      </div>
+                    </div>
+                    <span className="badge-completed">Completed</span>
+                  </div>
+                ))}
+              </>
+            )}
+            {meetings.length === 0 && (
+              <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No meetings today</p>
+            )}
           </div>
         </div>
       </div>
