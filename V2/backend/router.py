@@ -315,7 +315,9 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
 
     participants = db.query(Participant).filter(
         Participant.meeting_id == meeting_id
-    ).order_by(desc(Participant.current_points)).all()
+    ).all()
+
+    participants.sort(key=lambda p: (-p.current_points, p.name))
 
     all_pts = [p.current_points for p in participants]
 
@@ -323,10 +325,8 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
     for i, p in enumerate(participants):
         result.append(_participant_to_frontend(p, db, all_pts, participant_index=i, total_participants=len(participants)))
 
-    # Mark projected winner
     if result:
-        winner = max(result, key=lambda x: (-x.currentPoints, x.name))
-        winner.isProjectedWinner = True
+        result[0].isProjectedWinner = True
 
     return result
 
@@ -553,6 +553,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     for p in all_participants:
         meeting = meeting_map.get(p.meeting_id)
         mtg_parts = participants_by_meeting.get(p.meeting_id, [])
+        mtg_parts.sort(key=lambda pp: (-pp.current_points, pp.name))
         all_pts = [pp.current_points for pp in mtg_parts]
         p_idx = next((i for i, pp in enumerate(mtg_parts) if pp.id == p.id), None)
         fp = _participant_to_frontend_with_data(p, meeting, all_pts, participant_index=p_idx, total_participants=len(mtg_parts))
@@ -753,6 +754,8 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
         Participant.meeting_id == meeting_id
     ).all()
 
+    participants.sort(key=lambda p: (-p.current_points, p.name))
+
     all_pts = [p.current_points for p in participants]
 
     predictions = []
@@ -784,7 +787,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
             "estimatedFinalPoints": estimated_final,
         })
 
-    predictions.sort(key=lambda x: (-x["currentPoints"], x["name"]))
+    predictions.sort(key=lambda x: (-x["estimatedFinalPoints"]))
 
     return {
         "meetingId": meeting.id,
