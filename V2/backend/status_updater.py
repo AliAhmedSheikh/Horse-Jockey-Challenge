@@ -36,8 +36,12 @@ def update_meeting_statuses():
     db = SessionLocal()
 
     try:
-        # Auto-seed if no meetings exist for today
         today = today_aus()
+
+        # Cleanup: remove meetings from previous days entirely
+        _cleanup_old_meetings(db, today)
+
+        # Auto-seed if no meetings exist for today
         today_count = db.query(Meeting).filter(Meeting.date == today).count()
         if today_count == 0:
             if _seed_lock.acquire(blocking=False):
@@ -63,6 +67,18 @@ def update_meeting_statuses():
         db.rollback()
     finally:
         db.close()
+
+
+def _cleanup_old_meetings(db, today):
+    """Delete meetings from previous days so they don't clutter the UI."""
+    old_meetings = db.query(Meeting).filter(Meeting.date < today).all()
+    if old_meetings:
+        for m in old_meetings:
+            db.query(Result).filter(Result.meeting_id == m.id).delete()
+            db.query(Participant).filter(Participant.meeting_id == m.id).delete()
+            db.delete(m)
+        logger.info(f"Cleaned up {len(old_meetings)} old meeting(s) from previous days")
+        db.commit()
 
 
 def _update_single_meeting(db, meeting, now_aus, race_resolver):
@@ -99,6 +115,16 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
     n = len(participants)
     if n == 0:
         return
+
+    # Force-finish stale LIVE meetings (>2 hours old with no progress)
+    if meeting.created_at:
+        age_hours = (datetime.now(timezone.utc) - meeting.created_at).total_seconds() / 3600
+        if age_hours > 2 and meeting.completed_races == 0:
+            meeting.status = MeetingStatus.FINISHED.value
+            for p in participants:
+                p.remaining_races = 0
+            logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_hours:.1f}h, no progress)")
+            return
 
     # Revert LIVE→UPCOMING if scheduled time hasn't arrived yet
     # Only check if meeting was recently transitioned (within 5 min) —

@@ -105,14 +105,10 @@ export default function ParticipantDetailModal({
             </div>
 
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 text-center">
                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">AI Price</p>
                   <p className="text-lg font-bold text-amber-500">${detail.aiPrice.toFixed(2)}</p>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 text-center">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Win Prob</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">{detail.winProbability}%</p>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 text-center">
                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Current Points</p>
@@ -177,7 +173,6 @@ export default function ParticipantDetailModal({
             <div className="sticky bottom-0 bg-slate-50 dark:bg-slate-700/30 border-t border-slate-200 dark:border-slate-700 px-6 py-3 flex items-center justify-between">
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 AI Price: <span className="font-semibold text-amber-500">${detail.aiPrice.toFixed(2)}</span>
-                {" "} | Win Prob: <span className="font-semibold text-slate-700 dark:text-slate-300">{detail.winProbability}%</span>
               </p>
               <button onClick={onClose} className="btn-secondary text-xs px-3 py-1.5">Close</button>
             </div>

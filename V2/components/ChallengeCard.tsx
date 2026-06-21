@@ -60,21 +60,13 @@ export default function ChallengeCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             AI Price
           </p>
           <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
             ${participant.aiPrice.toFixed(2)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            Win %
-          </p>
-          <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
-            {participant.winProbability}%
           </p>
         </div>
         <div>
