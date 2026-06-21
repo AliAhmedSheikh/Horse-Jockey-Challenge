@@ -70,7 +70,8 @@ def update_meeting_statuses():
 
 
 def _cleanup_old_meetings(db, today):
-    """Delete meetings from previous days so they don't clutter the UI."""
+    """Delete completed/old meetings so they don't clutter the UI."""
+    # 1. Remove meetings from previous days entirely
     old_meetings = db.query(Meeting).filter(Meeting.date < today).all()
     if old_meetings:
         for m in old_meetings:
@@ -78,6 +79,19 @@ def _cleanup_old_meetings(db, today):
             db.query(Participant).filter(Participant.meeting_id == m.id).delete()
             db.delete(m)
         logger.info(f"Cleaned up {len(old_meetings)} old meeting(s) from previous days")
+        db.commit()
+
+    # 2. Remove FINISHED meetings from today (keep only Live and Not Started)
+    finished_today = db.query(Meeting).filter(
+        Meeting.date == today,
+        Meeting.status == MeetingStatus.FINISHED.value,
+    ).all()
+    if finished_today:
+        for m in finished_today:
+            db.query(Result).filter(Result.meeting_id == m.id).delete()
+            db.query(Participant).filter(Participant.meeting_id == m.id).delete()
+            db.delete(m)
+        logger.info(f"Cleaned up {len(finished_today)} finished meeting(s) from today")
         db.commit()
 
 
@@ -116,14 +130,22 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
     if n == 0:
         return
 
-    # Force-finish stale LIVE meetings (>2 hours old with no progress)
+    # Force-finish stale LIVE meetings
     if meeting.created_at:
-        age_hours = (datetime.now(timezone.utc) - meeting.created_at).total_seconds() / 3600
-        if age_hours > 2 and meeting.completed_races == 0:
+        age_minutes = (datetime.now(timezone.utc) - meeting.created_at).total_seconds() / 60
+        # Stale if >30 min old with no progress at all
+        if age_minutes > 30 and meeting.completed_races == 0:
             meeting.status = MeetingStatus.FINISHED.value
             for p in participants:
                 p.remaining_races = 0
-            logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_hours:.1f}h, no progress)")
+            logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, no progress)")
+            return
+        # Also stale if >60 min old with partial progress (stuck mid-meeting)
+        if age_minutes > 60 and meeting.completed_races > 0 and meeting.completed_races < meeting.total_races:
+            meeting.status = MeetingStatus.FINISHED.value
+            for p in participants:
+                p.remaining_races = meeting.total_races - p.completed_races
+            logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, stuck at {meeting.completed_races}/{meeting.total_races})")
             return
 
     # Revert LIVE→UPCOMING if scheduled time hasn't arrived yet
