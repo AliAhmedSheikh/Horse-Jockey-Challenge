@@ -13,7 +13,7 @@ import threading
 from datetime import datetime, timezone, timedelta
 
 from database import SessionLocal
-from models import Meeting, Participant, Result, MeetingStatus
+from models import Meeting, Participant, Result, MeetingStatus, Price, Bet
 from time_utils import AU_TZ, today_aus
 from resolvers import MeetingResolver, RaceResolver
 
@@ -71,27 +71,21 @@ def update_meeting_statuses():
 
 def _cleanup_old_meetings(db, today):
     """Delete completed/old meetings so they don't clutter the UI."""
-    # 1. Remove meetings from previous days entirely
     old_meetings = db.query(Meeting).filter(Meeting.date < today).all()
-    if old_meetings:
-        for m in old_meetings:
-            db.query(Result).filter(Result.meeting_id == m.id).delete()
-            db.query(Participant).filter(Participant.meeting_id == m.id).delete()
-            db.delete(m)
-        logger.info(f"Cleaned up {len(old_meetings)} old meeting(s) from previous days")
-        db.commit()
-
-    # 2. Remove FINISHED meetings from today (keep only Live and Not Started)
     finished_today = db.query(Meeting).filter(
         Meeting.date == today,
         Meeting.status == MeetingStatus.FINISHED.value,
     ).all()
-    if finished_today:
-        for m in finished_today:
-            db.query(Result).filter(Result.meeting_id == m.id).delete()
-            db.query(Participant).filter(Participant.meeting_id == m.id).delete()
+    to_delete = old_meetings + finished_today
+    if to_delete:
+        for m in to_delete:
+            mid = m.id
+            db.query(Bet).filter(Bet.meeting_id == mid).delete(synchronize_session="fetch")
+            db.query(Price).filter(Price.meeting_id == mid).delete(synchronize_session="fetch")
+            db.query(Result).filter(Result.meeting_id == mid).delete(synchronize_session="fetch")
+            db.query(Participant).filter(Participant.meeting_id == mid).delete(synchronize_session="fetch")
             db.delete(m)
-        logger.info(f"Cleaned up {len(finished_today)} finished meeting(s) from today")
+        logger.info(f"Cleaned up {len(to_delete)} old/finished meeting(s)")
         db.commit()
 
 
@@ -132,7 +126,10 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
 
     # Force-finish stale LIVE meetings
     if meeting.created_at:
-        age_minutes = (datetime.now(timezone.utc) - meeting.created_at).total_seconds() / 60
+        created = meeting.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age_minutes = (datetime.now(timezone.utc) - created).total_seconds() / 60
         # Stale if >30 min old with no progress at all
         if age_minutes > 30 and meeting.completed_races == 0:
             meeting.status = MeetingStatus.FINISHED.value
@@ -157,7 +154,10 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
         if meeting.completed_races > 0:
             pass
         elif meeting.created_at:
-            age_minutes = (datetime.now(timezone.utc) - meeting.created_at).total_seconds() / 60
+            created = meeting.created_at
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            age_minutes = (datetime.now(timezone.utc) - created).total_seconds() / 60
             if age_minutes < 5:
                 from scrapers.base import fetch_single_race_results
                 race_data = fetch_single_race_results(meeting.name, 1)
