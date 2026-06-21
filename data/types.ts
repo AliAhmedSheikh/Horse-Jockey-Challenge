@@ -3,19 +3,12 @@ export interface Participant {
   name: string;
   meetingName: string;
   meetingId: string;
-  bookmakerPrice: number;
-  bookmakerPrices: Record<string, number>;
   aiPrice: number;
-  overlayPercent: number;
-  valueRating: "Strong Value" | "Value" | "Neutral" | "No Bet";
+  winProbability: number;
   currentPoints: number;
   projectedFinalPoints: number;
-  status: "value" | "neutral" | "avoid";
   isProjectedWinner: boolean;
 }
-
-export const BOOKMAKERS = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"] as const;
-export const ACCURATE_BOOKMAKERS: readonly string[] = ["Ladbrokes", "TAB", "Sportsbet", "PointsBet", "TABtouch"];
 
 export interface Meeting {
   id: string;
@@ -37,7 +30,6 @@ export interface RaceResult {
   participant: string;
   pointsAdded: number;
   updatedAiPrice: number;
-  updatedOverlay: number;
   timeUpdated: string;
   type: "Jockey" | "Driver";
 }
@@ -82,7 +74,6 @@ export interface Prediction {
   currentPoints: number;
   completedRaces: number;
   remainingRaces: number;
-  bookmakerPrice: number;
   winProbability: number;
   estimatedFinalPoints: number;
 }
@@ -100,9 +91,6 @@ export interface MeetingPrediction {
 export interface RideDetail {
   raceNumber: number;
   horseName: string;
-  odds: number;
-  bestBookmaker: string;
-  bestPrice: number;
   expectedPoints: number | null;
   winProbability: number | null;
   status: string;
@@ -119,10 +107,7 @@ export interface ParticipantDetail {
   projectedFinalPoints: number;
   projectedAdditionalPoints: number;
   aiPrice: number;
-  bookmakerPrice: number;
-  overlayPercent: number;
   winProbability: number;
-  valueRating: string;
   remainingRides: number;
   totalRaces: number;
   completedRaces: number;

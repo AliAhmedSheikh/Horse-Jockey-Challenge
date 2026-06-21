@@ -7,7 +7,7 @@ import type { Meeting, Participant } from "@/data/types";
 import DataCard from "@/components/DataCard";
 import ChallengeTable from "@/components/ChallengeTable";
 import ParticipantDetailModal from "@/components/ParticipantDetailModal";
-import { IconCalendar, IconUser, IconCar, IconChevronRight, IconArrowLeft, IconTrendingUp } from "@/data/icons";
+import { IconCalendar, IconUser, IconCar, IconChevronRight, IconArrowLeft } from "@/data/icons";
 
 const statusLabels: Record<string, string> = {
   Live: "Live",
@@ -91,11 +91,8 @@ export default function MeetingsPage() {
       totalRaces: mObj?.totalRaces ?? 0,
       projectedWinner: mObj?.projectedWinner ?? leader.name,
       leader,
-      valuePicks: parts.filter((p) => p.status === "value").length,
     };
   });
-
-  const totalValue = [...jockeys, ...drivers].filter((p) => p.status === "value").length;
 
   return (
     <div className="page-transition space-y-6">
@@ -124,7 +121,7 @@ export default function MeetingsPage() {
       </div>
 
       {!selectedMeeting && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
           <DataCard
             title="Total Meetings"
             value={meetings.length}
@@ -138,23 +135,17 @@ export default function MeetingsPage() {
             trend="up"
             trendLabel="Active"
           />
-          <DataCard
-            title="Total Value"
-            value={totalValue}
-            subtitle="Value picks across all meetings"
-            icon={<IconTrendingUp className="w-5 h-5" />}
-          />
         </div>
       )}
 
       {!selectedMeeting ? (
-        meetingList.length === 0 ? (
+        meetingList.filter((m) => m.status !== "Completed").length === 0 ? (
           <div className="card p-8 text-center">
-            <p className="text-sm text-slate-500 dark:text-slate-400">No meetings available today</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">No active meetings today</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {meetingList.map((m) => (
+            {meetingList.filter((m) => m.status !== "Completed").map((m) => (
               <button
                 key={m.name}
                 onClick={() => setSelectedMeeting(m.name)}
@@ -174,7 +165,6 @@ export default function MeetingsPage() {
                     <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 ml-6">
                       <span>{m.completedRaces}/{m.totalRaces} races</span>
                       <span>{m.count} participants</span>
-                      <span>{m.valuePicks} value picks</span>
                       <span>Leader: {m.leader.name} ({m.leader.currentPoints}pts)</span>
                     </div>
                   </div>

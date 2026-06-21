@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from models import Meeting, Participant, Price, Result, MeetingStatus, MeetingType
 from scrapers.base import LadbrokesAPIScraper, invalidate_cache
 from time_utils import today_aus, AU_TZ
-from utils import normalise_name, names_match, names_lastname_fallback, compute_value_rating, compute_status, weighted_shuffle as utils_weighted_shuffle, race_points, MIN_PRICE, MAX_PRICE
+from utils import normalise_name, names_match, names_lastname_fallback, weighted_shuffle as utils_weighted_shuffle, race_points, MIN_PRICE, MAX_PRICE
 
 logger = logging.getLogger(__name__)
 

@@ -24,11 +24,9 @@ export default function DriverChallengesPage() {
     name,
     meetingId: parts[0]?.meetingId ?? "",
     count: parts.length,
-    valuePicks: parts.filter((p) => p.status === "value").length,
     leader: parts.reduce((best, p) => (p.currentPoints > best.currentPoints ? p : best), parts[0]),
   }));
 
-  const totalValue = drivers.filter((d) => d.status === "value").length;
   const selectedParts = selectedMeeting ? byMeeting[selectedMeeting] ?? [] : [];
 
   if (isLoading) {
@@ -68,20 +66,10 @@ export default function DriverChallengesPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 md:gap-4">
         <div className="card p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Drivers</p>
           <p className="text-2xl font-bold text-slate-900 dark:text-white">{drivers.length}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Value Picks</p>
-          <p className="text-2xl font-bold text-amber-500">{totalValue}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Avg Overlay</p>
-          <p className="text-2xl font-bold text-emerald-500">
-            {drivers.length > 0 ? `+${(drivers.reduce((s, d) => s + d.overlayPercent, 0) / drivers.length).toFixed(1)}%` : "+0.0%"}
-          </p>
         </div>
         <div className="card p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Meetings</p>
@@ -109,7 +97,6 @@ export default function DriverChallengesPage() {
                     </div>
                     <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                       <span>{m.count} drivers</span>
-                      <span>{m.valuePicks} value picks</span>
                       <span>Leader: {m.leader.name} ({m.leader.currentPoints}pts)</span>
                     </div>
                   </div>

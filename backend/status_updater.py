@@ -13,7 +13,7 @@ import threading
 from datetime import datetime, timezone, timedelta
 
 from database import SessionLocal
-from models import Meeting, Participant, Result, MeetingStatus
+from models import Meeting, Participant, Result, MeetingStatus, Price, Bet
 from time_utils import AU_TZ, today_aus
 from resolvers import MeetingResolver, RaceResolver
 
@@ -36,8 +36,12 @@ def update_meeting_statuses():
     db = SessionLocal()
 
     try:
-        # Auto-seed if no meetings exist for today
         today = today_aus()
+
+        # Cleanup: remove meetings from previous days entirely
+        _cleanup_old_meetings(db, today)
+
+        # Auto-seed if no meetings exist for today
         today_count = db.query(Meeting).filter(Meeting.date == today).count()
         if today_count == 0:
             if _seed_lock.acquire(blocking=False):
@@ -65,6 +69,26 @@ def update_meeting_statuses():
         db.close()
 
 
+def _cleanup_old_meetings(db, today):
+    """Delete completed/old meetings so they don't clutter the UI."""
+    old_meetings = db.query(Meeting).filter(Meeting.date < today).all()
+    finished_today = db.query(Meeting).filter(
+        Meeting.date == today,
+        Meeting.status == MeetingStatus.FINISHED.value,
+    ).all()
+    to_delete = old_meetings + finished_today
+    if to_delete:
+        for m in to_delete:
+            mid = m.id
+            db.query(Bet).filter(Bet.meeting_id == mid).delete(synchronize_session="fetch")
+            db.query(Price).filter(Price.meeting_id == mid).delete(synchronize_session="fetch")
+            db.query(Result).filter(Result.meeting_id == mid).delete(synchronize_session="fetch")
+            db.query(Participant).filter(Participant.meeting_id == mid).delete(synchronize_session="fetch")
+            db.delete(m)
+        logger.info(f"Cleaned up {len(to_delete)} old/finished meeting(s)")
+        db.commit()
+
+
 def _update_single_meeting(db, meeting, now_aus, race_resolver):
     """Update status for a single meeting."""
     st = meeting.scheduled_time
@@ -86,7 +110,8 @@ def _handle_upcoming(db, meeting, scheduled_reached, st, race_resolver):
     """Handle UPCOMING meeting transitions."""
     if scheduled_reached or (not meeting.scheduled_time and meeting.completed_races > 0):
         meeting.status = MeetingStatus.LIVE.value
-        meeting.completed_races = 0
+        if meeting.completed_races == 0:
+            meeting.completed_races = 0
         logger.info(f"Meeting {meeting.name} -> LIVE")
 
 
@@ -99,19 +124,45 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
     if n == 0:
         return
 
+    # Force-finish stale LIVE meetings
+    if meeting.created_at:
+        created = meeting.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age_minutes = (datetime.now(timezone.utc) - created).total_seconds() / 60
+        # Stale if >30 min old with no progress at all
+        if age_minutes > 30 and meeting.completed_races == 0:
+            meeting.status = MeetingStatus.FINISHED.value
+            for p in participants:
+                p.remaining_races = 0
+            logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, no progress)")
+            return
+        # Also stale if >60 min old with partial progress (stuck mid-meeting)
+        if age_minutes > 60 and meeting.completed_races > 0 and meeting.completed_races < meeting.total_races:
+            meeting.status = MeetingStatus.FINISHED.value
+            for p in participants:
+                p.remaining_races = meeting.total_races - p.completed_races
+            logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, stuck at {meeting.completed_races}/{meeting.total_races})")
+            return
+
     # Revert LIVE→UPCOMING if scheduled time hasn't arrived yet
     # Only check if meeting was recently transitioned (within 5 min) —
     # skip the expensive API call for meetings that have been LIVE for a while
     api_shows_results = False
     if st is not None and not scheduled_reached and not meeting.id.startswith("dyn_"):
         # If meeting has completed races or was created more than 5 min ago, skip revert check
-        if meeting.completed_races == 0 and meeting.created_at:
-            age_minutes = (datetime.now(timezone.utc) - meeting.created_at).total_seconds() / 60
+        if meeting.completed_races > 0:
+            pass
+        elif meeting.created_at:
+            created = meeting.created_at
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            age_minutes = (datetime.now(timezone.utc) - created).total_seconds() / 60
             if age_minutes < 5:
                 from scrapers.base import fetch_single_race_results
                 race_data = fetch_single_race_results(meeting.name, 1)
                 api_shows_results = race_data and race_data.get("status") in ("Final", "Interim")
-    if st is not None and not scheduled_reached and not api_shows_results:
+    if st is not None and not scheduled_reached and not api_shows_results and meeting.completed_races == 0:
         meeting.status = MeetingStatus.UPCOMING.value
         for p in participants:
             p.current_points = 0
@@ -199,3 +250,5 @@ def _handle_finished_repair(db, meeting):
         meeting.status = MeetingStatus.LIVE.value
         _already_repaired.add(meeting.id)
         db.commit()
+    else:
+        _already_repaired.add(meeting.id)

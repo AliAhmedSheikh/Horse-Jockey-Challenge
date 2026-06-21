@@ -4,8 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import type { Meeting, Participant, MeetingPrediction } from "@/data/types";
-import { BOOKMAKERS, ACCURATE_BOOKMAKERS } from "@/data/types";
-import { IconUser, IconCar, IconStar, IconChevronRight, IconInfo } from "@/data/icons";
+import { IconUser, IconCar, IconStar, IconChevronRight } from "@/data/icons";
 import { useEffect, useCallback, useState } from "react";
 import ParticipantDetailModal from "@/components/ParticipantDetailModal";
 
@@ -19,15 +18,6 @@ const statusStyles: Record<string, string> = {
   "Not Started": "badge-upcoming",
   Completed: "badge-completed",
 };
-
-function valueRatingColor(rating: string) {
-  switch (rating) {
-    case "Strong Value": return "text-emerald-500";
-    case "Value": return "text-emerald-400";
-    case "Neutral": return "text-amber-400";
-    default: return "text-red-400";
-  }
-}
 
 function useSSE(meetingId: string | null, onRaceComplete: () => void) {
   useEffect(() => {
@@ -109,11 +99,6 @@ export default function MeetingDetailPage() {
 
   const sorted = participants ? [...participants].sort((a, b) => b.currentPoints - a.currentPoints) : [];
   const participantsEmpty = !participantsLoading && (!participants || participants.length === 0);
-
-  const activeBookmakers = BOOKMAKERS.filter((bm) =>
-    participants?.some((p) => p.bookmakerPrices?.[bm] != null)
-  );
-  const totalCols = 4 + activeBookmakers.length;
 
   return (
     <div className="page-transition space-y-6">
@@ -202,7 +187,7 @@ export default function MeetingDetailPage() {
       <div className="card p-4 md:p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-            {meeting.status === "Not Started" ? "Pre-Race Analysis" : "Participants & Prices"}
+            {meeting.status === "Not Started" ? "Pre-Race Analysis" : "Participants & Standings"}
           </h2>
           {meeting.projectedWinner && (
             <span className="flex items-center gap-1.5 text-xs text-amber-500">
@@ -212,45 +197,32 @@ export default function MeetingDetailPage() {
           )}
         </div>
 
-          <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700/50">
-          <table className="w-full">
+        <div className="hidden md:block overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700/50">
+          <table className="w-full table-fixed">
             <colgroup>
-              <col className="w-8" />
-              <col />
-              {activeBookmakers.map(bm => <col key={bm} className="w-[72px]" />)}
-              <col className="w-[72px]" />
-              <col className="w-[72px]" />
-              <col className="w-[64px]" />
-              <col className="w-[64px]" />
+              <col className="w-[40px]" />
+              <col className="w-[50%]" />
+              <col className="w-[20%]" />
+              <col className="w-[20%]" />
             </colgroup>
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/80">
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">#</th>
+                <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-8">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
-                {activeBookmakers.map((bm) => (
-                   <th key={bm} className={`text-center px-2 py-3 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${ACCURATE_BOOKMAKERS.includes(bm) ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
-                     {bm}
-                     {!ACCURATE_BOOKMAKERS.includes(bm) && (
-                       <span className="block text-[8px] font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">Coming soon</span>
-                     )}
-                   </th>
-                ))}
-                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI</th>
-                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ovl</th>
-                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI Price</th>
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pts</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
               {participantsLoading ? (
                 <tr>
-                  <td colSpan={totalCols} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading participants...
                   </td>
                 </tr>
               ) : participantsEmpty ? (
                 <tr>
-                  <td colSpan={totalCols} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     No participants loaded
                   </td>
                 </tr>
@@ -274,25 +246,8 @@ export default function MeetingDetailPage() {
                       {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
                     </div>
                   </td>
-                  {activeBookmakers.map((bm) => {
-                    const isAccurate = ACCURATE_BOOKMAKERS.includes(bm);
-                    const bp = isAccurate ? (p.bookmakerPrices?.[bm] ?? null) : null;
-                    return (
-                      <td key={bm} className="px-2 py-3 text-right">
-                        <span className={`text-sm ${isAccurate ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>{bp != null ? `$${bp.toFixed(2)}` : "—"}</span>
-                      </td>
-                    );
-                  })}
                   <td className="px-2 py-3 text-right">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</span>
-                  </td>
-                  <td className="px-2 py-3 text-right">
-                    <span className={`text-sm font-semibold ${p.overlayPercent > 0 ? "text-emerald-500" : "text-red-500"}`}>
-                      {p.overlayPercent > 0 ? "+" : ""}{p.overlayPercent.toFixed(1)}%
-                    </span>
-                  </td>
-                  <td className="px-2 py-3 text-right">
-                    <span className={`text-sm font-semibold ${valueRatingColor(p.valueRating)}`}>{p.valueRating}</span>
                   </td>
                   <td className="px-2 py-3 text-right">
                     <span className="text-sm font-bold text-slate-900 dark:text-white">{p.currentPoints}</span>
@@ -306,39 +261,21 @@ export default function MeetingDetailPage() {
         <div className="md:hidden space-y-3 mt-4">
           {sorted.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">No participants loaded</p>
-          ) : sorted.map((p) => (
+          ) : sorted.map((p, i) => (
             <div key={p.id} className="bg-slate-50 dark:bg-slate-700/20 rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <button
                   onClick={() => setDetailModal({ participantId: p.id, meetingId: params.id as string })}
                   className="text-sm font-bold text-slate-900 dark:text-white hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer text-left"
                 >
-                  {p.name}
+                  {i + 1}. {p.name}
                 </button>
-                <span className={p.overlayPercent > 0 ? "text-sm font-semibold text-emerald-500" : "text-sm font-semibold text-red-500"}>
-                  {p.overlayPercent > 0 ? "+" : ""}{p.overlayPercent.toFixed(1)}%
-                </span>
+                {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
               </div>
-              <div className={`grid gap-1 text-center mb-2 ${activeBookmakers.length <= 3 ? "grid-cols-3" : activeBookmakers.length <= 4 ? "grid-cols-4" : "grid-cols-5"}`}>
-                {activeBookmakers.map((bm) => {
-                  const isAccurate = ACCURATE_BOOKMAKERS.includes(bm);
-                  const bp = isAccurate ? (p.bookmakerPrices?.[bm] ?? null) : null;
-                  return (
-                    <div key={bm} className={`rounded-lg p-1 min-h-[44px] flex flex-col items-center justify-center ${isAccurate ? "bg-white dark:bg-slate-800" : "bg-slate-100/50 dark:bg-slate-800/30"}`}>
-                      <p className={`text-[8px] truncate w-full leading-tight ${isAccurate ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>{bm}</p>
-                      <p className={`text-xs leading-tight ${isAccurate ? "font-bold text-slate-900 dark:text-white" : "font-normal text-slate-400 dark:text-slate-500"}`}>{bp != null ? `$${bp.toFixed(2)}` : "—"}</p>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">AI Price</p>
                   <p className="text-sm font-bold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</p>
-                </div>
-                <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Value</p>
-                  <p className={`text-sm font-bold ${valueRatingColor(p.valueRating)}`}>{p.valueRating}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">Points</p>
@@ -347,16 +284,6 @@ export default function MeetingDetailPage() {
               </div>
             </div>
           ))}
-        </div>
-
-        <div className="mt-3 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700/50">
-          <div className="flex items-start gap-2">
-            <IconInfo className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              <span className="font-semibold text-slate-600 dark:text-slate-300">Ladbrokes</span> — live scraped prices.
-              <span className="font-semibold text-slate-600 dark:text-slate-300"> TAB</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">TABtouch</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">Sportsbet</span>, <span className="font-semibold text-slate-600 dark:text-slate-300">PointsBet</span> — via PuntersEdge derivation.
-            </p>
-          </div>
         </div>
       </div>
 

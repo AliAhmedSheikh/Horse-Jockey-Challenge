@@ -158,9 +158,12 @@ export default function DashboardPage() {
         </div>
 
         <div className="card p-4 md:p-5 md:col-span-2">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Today's Meetings</h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Today&apos;s Meetings</h2>
           <div className="space-y-2">
-            {meetings.map((m) => (
+            {meetings.filter((m) => m.status !== "Completed").length === 0 && (
+              <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No active meetings today</p>
+            )}
+            {meetings.filter((m) => m.status !== "Completed").map((m) => (
               <div
                 key={m.id}
                 onClick={() => router.push(`/meetings/${m.id}`)}
@@ -178,7 +181,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                  m.status === "Live" ? "badge-value" : m.status === "Completed" ? "badge-completed" : "badge-upcoming"
+                  m.status === "Live" ? "badge-value" : "badge-upcoming"
                 }`}>
                   {m.status === "Not Started" ? "Upcoming" : m.status}
                 </span>

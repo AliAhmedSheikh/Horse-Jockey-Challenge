@@ -15,7 +15,6 @@ from seed_data import seed_database
 from status_updater import update_meeting_statuses
 from results_ingestor import ingest_race_results
 from points_calculator import recalculate_all_points
-from status_manager import scrape_all_bookmakers
 from db_writer import start_writer, stop_writer
 from scrapers.shared import shutdown_pool
 
@@ -49,10 +48,6 @@ def _seed_sync():
         seed_database(db)
     finally:
         db.close()
-    try:
-        scrape_all_bookmakers()
-    except Exception as e:
-        logger.error(f"Initial bookmaker scrape failed: {e}", exc_info=True)
 
 
 @asynccontextmanager
@@ -60,13 +55,11 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up...")
     Base.metadata.create_all(bind=engine)
 
-    # Start the single DB writer thread
     start_writer()
 
     logger.info("Seeding database in background...")
     asyncio.create_task(_seed_background())
 
-    # Split status engine into 3 focused jobs:
     # 1. Status updater: time-based transitions (every 30s)
     scheduler.add_job(
         update_meeting_statuses,
@@ -96,15 +89,7 @@ async def lifespan(app: FastAPI):
         name="Calculate participant points",
         replace_existing=True,
     )
-    # Bookmaker price scraper (every 120s)
-    scheduler.add_job(
-        scrape_all_bookmakers,
-        "interval",
-        seconds=120,
-        id="scrape_bookmakers",
-        name="Scrape bookmaker prices",
-        replace_existing=True,
-    )
+    # Bookmaker scraper REMOVED — AI price model is now probability-based
     scheduler.add_job(
         _keep_alive,
         "interval",
@@ -114,7 +99,7 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     scheduler.start()
-    logger.info("Scheduler started with 3-job status engine + bookmaker scraper")
+    logger.info("Scheduler started with 3-job status engine (no bookmaker scraping)")
 
     yield
 

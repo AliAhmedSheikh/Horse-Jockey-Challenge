@@ -24,13 +24,10 @@ export default function JockeyChallengesPage() {
     name,
     meetingId: parts[0]?.meetingId ?? "",
     count: parts.length,
-    valuePicks: parts.filter((p) => p.status === "value").length,
     leader: parts.reduce((best, p) => (p.currentPoints > best.currentPoints ? p : best), parts[0]),
   }));
 
-  const totalValue = jockeys.filter((j) => j.status === "value").length;
   const selectedParts = selectedMeeting ? byMeeting[selectedMeeting] ?? [] : [];
-  const selectedMeetingId = selectedParts[0]?.meetingId ?? "";
 
   if (isLoading) {
     return (
@@ -69,20 +66,10 @@ export default function JockeyChallengesPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 md:gap-4">
         <div className="card p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Jockeys</p>
           <p className="text-2xl font-bold text-slate-900 dark:text-white">{jockeys.length}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Value Picks</p>
-          <p className="text-2xl font-bold text-amber-500">{totalValue}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Avg Overlay</p>
-          <p className="text-2xl font-bold text-emerald-500">
-            {jockeys.length > 0 ? `+${(jockeys.reduce((s, j) => s + j.overlayPercent, 0) / jockeys.length).toFixed(1)}%` : "+0.0%"}
-          </p>
         </div>
         <div className="card p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Meetings</p>
@@ -110,7 +97,6 @@ export default function JockeyChallengesPage() {
                     </div>
                     <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                       <span>{m.count} jockeys</span>
-                      <span>{m.valuePicks} value picks</span>
                       <span>Leader: {m.leader.name} ({m.leader.currentPoints}pts)</span>
                     </div>
                   </div>

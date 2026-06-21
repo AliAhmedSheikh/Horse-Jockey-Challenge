@@ -139,85 +139,49 @@ export default function MeetingsPage() {
       )}
 
       {!selectedMeeting ? (
-        meetingList.length === 0 ? (
+        meetingList.filter((m) => m.status !== "Completed").length === 0 ? (
           <div className="card p-8 text-center">
-            <p className="text-sm text-slate-500 dark:text-slate-400">No meetings available today</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">No active meetings today</p>
           </div>
         ) : (
-          <>
-            {meetingList.filter((m) => m.status !== "Completed").length > 0 && (
-              <div className="space-y-2">
-                {meetingList.filter((m) => m.status !== "Completed").map((m) => (
-                  <button
-                    key={m.name}
-                    onClick={() => setSelectedMeeting(m.name)}
-                    className="card w-full p-4 text-left hover:border-amber-500/50 transition-all group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {m.type === "Jockey" ? (
-                            <IconUser className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                          ) : (
-                            <IconCar className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                          )}
-                          <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{m.name}</h3>
-                          <span className={`${statusStyles[m.status]} flex-shrink-0`}>{statusLabels[m.status] || m.status}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 ml-6">
-                          <span>{m.completedRaces}/{m.totalRaces} races</span>
-                          <span>{m.count} participants</span>
-                          <span>Leader: {m.leader.name} ({m.leader.currentPoints}pts)</span>
-                        </div>
-                      </div>
-                      <IconChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors flex-shrink-0 ml-2" />
+          <div className="space-y-2">
+            {meetingList.filter((m) => m.status !== "Completed").map((m) => (
+              <button
+                key={m.name}
+                onClick={() => setSelectedMeeting(m.name)}
+                className="card w-full p-4 text-left hover:border-amber-500/50 transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {m.type === "Jockey" ? (
+                        <IconUser className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      ) : (
+                        <IconCar className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      )}
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{m.name}</h3>
+                      <span className={`${statusStyles[m.status]} flex-shrink-0`}>{statusLabels[m.status] || m.status}</span>
                     </div>
-                    {m.status === "Live" && (
-                      <div className="flex items-center gap-2 mt-2 ml-6">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                        </span>
-                        <span className="text-[10px] font-medium text-emerald-500">Live</span>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-            {meetingList.filter((m) => m.status === "Completed").length > 0 && (
-              <div className="space-y-2 mt-4">
-                <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-1">Completed</p>
-                {meetingList.filter((m) => m.status === "Completed").map((m) => (
-                  <button
-                    key={m.name}
-                    onClick={() => setSelectedMeeting(m.name)}
-                    className="card w-full p-4 text-left hover:border-slate-300 dark:hover:border-slate-600 transition-all group opacity-60"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {m.type === "Jockey" ? (
-                            <IconUser className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                          ) : (
-                            <IconCar className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                          )}
-                          <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{m.name}</h3>
-                          <span className="badge-completed flex-shrink-0">Completed</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-slate-400 dark:text-slate-500 ml-6">
-                          <span>{m.completedRaces}/{m.totalRaces} races</span>
-                          <span>{m.count} participants</span>
-                          <span>Winner: {m.leader.name} ({m.leader.currentPoints}pts)</span>
-                        </div>
-                      </div>
-                      <IconChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-400 transition-colors flex-shrink-0 ml-2" />
+                    <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 ml-6">
+                      <span>{m.completedRaces}/{m.totalRaces} races</span>
+                      <span>{m.count} participants</span>
+                      <span>Leader: {m.leader.name} ({m.leader.currentPoints}pts)</span>
                     </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
+                  </div>
+                  <IconChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors flex-shrink-0 ml-2" />
+                </div>
+                {m.status === "Live" && (
+                  <div className="flex items-center gap-2 mt-2 ml-6">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    <span className="text-[10px] font-medium text-emerald-500">Live</span>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
         )
       ) : (
         <div className="card p-4 md:p-5">

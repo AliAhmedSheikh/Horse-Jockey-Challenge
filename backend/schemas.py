@@ -35,23 +35,11 @@ class ParticipantOut(BaseModel):
     name: str
     meetingName: str
     meetingId: str
-    bookmakerPrice: float
-    bookmakerPrices: dict[str, float]
     aiPrice: float
-    overlayPercent: float
-    valueRating: str
+    winProbability: float
     currentPoints: float
     projectedFinalPoints: float
-    status: str
     isProjectedWinner: bool
-
-
-class PriceOut(BaseModel):
-    id: int
-    participant_id: str
-    bookmaker_name: str
-    price: float
-    timestamp: datetime
 
 
 class ResultOut(BaseModel):
@@ -71,7 +59,6 @@ class RaceResultOut(BaseModel):
     participant: str
     pointsAdded: float
     updatedAiPrice: float
-    updatedOverlay: float
     timeUpdated: str
     type: str
 
@@ -151,9 +138,6 @@ class BetStats(BaseModel):
 class RideDetail(BaseModel):
     raceNumber: int
     horseName: str
-    odds: float
-    bestBookmaker: str
-    bestPrice: float
     expectedPoints: Optional[float] = None
     winProbability: Optional[float] = None
     status: str
@@ -170,10 +154,7 @@ class ParticipantDetail(BaseModel):
     projectedFinalPoints: float
     projectedAdditionalPoints: float
     aiPrice: float
-    bookmakerPrice: float
-    overlayPercent: float
     winProbability: float
-    valueRating: str
     remainingRides: int
     totalRaces: int
     completedRaces: int

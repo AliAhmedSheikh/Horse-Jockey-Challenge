@@ -39,7 +39,6 @@ export default function BetsPage() {
     return () => window.removeEventListener("storage", handleStorage);
   }, [refreshData]);
 
-  // Fetch participants when meeting changes
   useEffect(() => {
     if (!selectedMeetingId) {
       setMeetingParticipants([]);
@@ -57,13 +56,6 @@ export default function BetsPage() {
       })
       .catch(() => setLoadingParticipants(false));
   }, [selectedMeetingId]);
-
-  // Auto-fill odds when participant is selected
-  useEffect(() => {
-    if (!selectedParticipantId) { setOdds(""); return; }
-    const p = meetingParticipants.find((x) => x.id === selectedParticipantId);
-    if (p?.bookmakerPrice) setOdds(String(p.bookmakerPrice));
-  }, [selectedParticipantId, meetingParticipants]);
 
   const sortedMeetings = [...(meetings || [])].sort((a, b) => {
     const statusOrder: Record<string, number> = { "Not Started": 0, "Live": 1, "Completed": 2 };
@@ -206,7 +198,7 @@ export default function BetsPage() {
                 <select value={selectedParticipantId} onChange={(e) => setSelectedParticipantId(e.target.value)} className={SELECT_STYLE} disabled={loadingParticipants}>
                   <option value="">{loadingParticipants ? "Loading..." : "Select a participant..."}</option>
                   {meetingParticipants.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}{p.bookmakerPrice ? ` (${p.bookmakerPrice})` : ""}</option>
+                    <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
               ) : (
@@ -227,7 +219,7 @@ export default function BetsPage() {
             </div>
             <div>
               <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Odds</label>
-              <input type="number" step="0.01" min="1.01" value={odds} onChange={(e) => setOdds(e.target.value)} className={INPUT_STYLE} placeholder="Auto-filled from participant price" required />
+              <input type="number" step="0.01" min="1.01" value={odds} onChange={(e) => setOdds(e.target.value)} className={INPUT_STYLE} placeholder="Enter odds manually" required />
             </div>
           </div>
           {stake && odds && (

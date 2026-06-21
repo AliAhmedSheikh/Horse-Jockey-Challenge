@@ -19,16 +19,6 @@ interface SliderSetting {
 
 const settings: SliderSetting[] = [
   {
-    id: "bookmakerWeight",
-    label: "Bookmaker Implied Probability Weight",
-    description: "How much weight the bookmaker odds carry in the AI model",
-    min: 0,
-    max: 100,
-    step: 1,
-    default: 35,
-    unit: "%",
-  },
-  {
     id: "currentPointsWeight",
     label: "Current Points Weight",
     description: "Importance of current challenge standings in projections",
@@ -55,26 +45,6 @@ const settings: SliderSetting[] = [
     min: 0,
     max: 100,
     step: 1,
-    default: 10,
-    unit: "%",
-  },
-  {
-    id: "priceMovementWeight",
-    label: "Price Movement Weight",
-    description: "How much recent price fluctuations affect the prediction",
-    min: 0,
-    max: 100,
-    step: 1,
-    default: 10,
-    unit: "%",
-  },
-  {
-    id: "valueThreshold",
-    label: "Value Threshold",
-    description: "Minimum overlay percentage required for a 'Strong Value' rating",
-    min: 0,
-    max: 50,
-    step: 0.5,
     default: 10,
     unit: "%",
   },
@@ -150,7 +120,7 @@ export default function SettingsPage() {
             Formula Settings
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Configure AI model weights and value thresholds
+            Configure AI model weights
           </p>
         </div>
         <button
@@ -168,7 +138,7 @@ export default function SettingsPage() {
         </div>
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white">AI Model Configuration</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Configure AI model weights and value thresholds</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Configure AI model weights for win probability calculation</p>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import functools
 import json
 import logging
+import math
 import threading
 import time
 from datetime import datetime, timezone, timedelta
@@ -13,11 +14,9 @@ from sqlalchemy import desc, asc, func
 from database import get_db, SessionLocal
 from models import Meeting, Participant, Price, Result, MeetingStatus, FormulaSetting, Bet
 from time_utils import today_aus
-from utils import compute_value_rating, compute_status, filter_spikes, MIN_PRICE, MAX_PRICE
 from schemas import (
     MeetingOut,
     ParticipantOut,
-    PriceOut,
     ResultOut,
     RaceResultOut,
     LeaderboardEntry,
@@ -38,63 +37,124 @@ router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
-from status_manager import ACCURATE_SCRAPERS as ACCURATE_BOOKMAKERS
-
 _cache = {}
 CACHE_TTL = 30
 
 
-def _compute_ai_price(avg_bookmaker: float, current_points: float, completed_races: int, total_races: int, race_odds_json: str = None) -> float:
-    """Compute AI price using bookmaker challenge price as anchor + performance adjustments.
+# ---------------------------------------------------------------------------
+# NEW: Probability-based AI price model (no bookmaker odds dependency)
+# ---------------------------------------------------------------------------
 
-    Formula:
-      1. Base = bookmaker average price (spike-filtered)
-      2. Pre-race (0 pts): AI = bookmaker price (no edge until performance data exists)
-      3. In-race (>0 pts): top performers shorten, poor performers lengthen
-      4. Ride density secondary tweak: more rides = slightly shorter
+def _compute_win_probability(
+    current_points: float,
+    completed_races: int,
+    total_races: int,
+    all_participant_points: Optional[List[float]] = None,
+) -> float:
+    """Compute win probability from performance data only.
+
+    The model uses:
+      1. Points-per-race rate (primary signal)
+      2. Data confidence (more completed races = more confident)
+      3. Remaining races (more remaining = flatter probabilities)
+      4. Relative standing vs field (normalised within the meeting)
+
+    Returns a probability between 0.01 and 0.95.
     """
-    if avg_bookmaker <= 0:
-        return 3.0
+    remaining = total_races - completed_races
+    n_participants = len(all_participant_points) if all_participant_points else 12
 
-    base_price = avg_bookmaker
-
-    if current_points >= 9:
-        perf_factor = 0.85
-    elif current_points >= 6:
-        perf_factor = 0.88
-    elif current_points >= 3:
-        perf_factor = 0.93
-    elif current_points > 0:
-        perf_factor = 0.97
+    # --- 1. Base rate: average points per race ---
+    if completed_races > 0:
+        pts_per_race = current_points / completed_races
     else:
-        perf_factor = 1.0
+        # Before any race: assume equal chance
+        # With 3-2-1 scoring, expected pts per race for an average participant ≈ 0.5
+        # (probability of top-3 ≈ 3/n_participants on average)
+        pts_per_race = 0.0
 
-    ai_price = base_price * perf_factor
+    # --- 2. Normalise within the field ---
+    if all_participant_points and len(all_participant_points) > 1:
+        max_pts = max(all_participant_points) if all_participant_points else 0
+        total_field_pts = sum(all_participant_points)
+        avg_field_pts = total_field_pts / len(all_participant_points)
 
-    race_odds = {}
-    if race_odds_json:
-        try:
-            raw = json.loads(race_odds_json)
-            if isinstance(raw, dict):
-                for k, v in raw.items():
-                    if isinstance(v, dict):
-                        odds_val = float(v.get("odds", 0) or 0)
-                    else:
-                        odds_val = float(v)
-                    if odds_val > 0:
-                        race_odds[int(k)] = odds_val
-        except (json.JSONDecodeError, ValueError, TypeError):
-            pass
+        if max_pts > 0:
+            # Relative performance: how far above/below the average
+            relative = (current_points - avg_field_pts) / max(max_pts, 1)
+        else:
+            relative = 0.0
+    else:
+        relative = 0.0
 
-    if race_odds and completed_races > 0:
-        num_rides = len(race_odds)
-        ride_density = num_rides / max(total_races, 1)
-        ride_factor = 1.0 + (ride_density - 0.5) * 0.06
-        ride_factor = max(0.94, min(1.06, ride_factor))
-        ai_price = ai_price * ride_factor
+    # --- 3. Data confidence factor ---
+    # More completed races = more confidence in the signal
+    # At 0 races: confidence = 0 (pure prior)
+    # At total_races: confidence = 1 (full data)
+    if total_races > 0:
+        data_confidence = completed_races / total_races
+    else:
+        data_confidence = 0.0
 
-    return round(max(MIN_PRICE, min(MAX_PRICE, ai_price)), 2)
+    # --- 4. Remaining races factor ---
+    # More remaining races = probabilities should be flatter
+    # Fewer remaining = more differentiation
+    if total_races > 0:
+        remaining_factor = remaining / total_races
+    else:
+        remaining_factor = 1.0
 
+    # --- 5. Combine into probability ---
+    # Flat prior: every participant starts with equal probability
+    flat_prior = 1.0 / max(n_participants, 2)
+
+    # Performance signal: pts_per_race creates a ranking signal
+    # With 3-2-1 scoring, max possible is 3.0 pts/race
+    # Normalise to 0-1 range
+    perf_signal = min(pts_per_race / 3.0, 1.0) if pts_per_race > 0 else 0.0
+
+    # Combine: more data = more weight on performance
+    # Early: mostly flat (data_confidence low)
+    # Late: performance dominates
+    combined = flat_prior + data_confidence * (perf_signal - flat_prior) * 0.8
+
+    # Apply relative standing boost (positive = above average, negative = below)
+    # Scale: ±20% max adjustment based on relative standing
+    relative_boost = relative * 0.20 * data_confidence
+    combined += relative_boost
+
+    # Clamp to reasonable bounds
+    return max(0.01, min(0.95, combined))
+
+
+def _compute_ai_price_from_probability(probability: float) -> float:
+    """Convert probability to odds price: AI Price = 1 / probability."""
+    if probability <= 0:
+        return 100.0
+    price = 1.0 / probability
+    return round(max(1.50, min(100.0, price)), 2)
+
+
+def _compute_ai_price(
+    current_points: float,
+    completed_races: int,
+    total_races: int,
+    all_participant_points: Optional[List[float]] = None,
+) -> tuple:
+    """Compute AI price and win probability from performance data only.
+
+    Returns (ai_price, win_probability).
+    """
+    win_prob = _compute_win_probability(
+        current_points, completed_races, total_races, all_participant_points
+    )
+    ai_price = _compute_ai_price_from_probability(win_prob)
+    return ai_price, round(win_prob * 100, 1)
+
+
+# ---------------------------------------------------------------------------
+# Frontend converters
+# ---------------------------------------------------------------------------
 
 def _meeting_to_frontend(meeting: Meeting, db: Session,
                           _participants: Optional[List[Participant]] = None,
@@ -157,46 +217,21 @@ def _meeting_to_frontend(meeting: Meeting, db: Session,
     )
 
 
-def _load_value_threshold(db: Session) -> float:
-    from models import FormulaSetting
-    row = db.query(FormulaSetting).filter(FormulaSetting.id == "valueThreshold").first()
-    return row.value if row else DEFAULT_SETTINGS.get("valueThreshold", 15.0)
-
-
-def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting], prices: List, value_threshold: float = 15.0, meeting_race_odds: dict = None, is_top2: bool = False) -> ParticipantOut:
-    accurate_prices = [pr for pr in prices if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
-    bookmaker_prices = [pr.price for pr in accurate_prices]
-    filtered_prices = filter_spikes(bookmaker_prices)
-    avg_bookmaker = sum(filtered_prices) / len(filtered_prices) if filtered_prices else 3.0
+def _participant_to_frontend_with_data(
+    p: Participant,
+    meeting: Optional[Meeting],
+    all_participant_points: Optional[List[float]] = None,
+    is_projected_winner: bool = False,
+) -> ParticipantOut:
     total_races = meeting.total_races if meeting else 8
-    best_race_odds_json = None
-    best_count = 0
-    best_has_horses = False
-    for pr in accurate_prices:
-        if pr.race_odds_json:
-            try:
-                rd = json.loads(pr.race_odds_json)
-                if isinstance(rd, dict):
-                    has_horses = any(isinstance(v, dict) and v.get("horse") for v in rd.values())
-                    count = len(rd)
-                    if has_horses and (not best_has_horses or count > best_count):
-                        best_race_odds_json = pr.race_odds_json
-                        best_count = count
-                        best_has_horses = True
-                    elif not best_has_horses and count > best_count:
-                        best_count = count
-                        best_race_odds_json = pr.race_odds_json
-            except (json.JSONDecodeError, ValueError):
-                pass
-    if not best_race_odds_json and meeting_race_odds:
-        best_race_odds_json = json.dumps(meeting_race_odds)
-    ai_price = _compute_ai_price(avg_bookmaker, p.current_points, p.completed_races, total_races, best_race_odds_json)
-    overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
-    remaining = meeting.total_races - p.completed_races if meeting else 0
+    ai_price, win_prob = _compute_ai_price(
+        p.current_points, p.completed_races, total_races, all_participant_points
+    )
+
+    remaining = total_races - p.completed_races if meeting else 0
     if p.completed_races == 0:
-        implied = 1.0 / max(avg_bookmaker, 1.01)
-        top3_prob = min(0.85, implied * 1.5)
-        projected = round(top3_prob * 2.0 * total_races, 1)
+        # Pre-race: flat projection
+        projected = round(0.5 * 2.0 * total_races, 1) if total_races else 0
     else:
         avg_per_race = p.current_points / p.completed_races
         meeting_completed = meeting.completed_races if meeting else 0
@@ -206,69 +241,25 @@ def _participant_to_frontend_with_data(p: Participant, meeting: Optional[Meeting
         else:
             estimated_remaining_rides = remaining
         projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
-    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold, is_top2)
-    bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in accurate_prices}
+
     return ParticipantOut(
         id=p.id, name=p.name, meetingName=meeting.name if meeting else "", meetingId=p.meeting_id,
-        bookmakerPrice=round(avg_bookmaker, 2), bookmakerPrices=bookmaker_prices_dict, aiPrice=ai_price, overlayPercent=overlay,
-        valueRating=value_rating, currentPoints=p.current_points, projectedFinalPoints=projected,
-        status=compute_status(avg_bookmaker, ai_price, value_threshold, is_top2), isProjectedWinner=False,
+        aiPrice=ai_price, winProbability=win_prob,
+        currentPoints=p.current_points, projectedFinalPoints=projected,
+        isProjectedWinner=is_projected_winner,
     )
 
 
-def _participant_to_frontend(p: Participant, db: Session, value_threshold: float = 15.0, is_top2: bool = False) -> ParticipantOut:
-    prices = db.query(Price).filter(Price.participant_id == p.id).all()
+def _participant_to_frontend(p: Participant, db: Session, all_participant_points: Optional[List[float]] = None, is_projected_winner: bool = False) -> ParticipantOut:
     meeting = db.query(Meeting).filter(Meeting.id == p.meeting_id).first()
+    total_races = meeting.total_races if meeting else 8
+    ai_price, win_prob = _compute_ai_price(
+        p.current_points, p.completed_races, total_races, all_participant_points
+    )
 
-    accurate_prices = [pr for pr in prices if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
-    bookmaker_prices = [pr.price for pr in accurate_prices]
-    filtered_prices = filter_spikes(bookmaker_prices)
-    avg_bookmaker = sum(filtered_prices) / len(filtered_prices) if filtered_prices else 3.0
-
-    total = meeting.total_races if meeting else 8
-    best_race_odds_json = None
-    best_count = 0
-    for pr in accurate_prices:
-        if pr.race_odds_json:
-            try:
-                rd = json.loads(pr.race_odds_json)
-                if isinstance(rd, dict) and len(rd) > best_count:
-                    best_count = len(rd)
-                    best_race_odds_json = pr.race_odds_json
-            except (json.JSONDecodeError, ValueError):
-                pass
-    if not best_race_odds_json and meeting:
-        all_prices = db.query(Price).filter(Price.meeting_id == meeting.id).all()
-        race_odds_agg = {}
-        for pr in all_prices:
-            if pr.bookmaker_name == "Ladbrokes" and pr.race_odds_json:
-                try:
-                    rd = json.loads(pr.race_odds_json)
-                    if isinstance(rd, dict):
-                        for rn_str, odds_val in rd.items():
-                            try:
-                                rn = int(rn_str)
-                                if isinstance(odds_val, dict):
-                                    o = float(odds_val.get("odds", 0) or 0)
-                                else:
-                                    o = float(odds_val)
-                                if o > 0:
-                                    race_odds_agg.setdefault(rn, []).append(o)
-                            except (ValueError, TypeError):
-                                pass
-                except (json.JSONDecodeError, ValueError):
-                    pass
-        if race_odds_agg:
-            avg_race_odds = {rn: round(sum(vals) / len(vals), 2) for rn, vals in race_odds_agg.items()}
-            best_race_odds_json = json.dumps(avg_race_odds)
-    ai_price = _compute_ai_price(avg_bookmaker, p.current_points, p.completed_races, total, best_race_odds_json)
-    overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
-
-    remaining = meeting.total_races - p.completed_races if meeting else 0
+    remaining = total_races - p.completed_races if meeting else 0
     if p.completed_races == 0:
-        implied = 1.0 / max(avg_bookmaker, 1.01)
-        top3_prob = min(0.85, implied * 1.5)
-        projected = round(top3_prob * 2.0 * total, 1)
+        projected = round(0.5 * 2.0 * total_races, 1) if total_races else 0
     else:
         avg_per_race = p.current_points / p.completed_races
         meeting_completed = meeting.completed_races if meeting else 0
@@ -278,26 +269,23 @@ def _participant_to_frontend(p: Participant, db: Session, value_threshold: float
         else:
             estimated_remaining_rides = remaining
         projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
-
-    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold, is_top2)
-    bookmaker_prices_dict = {pr.bookmaker_name: round(pr.price, 2) for pr in accurate_prices}
 
     return ParticipantOut(
         id=p.id,
         name=p.name,
         meetingName=meeting.name if meeting else "",
         meetingId=p.meeting_id,
-        bookmakerPrice=round(avg_bookmaker, 2),
-        bookmakerPrices=bookmaker_prices_dict,
         aiPrice=ai_price,
-        overlayPercent=overlay,
-        valueRating=value_rating,
+        winProbability=win_prob,
         currentPoints=p.current_points,
         projectedFinalPoints=projected,
-        status=compute_status(avg_bookmaker, ai_price, value_threshold, is_top2),
-        isProjectedWinner=False,
+        isProjectedWinner=is_projected_winner,
     )
 
+
+# ---------------------------------------------------------------------------
+# API Endpoints
+# ---------------------------------------------------------------------------
 
 @router.get("/meetings/today")
 def get_todays_meetings(db: Session = Depends(get_db)):
@@ -332,21 +320,16 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
         Participant.meeting_id == meeting_id
     ).order_by(desc(Participant.current_points)).all()
 
-    value_threshold = _load_value_threshold(db)
-    result = []
-    for i, p in enumerate(participants):
-        is_top2 = i < 2
-        result.append(_participant_to_frontend(p, db, value_threshold, is_top2))
-    winner = max(result, key=lambda x: x.currentPoints) if result else None
-    for r in result:
-        r.isProjectedWinner = (r.id == winner.id) if winner else False
+    all_pts = [p.current_points for p in participants]
 
-    # Ensure leader always has shortest AI price
-    if len(result) >= 2 and winner:
-        current_shortest = min(result, key=lambda x: x.aiPrice)
-        if winner.aiPrice > current_shortest.aiPrice:
-            winner.aiPrice = round(current_shortest.aiPrice * 0.97, 2)
-            winner.overlayPercent = round((winner.bookmakerPrice - winner.aiPrice) / winner.aiPrice * 100, 1)
+    result = []
+    for p in participants:
+        result.append(_participant_to_frontend(p, db, all_pts))
+
+    # Mark projected winner
+    if result:
+        winner = max(result, key=lambda x: x.currentPoints)
+        winner.isProjectedWinner = True
 
     return result
 
@@ -363,41 +346,17 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
     if not participant:
         raise HTTPException(status_code=404, detail="Participant not found")
 
-    prices = db.query(Price).filter(Price.participant_id == participant_id).all()
-    accurate_prices = [pr for pr in prices if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
-    bookmaker_prices = [pr.price for pr in accurate_prices]
-    filtered_prices = filter_spikes(bookmaker_prices)
-    avg_bookmaker = sum(filtered_prices) / len(filtered_prices) if filtered_prices else 3.0
-
-    best_race_odds_json = None
-    best_count = 0
-    best_has_horses = False
-    for pr in accurate_prices:
-        if pr.race_odds_json:
-            try:
-                rd = json.loads(pr.race_odds_json)
-                if isinstance(rd, dict):
-                    has_horses = any(isinstance(v, dict) and v.get("horse") for v in rd.values())
-                    count = len(rd)
-                    if has_horses and (not best_has_horses or count > best_count):
-                        best_race_odds_json = pr.race_odds_json
-                        best_count = count
-                        best_has_horses = True
-                    elif not best_has_horses and count > best_count:
-                        best_count = count
-                        best_race_odds_json = pr.race_odds_json
-            except (json.JSONDecodeError, ValueError):
-                pass
+    all_parts = db.query(Participant).filter(Participant.meeting_id == meeting_id).all()
+    all_pts = [p.current_points for p in all_parts]
 
     total_races = meeting.total_races or 8
-    ai_price = _compute_ai_price(avg_bookmaker, participant.current_points, participant.completed_races, total_races, best_race_odds_json)
-    overlay = round((avg_bookmaker - ai_price) / ai_price * 100, 1)
+    ai_price, win_prob = _compute_ai_price(
+        participant.current_points, participant.completed_races, total_races, all_pts
+    )
 
     remaining = total_races - participant.completed_races
     if participant.completed_races == 0:
-        implied = 1.0 / max(avg_bookmaker, 1.01)
-        top3_prob = min(0.85, implied * 1.5)
-        projected = round(top3_prob * 2.0 * total_races, 1)
+        projected = round(0.5 * 2.0 * total_races, 1) if total_races else 0
     else:
         avg_per_race = participant.current_points / participant.completed_races
         meeting_completed = meeting.completed_races if meeting else 0
@@ -408,62 +367,15 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
             estimated_remaining_rides = remaining
         projected = round(participant.current_points + avg_per_race * estimated_remaining_rides, 1)
 
-    implied_win = 1.0 / max(avg_bookmaker, 1.01)
-    ride_density = (total_races - remaining) / max(total_races, 1)
-    win_prob = min(0.95, implied_win * (1.0 + ride_density * 0.2))
-
-    value_threshold = _load_value_threshold(db)
-
-    all_parts = db.query(Participant).filter(Participant.meeting_id == meeting_id).order_by(desc(Participant.current_points)).all()
-    is_top2 = any(part.id == participant_id for part in all_parts[:2])
-
-    value_rating = compute_value_rating(avg_bookmaker, ai_price, value_threshold, is_top2)
-
-    rides = []
-    race_odds = {}
-    if best_race_odds_json:
-        try:
-            raw = json.loads(best_race_odds_json)
-            if isinstance(raw, dict):
-                for k, v in raw.items():
-                    if isinstance(v, dict):
-                        race_odds[int(k)] = v
-                    else:
-                        race_odds[int(k)] = {"odds": float(v), "horse": ""}
-        except (json.JSONDecodeError, ValueError):
-            pass
-
     existing_results = db.query(Result).filter(
         Result.meeting_id == meeting_id,
         Result.participant_id == participant_id,
     ).all()
     results_map = {r.race_number: r for r in existing_results}
 
-    best_bookmaker_prices = {}
-    for pr in accurate_prices:
-        if pr.race_odds_json:
-            try:
-                rd = json.loads(pr.race_odds_json)
-                if isinstance(rd, dict):
-                    for rn_str, odds_val in rd.items():
-                        rn = int(rn_str)
-                        if isinstance(odds_val, dict):
-                            o = float(odds_val.get("odds", 0) or 0)
-                        else:
-                            o = float(odds_val)
-                        if o > 0:
-                            if rn not in best_bookmaker_prices or o < best_bookmaker_prices[rn]["price"]:
-                                best_bookmaker_prices[rn] = {"bookmaker": pr.bookmaker_name, "price": o}
-            except (json.JSONDecodeError, ValueError):
-                pass
-
-    all_race_nums = sorted(set(list(race_odds.keys()) + list(results_map.keys())))
-    for race_num in all_race_nums:
-        ride = race_odds.get(race_num, {})
-        odds = ride.get("odds", 0) if isinstance(ride, dict) else 0
-        horse = ride.get("horse", "") if isinstance(ride, dict) else ""
+    rides = []
+    for race_num in range(1, total_races + 1):
         result = results_map.get(race_num)
-
         if result and result.position is not None:
             if result.position == 1:
                 status = "Won"
@@ -480,22 +392,14 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
         else:
             status = "Upcoming"
 
-        best = best_bookmaker_prices.get(race_num, {"bookmaker": "N/A", "price": 0})
-        if odds > 0:
-            race_implied = 1.0 / odds
-            race_top3 = min(0.85, race_implied * 1.5)
-            race_expected_pts = round(race_top3 * 2.0, 2)
-            race_win_prob = round(race_implied * 100, 1)
-        else:
-            race_expected_pts = None
-            race_win_prob = None
+        # Per-race expected points: if participant has odds in this race
+        # (no bookmaker data, so we derive from meeting-level probability)
+        race_expected_pts = None
+        race_win_prob = None
 
         rides.append(RideDetail(
             raceNumber=race_num,
-            horseName=horse,
-            odds=round(odds, 2),
-            bestBookmaker=best["bookmaker"],
-            bestPrice=round(best["price"], 2),
+            horseName="",
             expectedPoints=race_expected_pts,
             winProbability=race_win_prob,
             status=status,
@@ -512,34 +416,12 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
         projectedFinalPoints=projected,
         projectedAdditionalPoints=round(projected - participant.current_points, 1),
         aiPrice=round(ai_price, 2),
-        bookmakerPrice=round(avg_bookmaker, 2),
-        overlayPercent=overlay,
-        winProbability=round(win_prob * 100, 1),
-        valueRating=value_rating,
+        winProbability=win_prob,
         remainingRides=remaining,
         totalRaces=total_races,
         completedRaces=participant.completed_races,
         rides=rides,
     )
-
-
-@router.get("/meetings/{meeting_id}/prices")
-def get_meeting_prices(meeting_id: str, db: Session = Depends(get_db)):
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
-    if not meeting:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-
-    prices = db.query(Price).filter(Price.meeting_id == meeting_id).all()
-    return [
-        PriceOut(
-            id=p.id,
-            participant_id=p.participant_id,
-            bookmaker_name=p.bookmaker_name,
-            price=p.price,
-            timestamp=p.timestamp,
-        )
-        for p in prices
-    ]
 
 
 @router.get("/meetings/{meeting_id}/results")
@@ -615,8 +497,6 @@ def _cached(key: str, ttl: int = CACHE_TTL):
                 return result
             except Exception as e:
                 logger.warning(f"Cache miss for '{key}', error: {e}")
-                # Do NOT serve stale cache — it can show outdated results
-                # Instead, propagate the error so frontend shows current state
                 if key == "dashboard":
                     from schemas import DashboardOut, DashboardCards
                     return DashboardOut(meetings=[], jockeys=[], drivers=[], recentResults=[], dashboardCards=DashboardCards(todayMeetings=0, activeJockeyChallenges=0, activeDriverChallenges=0, totalParticipants=0))
@@ -639,7 +519,6 @@ def get_dashboard(db: Session = Depends(get_db)):
     if not meeting_ids:
         return DashboardOut(meetings=[], jockeys=[], drivers=[], recentResults=[], dashboardCards=DashboardCards(todayMeetings=0, activeJockeyChallenges=0, activeDriverChallenges=0, totalParticipants=0))
 
-    # Pre-load participants, prices, and results in batch
     all_participants = db.query(Participant).filter(
         Participant.meeting_id.in_(meeting_ids)
     ).all() if meeting_ids else []
@@ -648,13 +527,6 @@ def get_dashboard(db: Session = Depends(get_db)):
     participants_by_meeting = {}
     for p in all_participants:
         participants_by_meeting.setdefault(p.meeting_id, []).append(p)
-
-    all_prices = db.query(Price).filter(
-        Price.meeting_id.in_(meeting_ids)
-    ).all() if meeting_ids else []
-    prices_by_participant = {}
-    for pr in all_prices:
-        prices_by_participant.setdefault(pr.participant_id, []).append(pr)
 
     all_results = db.query(Result).filter(
         Result.meeting_id.in_(meeting_ids),
@@ -665,35 +537,7 @@ def get_dashboard(db: Session = Depends(get_db)):
         results_by_meeting.setdefault(r.meeting_id, []).append(r)
 
     meeting_map = {m.id: m for m in meetings}
-    meeting_race_odds_map = {}
-    for mid in meeting_ids:
-        race_odds_agg = {}
-        for pid, prs in prices_by_participant.items():
-            p = participant_map.get(pid)
-            if not p or p.meeting_id != mid:
-                continue
-            for pr in prs:
-                if pr.bookmaker_name == "Ladbrokes" and pr.race_odds_json:
-                    try:
-                        rd = json.loads(pr.race_odds_json)
-                        if isinstance(rd, dict):
-                            for rn_str, odds_val in rd.items():
-                                try:
-                                    rn = int(rn_str)
-                                    if isinstance(odds_val, dict):
-                                        o = float(odds_val.get("odds", 0) or 0)
-                                    else:
-                                        o = float(odds_val)
-                                    if o > 0:
-                                        race_odds_agg.setdefault(rn, []).append(o)
-                                except (ValueError, TypeError):
-                                    pass
-                    except (json.JSONDecodeError, ValueError):
-                        pass
-        if race_odds_agg:
-            meeting_race_odds_map[mid] = {
-                rn: round(sum(vals) / len(vals), 2) for rn, vals in race_odds_agg.items()
-            }
+
     frontend_meetings = []
     for m in meetings:
         mtg_participants = participants_by_meeting.get(m.id, [])
@@ -707,63 +551,31 @@ def get_dashboard(db: Session = Depends(get_db)):
 
     jockeys = []
     drivers = []
-    value_threshold = _load_value_threshold(db)
-
-    top2_by_meeting = {}
-    for mid, plist in participants_by_meeting.items():
-        sortedplist = sorted(plist, key=lambda x: x.current_points, reverse=True)
-        top2_ids = {p.id for p in sortedplist[:2]}
-        top2_by_meeting[mid] = top2_ids
 
     for p in all_participants:
         meeting = meeting_map.get(p.meeting_id)
-        prs = prices_by_participant.get(p.id, [])
-        is_top2 = p.id in top2_by_meeting.get(p.meeting_id, set())
-        fp = _participant_to_frontend_with_data(p, meeting, prs, value_threshold, meeting_race_odds_map.get(p.meeting_id), is_top2)
+        all_pts = [pp.current_points for pp in participants_by_meeting.get(p.meeting_id, [])]
+        fp = _participant_to_frontend_with_data(p, meeting, all_pts)
         if meeting and meeting.type == "jockey":
             jockeys.append(fp)
         else:
             drivers.append(fp)
 
-    # Post-processing: ensure leader always has shortest AI price in each meeting
-    for participant_list in [jockeys, drivers]:
-        by_mtg = {}
-        for fp in participant_list:
-            by_mtg.setdefault(fp.meetingId, []).append(fp)
-        for mtg_id, mtg_parts in by_mtg.items():
-            if len(mtg_parts) < 2:
-                continue
-            leader = max(mtg_parts, key=lambda x: x.currentPoints)
-            current_shortest = min(mtg_parts, key=lambda x: x.aiPrice)
-            if leader.aiPrice > current_shortest.aiPrice:
-                leader.aiPrice = round(current_shortest.aiPrice * 0.97, 2)
-                leader.overlayPercent = round((leader.bookmakerPrice - leader.aiPrice) / leader.aiPrice * 100, 1)
+    # Mark projected winners per meeting
+    meeting_best = {}
+    for fp in jockeys + drivers:
+        if fp.meetingId not in meeting_best or fp.currentPoints > meeting_best[fp.meetingId].currentPoints:
+            meeting_best[fp.meetingId] = fp
+    for fp in meeting_best.values():
+        fp.isProjectedWinner = True
 
     race_results = []
     for r in (sorted(all_results, key=lambda x: x.timestamp or datetime.now(timezone.utc), reverse=True)[:30]):
         p = participant_map.get(r.participant_id)
         m = meeting_map.get(r.meeting_id)
         if p and m:
-            prs = [pr for pr in prices_by_participant.get(p.id, []) if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
-            raw_bm = [pr.price for pr in prs]
-            avg_bm = sum(filter_spikes(raw_bm)) / len(filter_spikes(raw_bm)) if raw_bm else 3.0
-            best_rj = None
-            best_c = 0
-            for pr in prs:
-                if pr.race_odds_json:
-                    try:
-                        rd = json.loads(pr.race_odds_json)
-                        if isinstance(rd, dict) and len(rd) > best_c:
-                            best_c = len(rd)
-                            best_rj = pr.race_odds_json
-                    except (json.JSONDecodeError, ValueError):
-                        pass
-            if not best_rj:
-                mo = meeting_race_odds_map.get(m.id)
-                if mo:
-                    best_rj = json.dumps(mo)
-            ai_price = _compute_ai_price(avg_bm, p.current_points, p.completed_races, m.total_races, best_rj)
-            overlay = round((avg_bm - ai_price) / ai_price * 100, 1)
+            all_pts = [pp.current_points for pp in participants_by_meeting.get(m.id, [])]
+            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts)
 
             minutes_ago = int(
                 (datetime.now(timezone.utc) - (r.timestamp if r.timestamp and r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc))).total_seconds() / 60
@@ -776,7 +588,6 @@ def get_dashboard(db: Session = Depends(get_db)):
                 participant=p.name,
                 pointsAdded=r.points_added,
                 updatedAiPrice=ai_price,
-                updatedOverlay=overlay,
                 timeUpdated=f"{max(1, minutes_ago)}m ago",
                 type="Jockey" if m.type == "jockey" else "Driver",
             ))
@@ -784,14 +595,6 @@ def get_dashboard(db: Session = Depends(get_db)):
     today_meetings = len(frontend_meetings)
     active_jockey = sum(1 for m in frontend_meetings if m.type == "Jockey")
     active_driver = sum(1 for m in frontend_meetings if m.type == "Driver")
-
-    # Set projected winners per meeting
-    meeting_best = {}
-    for fp in jockeys + drivers:
-        if fp.meetingId not in meeting_best or fp.currentPoints > meeting_best[fp.meetingId].currentPoints:
-            meeting_best[fp.meetingId] = fp
-    for fp in meeting_best.values():
-        fp.isProjectedWinner = True
 
     return DashboardOut(
         meetings=frontend_meetings,
@@ -808,12 +611,9 @@ def get_dashboard(db: Session = Depends(get_db)):
 
 
 DEFAULT_SETTINGS = {
-    "bookmakerWeight": 35.0,
     "currentPointsWeight": 25.0,
     "remainingRacesWeight": 20.0,
     "completedRacesWeight": 10.0,
-    "priceMovementWeight": 10.0,
-    "valueThreshold": 10.0,
 }
 
 
@@ -822,7 +622,8 @@ def get_settings(db: Session = Depends(get_db)):
     rows = db.query(FormulaSetting).all()
     result = DEFAULT_SETTINGS.copy()
     for row in rows:
-        result[row.id] = row.value
+        if row.id in DEFAULT_SETTINGS:
+            result[row.id] = row.value
     return FormulaSettingsOut(settings=result)
 
 
@@ -844,14 +645,12 @@ def put_settings(payload: FormulaSettingsOut, db: Session = Depends(get_db)):
 def refresh_data():
     import threading
     def _bg_refresh():
-        from status_manager import scrape_all_bookmakers
         from status_updater import update_meeting_statuses
         from points_calculator import recalculate_all_points
         from seed_data import seed_database
         db = SessionLocal()
         try:
             seed_database(db)
-            scrape_all_bookmakers()
             update_meeting_statuses()
             recalculate_all_points()
         except Exception as e:
@@ -869,7 +668,6 @@ def refresh_data():
 def reseed_data():
     import threading
     def _bg_reseed():
-        from status_manager import scrape_all_bookmakers
         from status_updater import update_meeting_statuses
         from points_calculator import recalculate_all_points
         from seed_data import seed_database
@@ -883,7 +681,6 @@ def reseed_data():
             db.commit()
             _cache.clear()
             seed_database(db, force=True)
-            scrape_all_bookmakers()
             update_meeting_statuses()
             recalculate_all_points()
             _cache.clear()
@@ -956,29 +753,17 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
         Participant.meeting_id == meeting_id
     ).all()
 
-    value_threshold = _load_value_threshold(db)
-
-    pids = [p.id for p in participants]
-    all_prices = db.query(Price).filter(Price.participant_id.in_(pids)).all() if pids else []
-    prices_by_pid = {}
-    for pr in all_prices:
-        prices_by_pid.setdefault(pr.participant_id, []).append(pr)
+    all_pts = [p.current_points for p in participants]
 
     predictions = []
     for p in participants:
-        prs = prices_by_pid.get(p.id, [])
-        accurate_prices = [pr for pr in prs if pr.bookmaker_name in ACCURATE_BOOKMAKERS]
-        bp_list = [pr.price for pr in accurate_prices]
-        if not bp_list:
-            continue
-        avg_bm = sum(bp_list) / len(bp_list)
-
-        implied_prob = 1.0 / max(avg_bm, MIN_PRICE)
-        win_prob = min(0.85, implied_prob * 1.5)
-
         remaining = meeting.total_races - meeting.completed_races
+        ai_price, win_prob = _compute_ai_price(
+            p.current_points, p.completed_races, meeting.total_races, all_pts
+        )
+
         if meeting.completed_races == 0:
-            expected_pts_per_race = win_prob * 2.0
+            expected_pts_per_race = 0.5
             estimated_final = round(expected_pts_per_race * meeting.total_races, 1)
         else:
             avg_per_race = p.current_points / max(p.completed_races, 1)
@@ -992,8 +777,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
             "currentPoints": p.current_points,
             "completedRaces": p.completed_races,
             "remainingRaces": remaining,
-            "bookmakerPrice": round(avg_bm, 2),
-            "winProbability": round(win_prob * 100, 1),
+            "winProbability": win_prob,
             "estimatedFinalPoints": estimated_final,
         })
 
@@ -1063,8 +847,8 @@ def create_bet(payload: BetCreate, db: Session = Depends(get_db)):
         potentialReturn=bet.potential_return,
         result=bet.result,
         pnl=bet.pnl,
-        createdAt=bet.created_at.isoformat() if bet.created_at else "",
-        updatedAt=bet.updated_at.isoformat() if bet.updated_at else "",
+        createdAt=bet.created_at.isoformat() if b.created_at else "",
+        updatedAt=bet.updated_at.isoformat() if b.updated_at else "",
     )
 
 
@@ -1107,8 +891,8 @@ def update_bet(bet_id: int, payload: BetUpdate, db: Session = Depends(get_db)):
         potentialReturn=bet.potential_return,
         result=bet.result,
         pnl=bet.pnl,
-        createdAt=bet.created_at.isoformat() if bet.created_at else "",
-        updatedAt=bet.updated_at.isoformat() if bet.updated_at else "",
+        createdAt=bet.created_at.isoformat() if b.created_at else "",
+        updatedAt=bet.updated_at.isoformat() if b.updated_at else "",
     )
 
 
@@ -1179,7 +963,6 @@ def run_audit(db: Session = Depends(get_db)):
 
         p_map = {p.id: p for p in participants}
 
-        # 1. Check participant points sum against result records
         for p in participants:
             result_sum = sum(
                 r.points_added for r in results
@@ -1196,7 +979,6 @@ def run_audit(db: Session = Depends(get_db)):
                     "severity": "high",
                 })
 
-        # 2. Check for duplicate positions in same race (multiple 1st places)
         for race_num in range(1, meeting.completed_races + 1):
             race_results = [r for r in results if r.race_number == race_num]
             pos_counts = {}
@@ -1214,7 +996,6 @@ def run_audit(db: Session = Depends(get_db)):
                         "severity": "medium",
                     })
 
-        # 3. Check for unmatched participants (0 points in all completed races)
         for p in participants:
             race_results = [r for r in results if r.participant_id == p.id]
             if meeting.completed_races > 0 and len(race_results) == 0:
@@ -1227,7 +1008,6 @@ def run_audit(db: Session = Depends(get_db)):
                     "severity": "high",
                 })
             elif meeting.completed_races > 0:
-                placed_races = [r for r in race_results if r.points_added > 0]
                 unplaced_races = [r for r in race_results if r.position == 99]
                 if len(unplaced_races) >= meeting.completed_races * 0.5 and meeting.completed_races >= 3:
                     issues.append({
@@ -1239,7 +1019,6 @@ def run_audit(db: Session = Depends(get_db)):
                         "severity": "high",
                     })
 
-        # 4. Check total result count vs expected
         expected_results = meeting.completed_races * len(participants)
         actual_results = len(results)
         if actual_results != expected_results and expected_results > 0:
@@ -1251,7 +1030,6 @@ def run_audit(db: Session = Depends(get_db)):
                 "severity": "medium",
             })
 
-        # 5. Check for position > 3 but points > 0 (scoring bug)
         for r in results:
             if r.position > 3 and r.points_added > 0:
                 issues.append({
