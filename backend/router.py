@@ -364,7 +364,7 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
         fp = _participant_to_frontend(p, db, all_pts, participant_index=avg_idx_map[p.id], total_participants=len(participants))
         result.append(fp)
 
-    if result:
+    if result and meeting.completed_races > 0:
         result[0].isProjectedWinner = True
 
     return result

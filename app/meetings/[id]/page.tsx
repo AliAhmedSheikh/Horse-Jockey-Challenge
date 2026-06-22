@@ -202,7 +202,7 @@ export default function MeetingDetailPage() {
                 </tr>
               ) : sorted.map((p, i) => (
                 <tr key={p.id} className={`bg-white dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${
-                  i === 0 ? "bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-500/5 dark:to-transparent" : ""
+                  i === 0 && meeting.completedRaces > 0 ? "bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-500/5 dark:to-transparent" : ""
                 }`}>
                   <td className="px-4 py-3">
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -217,7 +217,7 @@ export default function MeetingDetailPage() {
                       >
                         {p.name}
                       </button>
-                      {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
+                      {i === 0 && meeting.completedRaces > 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
                     </div>
                   </td>
                   <td className="px-2 py-3 text-right">
@@ -244,7 +244,7 @@ export default function MeetingDetailPage() {
                 >
                   {i + 1}. {p.name}
                 </button>
-                {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
+                {i === 0 && meeting.completedRaces > 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
