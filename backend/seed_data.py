@@ -1,6 +1,7 @@
 from datetime import datetime, timezone, timedelta
 import json
 import logging
+import re
 
 from sqlalchemy.orm import Session
 from models import Meeting, Participant, Price, Result, MeetingStatus, MeetingType
@@ -330,8 +331,22 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
         for market in market_list:
             meeting_name = market["meeting_name"]
             meeting_date = aus_date
-            if (normalise_name(meeting_name), meeting_date) in existing_names_dates:
+            norm_name = normalise_name(meeting_name)
+            if (norm_name, meeting_date) in existing_names_dates:
                 logger.debug(f"Skipping {meeting_name} — already in DB")
+                continue
+            # Skip if a fuzzy-similar name already exists (e.g. "GLOBE DERBY PARK" vs "Globe Derby")
+            skip_fuzzy = False
+            for existing_name, existing_date in existing_names_dates:
+                if existing_date != meeting_date:
+                    continue
+                en = re.sub(r'[^a-z0-9]', '', existing_name)
+                mn = re.sub(r'[^a-z0-9]', '', norm_name)
+                if en and mn and (en in mn or mn in en) and en != mn:
+                    logger.info(f"Skipping {meeting_name} — similar to existing '{existing_name}'")
+                    skip_fuzzy = True
+                    break
+            if skip_fuzzy:
                 continue
             counter += 1
             mid = f"m{counter}"
