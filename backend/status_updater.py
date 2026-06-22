@@ -231,40 +231,5 @@ def _recalculate_participant_state(db, meeting, participants):
 
 
 def _handle_finished_repair(db, meeting):
-    """One-time repair: reset FINISHED meetings with incomplete results."""
-    if meeting.id in _already_repaired:
-        return
-
-    participants = db.query(Participant).filter(
-        Participant.meeting_id == meeting.id
-    ).all()
-    if not participants or len(participants) < 3:
-        return
-
-    participants_with_results = db.query(Result.participant_id).filter(
-        Result.meeting_id == meeting.id,
-    ).distinct().count()
-
-    result_count = db.query(Result).filter(
-        Result.meeting_id == meeting.id,
-    ).count()
-
-    participant_ratio = participants_with_results / len(participants) if participants else 0
-    result_ratio = result_count / len(participants) if participants else 0
-
-    if participant_ratio < 0.5 or (meeting.total_races > 3 and result_ratio < 2):
-        logger.info(
-            f"Repair: {meeting.name} has {participants_with_results}/{len(participants)} "
-            f"participants with results, {result_count} total — resetting"
-        )
-        db.query(Result).filter(Result.meeting_id == meeting.id).delete()
-        for p in participants:
-            p.current_points = 0
-            p.completed_races = 0
-            p.remaining_races = meeting.total_races
-        meeting.completed_races = 0
-        meeting.status = MeetingStatus.LIVE.value
-        _already_repaired.add(meeting.id)
-        db.commit()
-    else:
-        _already_repaired.add(meeting.id)
+    """Disabled — was causing infinite loop: FINISHED→LIVE→FINISHED cycling."""
+    _already_repaired.add(meeting.id)

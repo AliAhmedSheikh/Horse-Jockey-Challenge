@@ -234,8 +234,26 @@ def fetch_single_race_results(meeting_name: str, race_number: int, date_override
         return None
 
     race_id = None
+
+    def _names_match(api_name: str, db_name: str) -> bool:
+        """Fuzzy match meeting names: exact, normalized, or containment."""
+        a = api_name.lower().strip()
+        b = db_name.lower().strip()
+        if a == b:
+            return True
+        # Normalize: remove non-alphanumeric
+        import re
+        an = re.sub(r'[^a-z0-9]', '', a)
+        bn = re.sub(r'[^a-z0-9]', '', b)
+        if an == bn:
+            return True
+        # Containment: "globe derby" in "globe derby park" or vice versa
+        if an in bn or bn in an:
+            return True
+        return False
+
     for m in all_meetings:
-        if m.get("name", "").lower().strip() == meeting_name.lower().strip():
+        if _names_match(m.get("name", ""), meeting_name):
             for race in m.get("races", []):
                 if race.get("race_number") == race_number:
                     race_id = race.get("id")
