@@ -124,10 +124,13 @@ def _compute_tied_indices(participants):
 
     Participants with the same points AND same completed_races share an average
     index so they receive identical AI prices.
+    HOWEVER: when ALL participants have 0 completed races (pre-race), use individual
+    indices so the pre-race spread formula produces differentiated prices.
     """
     n = len(participants)
     if n == 0:
         return {}
+    all_pre_race = all(p.completed_races == 0 for p in participants)
     idx_map = {}
     i = 0
     while i < n:
@@ -136,9 +139,13 @@ def _compute_tied_indices(participants):
         cr_i = participants[i].completed_races
         while j < n and participants[j].current_points == pts_i and participants[j].completed_races == cr_i:
             j += 1
-        avg_idx = (i + j - 1) / 2.0
-        for k in range(i, j):
-            idx_map[participants[k].id] = avg_idx
+        if all_pre_race or (j - i) == 1:
+            for k in range(i, j):
+                idx_map[participants[k].id] = float(k)
+        else:
+            avg_idx = (i + j - 1) / 2.0
+            for k in range(i, j):
+                idx_map[participants[k].id] = avg_idx
         i = j
     return idx_map
 
