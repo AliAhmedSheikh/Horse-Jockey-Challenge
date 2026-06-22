@@ -139,13 +139,13 @@ export default function MeetingsPage() {
       )}
 
       {!selectedMeeting ? (
-        meetingList.filter((m) => m.status !== "Completed").length === 0 ? (
+        meetingList.length === 0 ? (
           <div className="card p-8 text-center">
-            <p className="text-sm text-slate-500 dark:text-slate-400">No active meetings today</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">No meetings today</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {meetingList.filter((m) => m.status !== "Completed").map((m) => (
+            {meetingList.map((m) => (
               <button
                 key={m.name}
                 onClick={() => setSelectedMeeting(m.name)}
