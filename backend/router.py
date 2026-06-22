@@ -119,6 +119,30 @@ def _compute_win_probability(
     return max(0.01, min(0.95, combined))
 
 
+def _compute_tied_indices(participants):
+    """For participants sorted by (-points, name), compute average index for tied groups.
+
+    Participants with the same points AND same completed_races share an average
+    index so they receive identical AI prices.
+    """
+    n = len(participants)
+    if n == 0:
+        return {}
+    idx_map = {}
+    i = 0
+    while i < n:
+        j = i
+        pts_i = participants[i].current_points
+        cr_i = participants[i].completed_races
+        while j < n and participants[j].current_points == pts_i and participants[j].completed_races == cr_i:
+            j += 1
+        avg_idx = (i + j - 1) / 2.0
+        for k in range(i, j):
+            idx_map[participants[k].id] = avg_idx
+        i = j
+    return idx_map
+
+
 def _compute_ai_price_from_probability(probability: float) -> float:
     """Convert probability to odds price: AI Price = 1 / probability."""
     if probability <= 0:
@@ -320,10 +344,11 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
     participants.sort(key=lambda p: (-p.current_points, p.name))
 
     all_pts = [p.current_points for p in participants]
+    avg_idx_map = _compute_tied_indices(participants)
 
     result = []
     for i, p in enumerate(participants):
-        result.append(_participant_to_frontend(p, db, all_pts, participant_index=i, total_participants=len(participants)))
+        result.append(_participant_to_frontend(p, db, all_pts, participant_index=avg_idx_map[p.id], total_participants=len(participants)))
 
     if result:
         result[0].isProjectedWinner = True
@@ -344,8 +369,10 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
         raise HTTPException(status_code=404, detail="Participant not found")
 
     all_parts = db.query(Participant).filter(Participant.meeting_id == meeting_id).all()
+    all_parts.sort(key=lambda p: (-p.current_points, p.name))
     all_pts = [p.current_points for p in all_parts]
-    p_idx = next((i for i, pp in enumerate(all_parts) if pp.id == participant.id), None)
+    avg_idx_map = _compute_tied_indices(all_parts)
+    p_idx = avg_idx_map.get(participant.id, 0)
 
     total_races = meeting.total_races or 8
     ai_price, win_prob = _compute_ai_price(
@@ -555,7 +582,8 @@ def get_dashboard(db: Session = Depends(get_db)):
         mtg_parts = participants_by_meeting.get(p.meeting_id, [])
         mtg_parts.sort(key=lambda pp: (-pp.current_points, pp.name))
         all_pts = [pp.current_points for pp in mtg_parts]
-        p_idx = next((i for i, pp in enumerate(mtg_parts) if pp.id == p.id), None)
+        avg_idx_map = _compute_tied_indices(mtg_parts)
+        p_idx = avg_idx_map.get(p.id, 0)
         fp = _participant_to_frontend_with_data(p, meeting, all_pts, participant_index=p_idx, total_participants=len(mtg_parts))
         if meeting and meeting.type == "jockey":
             jockeys.append(fp)
@@ -575,8 +603,11 @@ def get_dashboard(db: Session = Depends(get_db)):
         p = participant_map.get(r.participant_id)
         m = meeting_map.get(r.meeting_id)
         if p and m:
-            all_pts = [pp.current_points for pp in participants_by_meeting.get(m.id, [])]
-            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts, 0, len(all_pts))
+            mtg_parts = participants_by_meeting.get(m.id, [])
+            mtg_parts_s = sorted(mtg_parts, key=lambda pp: (-pp.current_points, pp.name))
+            all_pts = [pp.current_points for pp in mtg_parts_s]
+            avg_idx = _compute_tied_indices(mtg_parts_s)
+            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts, avg_idx.get(p.id, 0), len(all_pts))
 
             minutes_ago = int(
                 (datetime.now(timezone.utc) - (r.timestamp if r.timestamp and r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc))).total_seconds() / 60
@@ -757,6 +788,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
     participants.sort(key=lambda p: (-p.current_points, p.name))
 
     all_pts = [p.current_points for p in participants]
+    avg_idx_map = _compute_tied_indices(participants)
 
     predictions = []
     total_parts = len(participants)
@@ -764,7 +796,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
         remaining = meeting.total_races - meeting.completed_races
         ai_price, win_prob = _compute_ai_price(
             p.current_points, p.completed_races, meeting.total_races, all_pts,
-            participant_index=i, total_participants=total_parts
+            participant_index=avg_idx_map[p.id], total_participants=total_parts
         )
 
         if meeting.completed_races > 0:
@@ -773,7 +805,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
             estimated_remaining_rides = round(remaining * participation_rate, 1)
             estimated_final = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
         else:
-            rank_ratio = i / max(total_parts - 1, 1) if total_parts > 1 else 0.5
+            rank_ratio = avg_idx_map[p.id] / max(total_parts - 1, 1) if total_parts > 1 else 0.5
             base = 6.0 / max(total_parts, 1)
             pts_per_race = base + (1.0 - rank_ratio) * base * 1.5
             estimated_final = round(pts_per_race * meeting.total_races, 1)
