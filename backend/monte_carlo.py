@@ -230,7 +230,7 @@ def run_simulation(
 def compute_challenge_prices(
     participants: List[Dict],
     total_races: int,
-    n_simulations: int = 10000,
+    n_simulations: int = 50000,
     margin: float = 0.175,
 ) -> Dict[str, float]:
     """Compute AI prices for all participants using Monte Carlo simulation.
@@ -251,16 +251,46 @@ def compute_challenge_prices(
 
     win_probs = run_simulation(race_data, total_races, n_simulations)
 
-    # Convert to prices with margin
+    n_parts = len(participants)
+
+    def _race_quality_price(p_data):
+        race_odds = p_data.get("race_odds", {})
+        if not race_odds:
+            return 100.0
+        best_prob = 0.0
+        total_race_prob = 0.0
+        n_rides = 0
+        for rn, rd in race_odds.items():
+            if isinstance(rd, dict) and "odds" in rd and "horse" in rd:
+                if rd["odds"] > 0 and rd["horse"]:
+                    n_rides += 1
+                    implied = 1.0 / rd["odds"]
+                    total_race_prob += implied
+                    best_prob = max(best_prob, implied)
+        if n_rides == 0:
+            return 100.0
+        rides_ratio = n_rides / max(total_races, 1)
+        avg_race_prob = total_race_prob / n_rides if n_rides > 0 else 0
+        est_challenge_prob = avg_race_prob * rides_ratio * 0.6
+        if est_challenge_prob <= 0:
+            return 100.0
+        fair_price = 1.0 / est_challenge_prob
+        return fair_price / (1.0 + margin)
+
     prices = {}
     for p in participants:
         name = p["name"]
         prob = win_probs.get(name, 0.0)
+        fallback = _race_quality_price(p)
         if prob > 0:
             fair_price = 1.0 / prob
             ai_price = fair_price / (1.0 + margin)
-            prices[name] = round(max(1.50, min(100.0, ai_price)), 2)
+            mc_price = round(max(1.50, min(100.0, ai_price)), 2)
+            if mc_price < 100.0:
+                prices[name] = mc_price
+            else:
+                prices[name] = round(max(1.50, min(100.0, fallback)), 2)
         else:
-            prices[name] = 100.0
+            prices[name] = round(max(1.50, min(100.0, fallback)), 2)
 
     return prices
