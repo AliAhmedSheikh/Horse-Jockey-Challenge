@@ -144,7 +144,7 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
                     race_number=next_race,
                     position=99,
                     points_added=0,
-                    final_points=0,
+                    final_points=p.current_points,
                     timestamp=datetime.now(timezone.utc),
                 ))
         meeting.completed_races = next_race
@@ -186,19 +186,29 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
     placed_ids = set()
     all_matched_pids = set()
 
+    # Load existing cumulative points per participant for this meeting
+    prev_results = db.query(Result).filter(Result.meeting_id == meeting.id).all()
+    cumulative_by_pid = {}
+    for pr in prev_results:
+        if pr.participant_id not in cumulative_by_pid:
+            cumulative_by_pid[pr.participant_id] = 0
+        cumulative_by_pid[pr.participant_id] += pr.points_added
+
     if real_positions:
         race_positions = [pos for _, pos in real_positions]
         for p, pos in real_positions:
             added = race_points(pos, race_positions)
             placed_ids.add(p.id)
             all_matched_pids.add(p.id)
+            prev = cumulative_by_pid.get(p.id, 0)
+            cumulative_by_pid[p.id] = prev + added
             results_batch.append({
                 "meeting_id": meeting.id,
                 "participant_id": p.id,
                 "race_number": next_race,
                 "position": pos,
                 "points_added": added,
-                "final_points": 0,  # Will be calculated by points_calculator
+                "final_points": prev + added,
             })
 
     if real_positions:
@@ -250,13 +260,14 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
     for p in participants:
         if p.id in placed_ids:
             continue
+        prev = cumulative_by_pid.get(p.id, 0)
         results_batch.append({
             "meeting_id": meeting.id,
             "participant_id": p.id,
             "race_number": next_race,
             "position": 99,
             "points_added": 0,
-            "final_points": 0,
+            "final_points": prev,
         })
 
     # Batch insert results atomically (direct to own session, not db_writer)
