@@ -394,17 +394,20 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                     _d = today_aus()
                 scheduled = datetime(_d.year, _d.month, _d.day, 17, 30, 0, tzinfo=AU_TZ)
 
+            # Use the meeting's own date from its scheduled time, not today
+            meeting_date = scheduled.date() if hasattr(scheduled, 'date') else aus_date
+            today_date = now_aus.date()
+
+            # Skip meetings scheduled for a different day
+            if meeting_date != today_date:
+                logger.info(
+                    f"Skipping {meeting_name} ({mtype}): scheduled for {meeting_date}, "
+                    f"not today ({today_date})"
+                )
+                continue
+
             # If scheduled time is already in the past
             if scheduled < now_aus:
-                # Only seed if the scheduled time is from TODAY (not yesterday's stale data)
-                scheduled_date = scheduled.date() if hasattr(scheduled, 'date') else None
-                today_date = now_aus.date()
-                if scheduled_date and scheduled_date != today_date:
-                    logger.info(
-                        f"Skipping {meeting_name} ({mtype}): first race {scheduled} "
-                        f"is from a different day (today={today_date})"
-                    )
-                    continue
                 # Same day but past — keep real time so results can be ingested
                 logger.info(
                     f"{meeting_name} ({mtype}): first race was {scheduled}, "
