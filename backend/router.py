@@ -774,7 +774,8 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
             estimated_final = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
         else:
             rank_ratio = i / max(total_parts - 1, 1) if total_parts > 1 else 0.5
-            pts_per_race = 0.3 + (1.0 - rank_ratio) * 1.8
+            base = 6.0 / max(total_parts, 1)
+            pts_per_race = base + (1.0 - rank_ratio) * base * 1.5
             estimated_final = round(pts_per_race * meeting.total_races, 1)
 
         predictions.append({

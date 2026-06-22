@@ -56,6 +56,16 @@ def ingest_race_results():
         participant_resolver = ParticipantResolver(db)
 
         for meeting in meetings:
+            # Skip driver meetings whose scheduled time hasn't been reached yet
+            # to prevent ingesting stale results from yesterday's API data
+            if meeting.type == "driver":
+                st = meeting.scheduled_time
+                if st is not None:
+                    if st.tzinfo is None:
+                        from time_utils import AU_TZ
+                        st = st.replace(tzinfo=AU_TZ)
+                    if datetime.now(AU_TZ) < st:
+                        continue
             _process_meeting_race(db, meeting, race_resolver, participant_resolver)
 
     except Exception as e:

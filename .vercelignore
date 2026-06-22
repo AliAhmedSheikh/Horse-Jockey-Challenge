@@ -1,0 +1,7 @@
+V1/
+V2/
+node_modules/
+.git/
+*.pyc
+__pycache__/
+backend/

@@ -379,6 +379,27 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                     _d = today_aus()
                 scheduled = datetime(_d.year, _d.month, _d.day, 17, 30, 0, tzinfo=AU_TZ)
 
+            # If scheduled time is already in the past
+            if scheduled < now_aus:
+                if mtype == "driver":
+                    # Driver meetings from API often have stale dates — still seed them
+                    # so driver challenges are visible; default to today 17:30 AEST
+                    from datetime import date as _date
+                    try:
+                        _d = datetime.strptime(aus_date, "%Y-%m-%d").date()
+                    except (ValueError, TypeError):
+                        _d = today_aus()
+                    scheduled = datetime(_d.year, _d.month, _d.day, 17, 30, 0, tzinfo=AU_TZ)
+                    logger.info(
+                        f"{meeting_name} (driver): first race was {scheduled}, defaulting to today 17:30 AEST"
+                    )
+                else:
+                    # Jockey meetings with past race times are stale — skip them
+                    logger.info(
+                        f"Skipping {meeting_name} (jockey): first race {scheduled} is already past"
+                    )
+                    continue
+
             meeting = Meeting(
                 id=mid,
                 name=meeting_name,

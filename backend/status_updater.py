@@ -24,6 +24,8 @@ _already_repaired = set()
 
 # Lock to prevent concurrent auto-seed calls
 _seed_lock = threading.Lock()
+_last_seed_time = None
+_SEED_COOLDOWN = 3600  # Re-seed every hour to pick up new meetings (e.g. driver challenges appearing later)
 
 
 def update_meeting_statuses():
@@ -41,14 +43,24 @@ def update_meeting_statuses():
         # Cleanup: remove meetings from previous days entirely
         _cleanup_old_meetings(db, today)
 
-        # Auto-seed if no meetings exist for today
+        # Auto-seed if no meetings exist for today, or periodically to pick up new ones
+        global _last_seed_time
         today_count = db.query(Meeting).filter(Meeting.date == today).count()
-        if today_count == 0:
+        should_seed = today_count == 0
+        if not should_seed and _last_seed_time is not None:
+            elapsed = (now_aus - _last_seed_time).total_seconds()
+            if elapsed > _SEED_COOLDOWN:
+                should_seed = True
+        if not should_seed and _last_seed_time is None:
+            should_seed = True
+
+        if should_seed:
             if _seed_lock.acquire(blocking=False):
                 try:
-                    logger.info("No meetings for today — running auto-seed")
+                    logger.info("Running auto-seed to discover meetings")
                     from seed_data import seed_database
                     seed_database(db)
+                    _last_seed_time = now_aus
                 finally:
                     _seed_lock.release()
             else:
@@ -76,7 +88,24 @@ def _cleanup_old_meetings(db, today):
         Meeting.date == today,
         Meeting.status == MeetingStatus.FINISHED.value,
     ).all()
-    to_delete = old_meetings + finished_today
+    # Also clean stale meetings: all races done but still marked UPCOMING (jockey only)
+    # Driver meetings default to 17:30 but may have stale API results — don't delete them
+    stale_completed = db.query(Meeting).filter(
+        Meeting.date == today,
+        Meeting.status == MeetingStatus.UPCOMING.value,
+        Meeting.completed_races >= Meeting.total_races,
+        Meeting.total_races > 0,
+        Meeting.type == "jockey",
+    ).all()
+    # Also clean LIVE driver meetings with all races done (stale from yesterday's API)
+    stale_live_drivers = db.query(Meeting).filter(
+        Meeting.date == today,
+        Meeting.status == MeetingStatus.LIVE.value,
+        Meeting.completed_races >= Meeting.total_races,
+        Meeting.total_races > 0,
+        Meeting.type == "driver",
+    ).all()
+    to_delete = old_meetings + finished_today + stale_completed + stale_live_drivers
     if to_delete:
         for m in to_delete:
             mid = m.id
@@ -108,11 +137,9 @@ def _update_single_meeting(db, meeting, now_aus, race_resolver):
 
 def _handle_upcoming(db, meeting, scheduled_reached, st, race_resolver):
     """Handle UPCOMING meeting transitions."""
-    if scheduled_reached or (not meeting.scheduled_time and meeting.completed_races > 0):
+    if scheduled_reached or meeting.completed_races > 0:
         meeting.status = MeetingStatus.LIVE.value
-        if meeting.completed_races == 0:
-            meeting.completed_races = 0
-        logger.info(f"Meeting {meeting.name} -> LIVE")
+        logger.info(f"Meeting {meeting.name} -> LIVE (scheduled={scheduled_reached}, completed={meeting.completed_races})")
 
 
 def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
@@ -125,11 +152,14 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
         return
 
     # Force-finish stale LIVE meetings
-    if meeting.created_at:
-        created = meeting.created_at
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=timezone.utc)
-        age_minutes = (datetime.now(timezone.utc) - created).total_seconds() / 60
+    # Use updated_at (when status changed to LIVE) rather than created_at
+    # to avoid immediately killing meetings that just transitioned from UPCOMING
+    reference_time = meeting.updated_at or meeting.created_at
+    if reference_time:
+        ref = reference_time
+        if ref.tzinfo is None:
+            ref = ref.replace(tzinfo=timezone.utc)
+        age_minutes = (datetime.now(timezone.utc) - ref).total_seconds() / 60
         # Stale if >30 min old with no progress at all
         if age_minutes > 30 and meeting.completed_races == 0:
             meeting.status = MeetingStatus.FINISHED.value
