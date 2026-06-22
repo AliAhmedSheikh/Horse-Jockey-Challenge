@@ -82,39 +82,17 @@ def update_meeting_statuses():
 
 
 def _cleanup_old_meetings(db, today):
-    """Delete completed/old meetings so they don't clutter the UI."""
+    """Delete meetings from previous days. Keep today's completed meetings visible until midnight."""
     old_meetings = db.query(Meeting).filter(Meeting.date < today).all()
-    finished_today = db.query(Meeting).filter(
-        Meeting.date == today,
-        Meeting.status == MeetingStatus.FINISHED.value,
-    ).all()
-    # Also clean stale meetings: all races done but still marked UPCOMING (jockey only)
-    # Driver meetings default to 17:30 but may have stale API results — don't delete them
-    stale_completed = db.query(Meeting).filter(
-        Meeting.date == today,
-        Meeting.status == MeetingStatus.UPCOMING.value,
-        Meeting.completed_races >= Meeting.total_races,
-        Meeting.total_races > 0,
-        Meeting.type == "jockey",
-    ).all()
-    # Also clean LIVE driver meetings with all races done (stale from yesterday's API)
-    stale_live_drivers = db.query(Meeting).filter(
-        Meeting.date == today,
-        Meeting.status == MeetingStatus.LIVE.value,
-        Meeting.completed_races >= Meeting.total_races,
-        Meeting.total_races > 0,
-        Meeting.type == "driver",
-    ).all()
-    to_delete = old_meetings + finished_today + stale_completed + stale_live_drivers
-    if to_delete:
-        for m in to_delete:
+    if old_meetings:
+        for m in old_meetings:
             mid = m.id
             db.query(Bet).filter(Bet.meeting_id == mid).delete(synchronize_session="fetch")
             db.query(Price).filter(Price.meeting_id == mid).delete(synchronize_session="fetch")
             db.query(Result).filter(Result.meeting_id == mid).delete(synchronize_session="fetch")
             db.query(Participant).filter(Participant.meeting_id == mid).delete(synchronize_session="fetch")
             db.delete(m)
-        logger.info(f"Cleaned up {len(to_delete)} old/finished meeting(s)")
+        logger.info(f"Cleaned up {len(old_meetings)} old meeting(s) from previous day(s)")
         db.commit()
 
 
@@ -149,6 +127,14 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
     ).all()
     n = len(participants)
     if n == 0:
+        return
+
+    # Auto-finish when all races complete
+    if meeting.completed_races >= meeting.total_races and meeting.total_races > 0:
+        meeting.status = MeetingStatus.FINISHED.value
+        for p in participants:
+            p.remaining_races = 0
+        logger.info(f"Meeting {meeting.name} -> FINISHED (all {meeting.total_races} races complete)")
         return
 
     # Force-finish stale LIVE meetings
