@@ -353,10 +353,49 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
     all_pts = [p.current_points for p in participants]
     avg_idx_map = _compute_tied_indices(participants)
 
+    # For pre-match: run Monte Carlo to get AI prices
+    mc_prices = {}
+    if meeting.completed_races == 0:
+        prices = db.query(Price).filter(Price.meeting_id == meeting_id).all()
+        participant_race_odds = {}
+        for pr in prices:
+            if pr.race_odds_json:
+                try:
+                    odds_data = json.loads(pr.race_odds_json)
+                except (json.JSONDecodeError, TypeError):
+                    odds_data = {}
+                participant_race_odds[pr.participant_id] = odds_data
+
+        mc_input = []
+        for p in participants:
+            race_odds = participant_race_odds.get(p.id, {})
+            mc_input.append({"name": p.name, "race_odds": race_odds})
+
+        try:
+            from monte_carlo import compute_challenge_prices
+            mc_prices = compute_challenge_prices(mc_input, meeting.total_races)
+        except Exception as e:
+            logger.warning(f"Monte Carlo failed for participants endpoint: {e}")
+
     result = []
     for i, p in enumerate(participants):
-        result.append(_participant_to_frontend(p, db, all_pts, participant_index=avg_idx_map[p.id], total_participants=len(participants)))
+        if mc_prices and p.name in mc_prices:
+            ai_price = mc_prices[p.name]
+            win_prob = round((1.0 / ai_price if ai_price > 0 else 0.0) * (1.0 + 0.175) * 100, 1)
+            remaining = meeting.total_races - p.completed_races
+            projected = round(0.5 * meeting.total_races, 1)
+            fp = ParticipantOut(
+                id=p.id, name=p.name, meetingName=meeting.name, meetingId=p.meeting_id,
+                aiPrice=ai_price, winProbability=win_prob,
+                currentPoints=p.current_points, projectedFinalPoints=projected,
+                isProjectedWinner=False,
+            )
+        else:
+            fp = _participant_to_frontend(p, db, all_pts, participant_index=avg_idx_map[p.id], total_participants=len(participants))
+        result.append(fp)
 
+    if mc_prices:
+        result.sort(key=lambda x: x.aiPrice)
     if result:
         result[0].isProjectedWinner = True
 
@@ -382,9 +421,36 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
     p_idx = avg_idx_map.get(participant.id, 0)
 
     total_races = meeting.total_races or 8
-    ai_price, win_prob = _compute_ai_price(
-        participant.current_points, participant.completed_races, total_races, all_pts, p_idx, len(all_parts)
-    )
+
+    ai_price = None
+    if meeting.completed_races == 0:
+        prices = db.query(Price).filter(Price.meeting_id == meeting_id).all()
+        participant_race_odds = {}
+        for pr in prices:
+            if pr.race_odds_json:
+                try:
+                    odds_data = json.loads(pr.race_odds_json)
+                except (json.JSONDecodeError, TypeError):
+                    odds_data = {}
+                participant_race_odds[pr.participant_id] = odds_data
+
+        mc_input = []
+        for pa in all_parts:
+            mc_input.append({"name": pa.name, "race_odds": participant_race_odds.get(pa.id, {})})
+        try:
+            from monte_carlo import compute_challenge_prices
+            mc_all = compute_challenge_prices(mc_input, total_races)
+            if participant.name in mc_all:
+                ai_price = mc_all[participant.name]
+        except Exception:
+            pass
+
+    if ai_price is not None:
+        win_prob = round((1.0 / ai_price if ai_price > 0 else 0.0) * (1.0 + 0.175) * 100, 1)
+    else:
+        ai_price, win_prob = _compute_ai_price(
+            participant.current_points, participant.completed_races, total_races, all_pts, p_idx, len(all_parts)
+        )
 
     remaining = total_races - participant.completed_races
     if participant.completed_races == 0:
@@ -797,14 +863,57 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
     all_pts = [p.current_points for p in participants]
     avg_idx_map = _compute_tied_indices(participants)
 
+    # Check if this is a pre-match meeting (no races completed yet)
+    is_prematch = meeting.completed_races == 0
+
+    # For pre-match: run Monte Carlo simulation using race-level odds
+    mc_prices = {}
+    mc_win_probs = {}
+    if is_prematch:
+        prices = db.query(Price).filter(Price.meeting_id == meeting_id).all()
+        participant_race_odds = {}
+        for pr in prices:
+            if pr.race_odds_json:
+                try:
+                    odds_data = json.loads(pr.race_odds_json)
+                except (json.JSONDecodeError, TypeError):
+                    odds_data = {}
+                participant_race_odds[pr.participant_id] = odds_data
+
+        mc_input = []
+        for p in participants:
+            race_odds = participant_race_odds.get(p.id, {})
+            mc_input.append({
+                "name": p.name,
+                "race_odds": race_odds,
+            })
+
+        try:
+            from monte_carlo import compute_challenge_prices, run_simulation, build_race_data_from_participants
+            mc_prices = compute_challenge_prices(mc_input, meeting.total_races, n_simulations=10000)
+            mc_win_probs = {}
+            for name, price in mc_prices.items():
+                if price < 100.0:
+                    mc_win_probs[name] = round(1.0 / (price * (1.0 + 0.175)), 4)
+                else:
+                    mc_win_probs[name] = 0.0
+            logger.info(f"Monte Carlo for {meeting.name}: {len(mc_prices)} prices computed")
+        except Exception as e:
+            logger.warning(f"Monte Carlo failed for {meeting.name}: {e}")
+
     predictions = []
     total_parts = len(participants)
     for i, p in enumerate(participants):
         remaining = meeting.total_races - meeting.completed_races
-        ai_price, win_prob = _compute_ai_price(
-            p.current_points, p.completed_races, meeting.total_races, all_pts,
-            participant_index=avg_idx_map[p.id], total_participants=total_parts
-        )
+
+        if is_prematch and p.name in mc_prices:
+            ai_price = mc_prices[p.name]
+            win_prob = round(mc_win_probs.get(p.name, 0.0) * 100, 1)
+        else:
+            ai_price, win_prob = _compute_ai_price(
+                p.current_points, p.completed_races, meeting.total_races, all_pts,
+                participant_index=avg_idx_map[p.id], total_participants=total_parts
+            )
 
         if meeting.completed_races > 0:
             avg_per_race = p.current_points / max(p.completed_races, 1)
@@ -825,9 +934,13 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
             "remainingRaces": remaining,
             "winProbability": win_prob,
             "estimatedFinalPoints": estimated_final,
+            "aiPrice": ai_price,
         })
 
-    predictions.sort(key=lambda x: (-x["estimatedFinalPoints"]))
+    if is_prematch:
+        predictions.sort(key=lambda x: (x["aiPrice"]))
+    else:
+        predictions.sort(key=lambda x: (-x["estimatedFinalPoints"]))
 
     return {
         "meetingId": meeting.id,
