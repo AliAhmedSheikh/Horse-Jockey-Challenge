@@ -146,27 +146,14 @@ export default function MeetingDetailPage() {
       </div>
 
       {prediction && meeting.status === "Not Started" && (
-        <div className="card p-4 md:p-5 border-l-4 border-amber-500">
+        <div className="card p-4 md:p-5 border-l-4 border-slate-300 dark:border-slate-600">
           <div className="flex items-center gap-2 mb-3">
-            <IconStar className="w-4 h-4 text-amber-500" />
+            <IconStar className="w-4 h-4 text-slate-400" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">Pre-Meeting Prediction</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-amber-50 dark:bg-amber-500/5 rounded-lg p-4 text-center">
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wider font-semibold">Projected Winner</p>
-              <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">{prediction.projectedWinner}</p>
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-4 text-center">
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Top 3 Predicted</p>
-              <div className="mt-2 space-y-1">
-                {prediction.predictions.slice(0, 3).map((p, i) => (
-                  <div key={p.id} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-700 dark:text-slate-300">{i + 1}. {p.name}</span>
-                    <span className="font-semibold text-amber-500">{p.estimatedFinalPoints} pts</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-6 text-center">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Prediction available once the first race is run</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">All participants tied pre-race</p>
           </div>
         </div>
       )}
@@ -176,7 +163,7 @@ export default function MeetingDetailPage() {
           <h2 className="text-sm font-bold text-slate-900 dark:text-white">
             {meeting.status === "Not Started" ? "Pre-Race Analysis" : "Participants & Standings"}
           </h2>
-          {meeting.projectedWinner && (
+          {meeting.projectedWinner && meeting.status !== "Not Started" && (
             <span className="flex items-center gap-1.5 text-xs text-amber-500">
               <IconStar className="w-3.5 h-3.5" />
               {meeting.projectedWinner}
@@ -302,17 +289,26 @@ export default function MeetingDetailPage() {
 
         <div className="card p-4 md:p-5">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Projected Winner</h2>
-          <div className="text-center py-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-amber-500/20">
-              {meeting.projectedWinner ? meeting.projectedWinner.split(" ").map((n) => n[0]).join("") : "?"}
+          {meeting.completedRaces === 0 ? (
+            <div className="text-center py-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg">
+                ?
+              </div>
+              <h3 className="text-sm font-medium text-slate-400 dark:text-slate-500 mt-3">Prediction available once the first race is run</h3>
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mt-3">{meeting.projectedWinner || "—"}</h3>
-            <div className="flex items-center justify-center gap-1 mt-1">
-              <IconStar className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs font-medium text-amber-500">AI Projected Winner</span>
+          ) : (
+            <div className="text-center py-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-amber-500/20">
+                {meeting.projectedWinner ? meeting.projectedWinner.split(" ").map((n) => n[0]).join("") : "?"}
+              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white mt-3">{meeting.projectedWinner || "—"}</h3>
+              <div className="flex items-center justify-center gap-1 mt-1">
+                <IconStar className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-xs font-medium text-amber-500">AI Projected Winner</span>
+              </div>
             </div>
-          </div>
-          {prediction && prediction.predictions.length > 0 && (
+          )}
+          {prediction && prediction.predictions.length > 0 && meeting.completedRaces > 0 && (
             <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/50">
               <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold mb-2">Top 5 Predictions</p>
               <div className="space-y-1.5">

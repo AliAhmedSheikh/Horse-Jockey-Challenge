@@ -847,7 +847,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
         "status": meeting.status,
         "completedRaces": meeting.completed_races,
         "totalRaces": meeting.total_races,
-        "projectedWinner": predictions[0]["name"] if predictions else "",
+        "projectedWinner": "" if is_prematch else (predictions[0]["name"] if predictions else ""),
         "predictions": predictions,
     }
 
