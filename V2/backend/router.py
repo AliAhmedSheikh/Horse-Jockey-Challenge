@@ -82,6 +82,16 @@ def _compute_win_probability(
     if completed_races == 0:
         return 1.0 / max(n_participants, 2)
 
+    # --- Completed meeting: final position-based pricing, no elimination ---
+    if completed_races >= total_races:
+        if all_participant_points and len(all_participant_points) > 1:
+            max_pts = max(all_participant_points)
+            if max_pts > 0:
+                combined = current_points / max_pts
+                combined = max(0.05, min(0.95, combined))
+                return combined
+        return 1.0 / max(n_participants, 2)
+
     # --- 1. Base rate: average points per race ---
     if completed_races > 0:
         pts_per_race = current_points / completed_races
