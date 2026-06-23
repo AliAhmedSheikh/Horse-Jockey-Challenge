@@ -1,3 +1,10 @@
+# ===========================================================================
+# OSYSTIC ROUTER VERSION: v2-FIXES (elimination + pre-match equal + horse odds)
+# If this marker is missing from the deployed file, the OLD version is running.
+# Verify after deploy: GET /api/version should return this string.
+# ===========================================================================
+ROUTER_VERSION = "v2-FIXES-2026-06-23"
+
 import functools
 import json
 import logging
@@ -36,6 +43,12 @@ from schemas import (
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
+
+
+@router.get("/version")
+def get_version():
+    """Returns the deployed router version so we can confirm the right file is live."""
+    return {"routerVersion": ROUTER_VERSION}
 
 _cache = {}
 CACHE_TTL = 30
@@ -88,6 +101,10 @@ def _compute_win_probability(
             avg_field_pts = 0
 
         # --- Mathematical elimination ---
+        # Max points a jockey/driver can earn in one race is 3 (a win).
+        # If this participant's best possible final score cannot even reach the
+        # current leader's points, they are mathematically out of contention and
+        # must receive the floor probability (longest price), regardless of form.
         max_possible_final = current_points + remaining * 3.0
         if max_pts > 0 and max_possible_final < max_pts:
             return 0.01
@@ -424,6 +441,30 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
     ).all()
     results_map = {r.race_number: r for r in existing_results}
 
+    # Load per-race horse name + odds for this participant (display only).
+    # Populated by the scraper into Price.race_odds_json as
+    #   {"1": {"odds": 5.50, "horse": "Horse A"}, "3": {...}, ...}
+    # These are individual race win odds for display, NOT used in the
+    # challenge AI price (which stays points-based and odds-free).
+    race_odds_map = {}
+    price_row = db.query(Price).filter(
+        Price.participant_id == participant_id,
+        Price.meeting_id == meeting_id,
+        Price.race_odds_json.isnot(None),
+    ).first()
+    if price_row and price_row.race_odds_json:
+        try:
+            parsed = json.loads(price_row.race_odds_json)
+            if isinstance(parsed, dict):
+                for k, v in parsed.items():
+                    if isinstance(v, dict):
+                        race_odds_map[str(k)] = {
+                            "horse": (v.get("horse") or "").strip(),
+                            "odds": v.get("odds"),
+                        }
+        except (ValueError, TypeError):
+            race_odds_map = {}
+
     rides = []
     for race_num in range(1, total_races + 1):
         result = results_map.get(race_num)
@@ -443,14 +484,22 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
         else:
             status = "Upcoming"
 
-        # Per-race expected points: if participant has odds in this race
-        # (no bookmaker data, so we derive from meeting-level probability)
+        # Per-race horse name + individual race odds (display only).
+        ride_odds_info = race_odds_map.get(str(race_num), {})
+        horse_name = ride_odds_info.get("horse", "") or ""
+        race_odds_val = ride_odds_info.get("odds")
+        try:
+            race_odds_val = float(race_odds_val) if race_odds_val not in (None, "") else None
+        except (ValueError, TypeError):
+            race_odds_val = None
+
         race_expected_pts = None
         race_win_prob = None
 
         rides.append(RideDetail(
             raceNumber=race_num,
-            horseName="",
+            horseName=horse_name,
+            raceOdds=race_odds_val,
             expectedPoints=race_expected_pts,
             winProbability=race_win_prob,
             status=status,

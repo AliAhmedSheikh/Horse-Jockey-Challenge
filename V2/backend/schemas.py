@@ -143,6 +143,7 @@ class RideDetail(BaseModel):
     status: str
     position: Optional[int] = None
     pointsAwarded: Optional[float] = None
+    raceOdds: Optional[float] = None
 
 
 class ParticipantDetail(BaseModel):

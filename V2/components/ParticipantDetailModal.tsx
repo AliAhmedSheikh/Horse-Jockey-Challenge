@@ -137,6 +137,8 @@ export default function ParticipantDetailModal({
                 <thead className="sticky top-0 bg-slate-50 dark:bg-slate-700/50">
                   <tr className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     <th className="px-6 py-2.5 text-left font-medium">Race</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Horse</th>
+                    <th className="px-4 py-2.5 text-center font-medium">Odds</th>
                     <th className="px-4 py-2.5 text-center font-medium">Status</th>
                     <th className="px-6 py-2.5 text-center font-medium">Points</th>
                   </tr>
@@ -146,6 +148,18 @@ export default function ParticipantDetailModal({
                     <tr key={ride.raceNumber} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                       <td className="px-6 py-3">
                         <span className="text-sm font-bold text-slate-900 dark:text-white">R{ride.raceNumber}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-slate-700 dark:text-slate-300">
+                          {ride.horseName || <span className="text-slate-400">—</span>}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {ride.raceOdds != null ? (
+                          <span className="text-sm font-semibold text-amber-500">${ride.raceOdds.toFixed(1)}</span>
+                        ) : (
+                          <span className="text-sm text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <RaceStatusBadge ride={ride} />
@@ -161,7 +175,7 @@ export default function ParticipantDetailModal({
                   ))}
                   {detail.rides.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-6 py-8 text-center text-sm text-slate-400">
+                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
                         No ride data available yet.
                       </td>
                     </tr>

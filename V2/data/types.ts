@@ -96,6 +96,7 @@ export interface RideDetail {
   status: string;
   position: number | null;
   pointsAwarded: number | null;
+  raceOdds: number | null;
 }
 
 export interface ParticipantDetail {

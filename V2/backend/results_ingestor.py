@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Track consecutive API misses per meeting to auto-finish stale meetings
 _api_miss_counts = {}
-_AUTO_FINISH_THRESHOLD = 3
+_AUTO_FINISH_THRESHOLD = 6
 
 
 def ingest_race_results():

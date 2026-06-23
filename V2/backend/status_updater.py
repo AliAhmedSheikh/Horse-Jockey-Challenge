@@ -134,27 +134,29 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
     if n == 0:
         return
 
-    # Force-finish stale LIVE meetings
-    if meeting.created_at:
-        created = meeting.created_at
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=timezone.utc)
-        age_minutes = (datetime.now(timezone.utc) - created).total_seconds() / 60
-        # Stale if >30 min old with no progress at all
-        if age_minutes > 30 and meeting.completed_races == 0:
+    # Force-finish stale LIVE meetings based on LAST PROGRESS (updated_at),
+    # not created_at. Driver meetings are seeded hours before scheduled time,
+    # so created_at age is unreliable.
+    ref_time = meeting.updated_at or meeting.created_at
+    if ref_time:
+        if ref_time.tzinfo is None:
+            ref_time = ref_time.replace(tzinfo=timezone.utc)
+        idle_minutes = (datetime.now(timezone.utc) - ref_time).total_seconds() / 60
+        # Stale if no progress for 30+ min and never completed a race
+        if idle_minutes > 30 and meeting.completed_races == 0:
             meeting.status = MeetingStatus.FINISHED.value
             meeting.updated_at = datetime.now(timezone.utc)
             for p in participants:
                 p.remaining_races = 0
-            logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, no progress)")
+            logger.info(f"Meeting {meeting.name} -> FINISHED (idle: {idle_minutes:.0f}min, no progress)")
             return
-        # Also stale if >60 min old with partial progress (stuck mid-meeting)
-        if age_minutes > 60 and meeting.completed_races > 0 and meeting.completed_races < meeting.total_races:
+        # Also stale if no progress for 90+ min with partial results
+        if idle_minutes > 90 and meeting.completed_races > 0 and meeting.completed_races < meeting.total_races:
             meeting.status = MeetingStatus.FINISHED.value
             meeting.updated_at = datetime.now(timezone.utc)
             for p in participants:
                 p.remaining_races = meeting.total_races - p.completed_races
-            logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, stuck at {meeting.completed_races}/{meeting.total_races})")
+            logger.info(f"Meeting {meeting.name} -> FINISHED (idle: {idle_minutes:.0f}min, stuck at {meeting.completed_races}/{meeting.total_races})")
             return
 
     # Revert LIVE→UPCOMING if scheduled time hasn't arrived yet
