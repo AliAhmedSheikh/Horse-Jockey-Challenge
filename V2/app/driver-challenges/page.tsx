@@ -3,16 +3,21 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
-import type { Participant } from "@/data/types";
+import type { Participant, Meeting } from "@/data/types";
 import ChallengeTable from "@/components/ChallengeTable";
 import ParticipantDetailModal from "@/components/ParticipantDetailModal";
 import { IconChevronRight, IconArrowLeft } from "@/data/icons";
 
 export default function DriverChallengesPage() {
   const { data, error, isLoading } = useSWR<{ drivers: Participant[] }>("/api/dashboard", fetcher, { refreshInterval: 30000 });
-  const drivers = data?.drivers ?? [];
+  const { data: meetingsData } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
+  const allDrivers = data?.drivers ?? [];
+  const meetings = meetingsData ?? [];
   const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
   const [detailModal, setDetailModal] = useState<{ participantId: string; meetingId: string } | null>(null);
+
+  const completedMeetingNames = new Set(meetings.filter((m) => m.status === "Completed").map((m) => m.name));
+  const drivers = allDrivers.filter((d) => !completedMeetingNames.has(d.meetingName));
 
   const byMeeting: Record<string, Participant[]> = {};
   for (const d of drivers) {
@@ -20,11 +25,12 @@ export default function DriverChallengesPage() {
     byMeeting[d.meetingName].push(d);
   }
 
-  const meetings = Object.entries(byMeeting).map(([name, parts]) => ({
+  const meetingsList = Object.entries(byMeeting).map(([name, parts]) => ({
     name,
     meetingId: parts[0]?.meetingId ?? "",
     count: parts.length,
     leader: parts.reduce((best, p) => (p.currentPoints > best.currentPoints ? p : best), parts[0]),
+    status: meetings.find((m) => m.name === name)?.status ?? "Not Started",
   }));
 
   const selectedParts = selectedMeeting ? byMeeting[selectedMeeting] ?? [] : [];
@@ -61,7 +67,7 @@ export default function DriverChallengesPage() {
         ) : (
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Driver Challenges</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Select a meeting to view driver analysis</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Active and upcoming driver meetings</p>
           </div>
         )}
       </div>
@@ -73,18 +79,18 @@ export default function DriverChallengesPage() {
         </div>
         <div className="card p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Meetings</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">{meetings.length}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white">{meetingsList.length}</p>
         </div>
       </div>
 
       {!selectedMeeting ? (
-        meetings.length === 0 ? (
+        meetingsList.length === 0 ? (
           <div className="card p-8 text-center">
-            <p className="text-sm text-slate-500 dark:text-slate-400">No driver challenges available</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">No active driver challenges</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {meetings.map((m) => (
+            {meetingsList.map((m) => (
               <button
                 key={m.name}
                 onClick={() => setSelectedMeeting(m.name)}
@@ -94,6 +100,11 @@ export default function DriverChallengesPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{m.name}</h3>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        m.status === "Live" ? "badge-value" : "badge-upcoming"
+                      }`}>
+                        {m.status === "Live" ? "Live" : "Upcoming"}
+                      </span>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                       <span>{m.count} drivers</span>
