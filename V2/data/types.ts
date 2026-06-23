@@ -14,7 +14,7 @@ export interface Meeting {
   id: string;
   name: string;
   type: "Jockey" | "Driver";
-  status: "Not Started" | "Live" | "Completed";
+  status: "Not Started" | "Live" | "Completed" | "Abandoned";
   completedRaces: number;
   totalRaces: number;
   leaderboard: { name: string; points: number; rank: number }[];
