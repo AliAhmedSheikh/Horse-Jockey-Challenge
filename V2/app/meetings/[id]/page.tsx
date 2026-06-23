@@ -154,18 +154,22 @@ export default function MeetingDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-amber-50 dark:bg-amber-500/5 rounded-lg p-4 text-center">
               <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wider font-semibold">Projected Winner</p>
-              <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">{prediction.projectedWinner}</p>
+              <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">{prediction.projectedWinner || "—"}</p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-4 text-center">
               <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Top 3 Predicted</p>
-              <div className="mt-2 space-y-1">
-                {prediction.predictions.slice(0, 3).map((p, i) => (
-                  <div key={p.id} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-700 dark:text-slate-300">{i + 1}. {p.name}</span>
-                    <span className="font-semibold text-amber-500">{p.estimatedFinalPoints} pts</span>
-                  </div>
-                ))}
-              </div>
+              {meeting.completedRaces > 0 ? (
+                <div className="mt-2 space-y-1">
+                  {prediction.predictions.slice(0, 3).map((p, i) => (
+                    <div key={p.id} className="flex items-center justify-between text-xs">
+                      <span className="text-slate-700 dark:text-slate-300">{i + 1}. {p.name}</span>
+                      <span className="font-semibold text-amber-500">{p.estimatedFinalPoints} pts</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Prediction available once racing starts.</p>
+              )}
             </div>
           </div>
         </div>
