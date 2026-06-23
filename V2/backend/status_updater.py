@@ -12,7 +12,7 @@ import logging
 import threading
 from datetime import datetime, timezone, timedelta
 
-from database import SessionLocal
+from database import SessionLocal, commit_lock
 from models import Meeting, Participant, Result, MeetingStatus, Price, Bet
 from time_utils import AU_TZ, today_aus
 from resolvers import MeetingResolver, RaceResolver
@@ -24,6 +24,8 @@ _already_repaired = set()
 
 # Lock to prevent concurrent auto-seed calls
 _seed_lock = threading.Lock()
+_last_seed_time = None
+_SEED_COOLDOWN = 3600  # Re-seed every hour to pick up new meetings (e.g. driver challenges appearing later)
 
 
 def update_meeting_statuses():
@@ -41,14 +43,24 @@ def update_meeting_statuses():
         # Cleanup: remove meetings from previous days entirely
         _cleanup_old_meetings(db, today)
 
-        # Auto-seed if no meetings exist for today
+        # Auto-seed if no meetings exist for today, or periodically to pick up new ones
+        global _last_seed_time
         today_count = db.query(Meeting).filter(Meeting.date == today).count()
-        if today_count == 0:
+        should_seed = today_count == 0
+        if not should_seed and _last_seed_time is not None:
+            elapsed = (now_aus - _last_seed_time).total_seconds()
+            if elapsed > _SEED_COOLDOWN:
+                should_seed = True
+        if not should_seed and _last_seed_time is None:
+            should_seed = True
+
+        if should_seed:
             if _seed_lock.acquire(blocking=False):
                 try:
-                    logger.info("No meetings for today — running auto-seed")
+                    logger.info("Running auto-seed to discover meetings")
                     from seed_data import seed_database
                     seed_database(db)
+                    _last_seed_time = now_aus
                 finally:
                     _seed_lock.release()
             else:
@@ -61,7 +73,8 @@ def update_meeting_statuses():
         for meeting in meetings:
             _update_single_meeting(db, meeting, now_aus, race_resolver)
 
-        db.commit()
+        with commit_lock:
+            db.commit()
     except Exception as e:
         logger.error(f"Status update failed: {e}", exc_info=True)
         db.rollback()
@@ -70,23 +83,19 @@ def update_meeting_statuses():
 
 
 def _cleanup_old_meetings(db, today):
-    """Delete completed/old meetings so they don't clutter the UI."""
+    """Delete meetings from previous days. Keep today's completed meetings visible until midnight."""
     old_meetings = db.query(Meeting).filter(Meeting.date < today).all()
-    finished_today = db.query(Meeting).filter(
-        Meeting.date == today,
-        Meeting.status == MeetingStatus.FINISHED.value,
-    ).all()
-    to_delete = old_meetings + finished_today
-    if to_delete:
-        for m in to_delete:
+    if old_meetings:
+        for m in old_meetings:
             mid = m.id
             db.query(Bet).filter(Bet.meeting_id == mid).delete(synchronize_session="fetch")
             db.query(Price).filter(Price.meeting_id == mid).delete(synchronize_session="fetch")
             db.query(Result).filter(Result.meeting_id == mid).delete(synchronize_session="fetch")
             db.query(Participant).filter(Participant.meeting_id == mid).delete(synchronize_session="fetch")
             db.delete(m)
-        logger.info(f"Cleaned up {len(to_delete)} old/finished meeting(s)")
-        db.commit()
+        logger.info(f"Cleaned up {len(old_meetings)} old meeting(s) from previous day(s)")
+        with commit_lock:
+            db.commit()
 
 
 def _update_single_meeting(db, meeting, now_aus, race_resolver):
@@ -110,6 +119,7 @@ def _handle_upcoming(db, meeting, scheduled_reached, st, race_resolver):
     """Handle UPCOMING meeting transitions."""
     if scheduled_reached or (not meeting.scheduled_time and meeting.completed_races > 0):
         meeting.status = MeetingStatus.LIVE.value
+        meeting.updated_at = datetime.now(timezone.utc)
         if meeting.completed_races == 0:
             meeting.completed_races = 0
         logger.info(f"Meeting {meeting.name} -> LIVE")
@@ -133,6 +143,7 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
         # Stale if >30 min old with no progress at all
         if age_minutes > 30 and meeting.completed_races == 0:
             meeting.status = MeetingStatus.FINISHED.value
+            meeting.updated_at = datetime.now(timezone.utc)
             for p in participants:
                 p.remaining_races = 0
             logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, no progress)")
@@ -140,6 +151,7 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
         # Also stale if >60 min old with partial progress (stuck mid-meeting)
         if age_minutes > 60 and meeting.completed_races > 0 and meeting.completed_races < meeting.total_races:
             meeting.status = MeetingStatus.FINISHED.value
+            meeting.updated_at = datetime.now(timezone.utc)
             for p in participants:
                 p.remaining_races = meeting.total_races - p.completed_races
             logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, stuck at {meeting.completed_races}/{meeting.total_races})")
@@ -164,6 +176,8 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
                 api_shows_results = race_data and race_data.get("status") in ("Final", "Interim")
     if st is not None and not scheduled_reached and not api_shows_results and meeting.completed_races == 0:
         meeting.status = MeetingStatus.UPCOMING.value
+        meeting.completed_races = 0
+        meeting.updated_at = datetime.now(timezone.utc)
         for p in participants:
             p.current_points = 0
             p.completed_races = 0
@@ -179,6 +193,7 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
     next_race = meeting.completed_races + 1
     if next_race > meeting.total_races:
         meeting.status = MeetingStatus.FINISHED.value
+        meeting.updated_at = datetime.now(timezone.utc)
         for p in participants:
             p.remaining_races = 0
         logger.info(f"Meeting {meeting.name} -> FINISHED")
@@ -191,6 +206,7 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
         ).count()
         if last_race_results > 0:
             meeting.status = MeetingStatus.FINISHED.value
+            meeting.updated_at = datetime.now(timezone.utc)
             for p in participants:
                 p.remaining_races = 0
             logger.info(f"Meeting {meeting.name} -> FINISHED (last race results exist)")
@@ -215,40 +231,5 @@ def _recalculate_participant_state(db, meeting, participants):
 
 
 def _handle_finished_repair(db, meeting):
-    """One-time repair: reset FINISHED meetings with incomplete results."""
-    if meeting.id in _already_repaired:
-        return
-
-    participants = db.query(Participant).filter(
-        Participant.meeting_id == meeting.id
-    ).all()
-    if not participants or len(participants) < 3:
-        return
-
-    participants_with_results = db.query(Result.participant_id).filter(
-        Result.meeting_id == meeting.id,
-    ).distinct().count()
-
-    result_count = db.query(Result).filter(
-        Result.meeting_id == meeting.id,
-    ).count()
-
-    participant_ratio = participants_with_results / len(participants) if participants else 0
-    result_ratio = result_count / len(participants) if participants else 0
-
-    if participant_ratio < 0.5 or (meeting.total_races > 3 and result_ratio < 2):
-        logger.info(
-            f"Repair: {meeting.name} has {participants_with_results}/{len(participants)} "
-            f"participants with results, {result_count} total — resetting"
-        )
-        db.query(Result).filter(Result.meeting_id == meeting.id).delete()
-        for p in participants:
-            p.current_points = 0
-            p.completed_races = 0
-            p.remaining_races = meeting.total_races
-        meeting.completed_races = 0
-        meeting.status = MeetingStatus.LIVE.value
-        _already_repaired.add(meeting.id)
-        db.commit()
-    else:
-        _already_repaired.add(meeting.id)
+    """Disabled — was causing infinite loop: FINISHED→LIVE→FINISHED cycling."""
+    _already_repaired.add(meeting.id)

@@ -288,12 +288,12 @@ def _seed_driver_meetings_from_listing(db: Session):
             id=mid, name=mtg["meeting_name"], date=aus_date,
             status=MeetingStatus.UPCOMING.value, type="driver",
             total_races=total_races, completed_races=0,
-                scheduled_time=datetime(now_aus.year, now_aus.month, now_aus.day, 7, 30, 0, tzinfo=timezone.utc),
-            )
-            db.add(meeting)
-            db.flush()
+            scheduled_time=datetime(now_aus.year, now_aus.month, now_aus.day, 7, 30, 0, tzinfo=timezone.utc),
+        )
+        db.add(meeting)
+        db.flush()
 
-            for name in driver_names:
+        for name in driver_names:
             if name == "Unknown":
                 continue
             pid = f"{mid}_{name.lower().replace(' ', '_')}"
