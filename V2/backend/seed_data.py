@@ -349,6 +349,14 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                     logger.info(f"Skipping {meeting_name} — similar to existing '{existing_name}'")
                     skip_fuzzy = True
                     break
+                # Also check shared venue prefix: if both names start with the same
+                # 7+ char prefix, they are likely the same venue (e.g. "Pinjarra Scarpside"
+                # and "Pinjarra Park" are both Pinjarra meetings).
+                if en and mn and len(en) >= 7 and len(mn) >= 7:
+                    if en[:7] == mn[:7]:
+                        logger.info(f"Skipping {meeting_name} — same venue prefix as '{existing_name}'")
+                        skip_fuzzy = True
+                        break
             if skip_fuzzy:
                 continue
             counter += 1
@@ -437,14 +445,17 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
             # Deduplicate participants by name (API sometimes returns duplicates)
             seen_pids = set()
             for i, p in enumerate(participants):
-                pid = f"{mid}_{p['name'].lower().replace(' ', '_')}"
+                name = p["name"].strip()
+                if name.lower() in ("unknown", "n/a", "not declared", "nr", "n.r", "not riding", ""):
+                    continue
+                pid = f"{mid}_{name.lower().replace(' ', '_')}"
                 if pid in seen_pids:
                     continue
                 seen_pids.add(pid)
                 participant = Participant(
                     id=pid,
                     meeting_id=mid,
-                    name=p["name"],
+                    name=name,
                     current_points=0,
                     completed_races=0,
                     remaining_races=total_races,
@@ -730,6 +741,25 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
         api_has_results = any(
             r.get("status") in ("Final", "Interim") for r in races_data
         ) if races_data else False
+
+        # Check if ALL races are abandoned
+        all_abandoned = False
+        if races_data:
+            statuses = [r.get("status", "") for r in races_data]
+            non_empty = [s for s in statuses if s]
+            if non_empty and all(s in ("Abandoned", "Scratched", "Washout", "Abnd") for s in non_empty):
+                all_abandoned = True
+
+        if all_abandoned and not api_has_results:
+            meeting.status = MeetingStatus.ABANDONED.value
+            meeting.completed_races = meeting.total_races
+            meeting.updated_at = datetime.now(timezone.utc)
+            for p in participants:
+                p.current_points = 0
+                p.completed_races = 0
+                p.remaining_races = 0
+            logger.info(f"Meeting {meeting.name} -> ABANDONED (all races abandoned)")
+            continue
 
         # Determine if meeting should stay UPCOMING
         st = meeting.scheduled_time

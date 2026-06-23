@@ -16,7 +16,7 @@ export default function ResultsPage() {
     { refreshInterval: 15000 }
   );
 
-  const meetings = (meetingsData ?? []).filter((m) => m.status === "Completed");
+  const meetings = (meetingsData ?? []).filter((m) => m.status === "Completed" || m.status === "Abandoned");
 
   if (isLoading) {
     return (
@@ -73,9 +73,9 @@ export default function ResultsPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                    m.status === "Live" ? "badge-value" : m.status === "Completed" ? "badge-completed" : "badge-upcoming"
+                    m.status === "Live" ? "badge-value" : m.status === "Completed" ? "badge-completed" : m.status === "Abandoned" ? "bg-red-500/10 text-red-500 border-red-500/20" : "badge-upcoming"
                   }`}>
-                    {m.status === "Not Started" ? "Upcoming" : m.status}
+                    {m.status === "Not Started" ? "Upcoming" : m.status === "Abandoned" ? "Abandoned" : m.status}
                   </span>
                   <IconChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${selectedId === m.id ? "rotate-90" : ""}`} />
                 </div>

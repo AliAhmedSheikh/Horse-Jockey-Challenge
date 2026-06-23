@@ -24,3 +24,5 @@ probe_*.py
 analyze.py
 playwright_*.py
 *.sql
+
+.env*

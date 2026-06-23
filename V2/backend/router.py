@@ -136,12 +136,32 @@ def _compute_win_probability(
 
     perf_signal = min(pts_per_race / 3.0, 1.0) if pts_per_race > 0 else 0.0
 
+    # Read formula weights from DB settings (defaults: 0.80, 0.20)
+    try:
+        from models import FormulaSetting
+        settings = {r.id: r.value for r in SessionLocal().query(FormulaSetting).all()}
+    except Exception:
+        settings = {}
+
+    pts_weight = settings.get("currentPointsWeight", 25.0) / 100.0  # 0.25 → scale to 0-1 range
+    rel_weight = settings.get("remainingRacesWeight", 20.0) / 100.0
+    # completed_races_weight used for data confidence scaling
+    completed_weight = settings.get("completedRacesWeight", 10.0) / 100.0
+
+    # Map slider values to actual multipliers:
+    # currentPointsWeight controls performance signal strength (higher = more weight on form)
+    perf_multiplier = 0.4 + pts_weight * 2.0  # range: 0.4 (low) to ~0.9 (max 25%)
+    # remainingRacesWeight controls relative boost strength
+    boost_multiplier = 0.05 + rel_weight * 0.75  # range: 0.05 (low) to ~0.20 (max 20%)
+    # completedRacesWeight adds a confidence bonus
+    confidence_bonus = completed_weight * 0.3
+
     if completed_races > 0:
-        combined = flat_prior + data_confidence * (perf_signal - flat_prior) * 0.8
+        combined = flat_prior + data_confidence * (perf_signal - flat_prior) * perf_multiplier
     else:
         combined = flat_prior + 0.4 * (perf_signal - flat_prior)
 
-    relative_boost = relative * 0.20 * data_confidence
+    relative_boost = relative * boost_multiplier * (data_confidence + confidence_bonus)
     combined += relative_boost
 
     return max(0.01, min(0.95, combined))

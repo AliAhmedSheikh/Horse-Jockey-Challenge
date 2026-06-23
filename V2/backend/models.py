@@ -10,6 +10,7 @@ class MeetingStatus(str, enum.Enum):
     UPCOMING = "upcoming"
     LIVE = "live"
     FINISHED = "finished"
+    ABANDONED = "abandoned"
 
 
 class MeetingType(str, enum.Enum):

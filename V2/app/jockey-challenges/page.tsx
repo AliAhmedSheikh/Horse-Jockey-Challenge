@@ -16,7 +16,7 @@ export default function JockeyChallengesPage() {
   const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
   const [detailModal, setDetailModal] = useState<{ participantId: string; meetingId: string } | null>(null);
 
-  const completedMeetingNames = new Set(meetings.filter((m) => m.status === "Completed").map((m) => m.name));
+  const completedMeetingNames = new Set(meetings.filter((m) => m.status === "Completed" || m.status === "Abandoned").map((m) => m.name));
   const jockeys = allJockeys.filter((j) => !completedMeetingNames.has(j.meetingName));
 
   const byMeeting: Record<string, Participant[]> = {};
