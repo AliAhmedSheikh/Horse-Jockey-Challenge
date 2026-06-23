@@ -1,9 +1,15 @@
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
+import threading
 
 DATABASE_URL = "sqlite:///./jockey_driver.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
+# Global lock to serialize DB commits from concurrent scheduler jobs
+# Prevents race conditions where status_updater and results_ingestor
+# both commit to the same meeting simultaneously (last-writer-wins)
+commit_lock = threading.Lock()
 
 _migration_checked = False
 

@@ -12,7 +12,7 @@ import logging
 import threading
 from datetime import datetime, timezone, timedelta
 
-from database import SessionLocal
+from database import SessionLocal, commit_lock
 from models import Meeting, Participant, Result, MeetingStatus, Price, Bet
 from time_utils import AU_TZ, today_aus
 from resolvers import MeetingResolver, RaceResolver
@@ -73,7 +73,8 @@ def update_meeting_statuses():
         for meeting in meetings:
             _update_single_meeting(db, meeting, now_aus, race_resolver)
 
-        db.commit()
+        with commit_lock:
+            db.commit()
     except Exception as e:
         logger.error(f"Status update failed: {e}", exc_info=True)
         db.rollback()
@@ -93,7 +94,8 @@ def _cleanup_old_meetings(db, today):
             db.query(Participant).filter(Participant.meeting_id == mid).delete(synchronize_session="fetch")
             db.delete(m)
         logger.info(f"Cleaned up {len(old_meetings)} old meeting(s) from previous day(s)")
-        db.commit()
+        with commit_lock:
+            db.commit()
 
 
 def _update_single_meeting(db, meeting, now_aus, race_resolver):
@@ -117,6 +119,7 @@ def _handle_upcoming(db, meeting, scheduled_reached, st, race_resolver):
     """Handle UPCOMING meeting transitions."""
     if scheduled_reached or meeting.completed_races > 0:
         meeting.status = MeetingStatus.LIVE.value
+        meeting.updated_at = datetime.now(timezone.utc)
         logger.info(f"Meeting {meeting.name} -> LIVE (scheduled={scheduled_reached}, completed={meeting.completed_races})")
 
 
@@ -132,6 +135,7 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
     # Auto-finish when all races complete
     if meeting.completed_races >= meeting.total_races and meeting.total_races > 0:
         meeting.status = MeetingStatus.FINISHED.value
+        meeting.updated_at = datetime.now(timezone.utc)
         for p in participants:
             p.remaining_races = 0
         logger.info(f"Meeting {meeting.name} -> FINISHED (all {meeting.total_races} races complete)")
@@ -149,6 +153,7 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
         # Stale if >30 min old with no progress at all
         if age_minutes > 30 and meeting.completed_races == 0:
             meeting.status = MeetingStatus.FINISHED.value
+            meeting.updated_at = datetime.now(timezone.utc)
             for p in participants:
                 p.remaining_races = 0
             logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, no progress)")
@@ -156,6 +161,7 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
         # Also stale if >60 min old with partial progress (stuck mid-meeting)
         if age_minutes > 60 and meeting.completed_races > 0 and meeting.completed_races < meeting.total_races:
             meeting.status = MeetingStatus.FINISHED.value
+            meeting.updated_at = datetime.now(timezone.utc)
             for p in participants:
                 p.remaining_races = meeting.total_races - p.completed_races
             logger.info(f"Meeting {meeting.name} -> FINISHED (stale: {age_minutes:.0f}min, stuck at {meeting.completed_races}/{meeting.total_races})")
@@ -180,6 +186,8 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
                 api_shows_results = race_data and race_data.get("status") in ("Final", "Interim")
     if st is not None and not scheduled_reached and not api_shows_results and meeting.completed_races == 0:
         meeting.status = MeetingStatus.UPCOMING.value
+        meeting.completed_races = 0
+        meeting.updated_at = datetime.now(timezone.utc)
         for p in participants:
             p.current_points = 0
             p.completed_races = 0
@@ -195,6 +203,7 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
     next_race = meeting.completed_races + 1
     if next_race > meeting.total_races:
         meeting.status = MeetingStatus.FINISHED.value
+        meeting.updated_at = datetime.now(timezone.utc)
         for p in participants:
             p.remaining_races = 0
         logger.info(f"Meeting {meeting.name} -> FINISHED")
@@ -207,6 +216,7 @@ def _handle_live(db, meeting, scheduled_reached, st, race_resolver):
         ).count()
         if last_race_results > 0:
             meeting.status = MeetingStatus.FINISHED.value
+            meeting.updated_at = datetime.now(timezone.utc)
             for p in participants:
                 p.remaining_races = 0
             logger.info(f"Meeting {meeting.name} -> FINISHED (last race results exist)")

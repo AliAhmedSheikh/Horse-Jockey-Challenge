@@ -119,7 +119,7 @@ def _compute_win_probability(
     else:
         combined = flat_prior + 0.4 * (perf_signal - flat_prior)
 
-    relative_boost = relative * 0.20 * max(data_confidence, 0.4 if completed_races == 0 else 0)
+    relative_boost = relative * 0.20 * data_confidence
     combined += relative_boost
 
     return max(0.01, min(0.95, combined))
@@ -228,7 +228,7 @@ def _meeting_to_frontend(meeting: Meeting, db: Session,
                 LatestUpdate(participant=p.name, pointsAdded=r.points_added, time=time_str)
             )
 
-    projected = sorted_ps[0].name if sorted_ps else ""
+    projected = sorted_ps[0].name if sorted_ps and meeting.completed_races > 0 else ""
     status_map = {
         MeetingStatus.UPCOMING.value: "Not Started",
         MeetingStatus.LIVE.value: "Live",
@@ -605,11 +605,13 @@ def get_dashboard(db: Session = Depends(get_db)):
         else:
             drivers.append(fp)
 
-    # Mark projected winners per meeting
+    # Mark projected winners per meeting (only for meetings with completed races)
     meeting_best = {}
+    meeting_completed = {m.id: m.completed_races for m in meetings}
     for fp in jockeys + drivers:
-        if fp.meetingId not in meeting_best or (-fp.currentPoints, fp.name) < (-meeting_best[fp.meetingId].currentPoints, meeting_best[fp.meetingId].name):
-            meeting_best[fp.meetingId] = fp
+        if meeting_completed.get(fp.meetingId, 0) > 0:
+            if fp.meetingId not in meeting_best or (-fp.currentPoints, fp.name) < (-meeting_best[fp.meetingId].currentPoints, meeting_best[fp.meetingId].name):
+                meeting_best[fp.meetingId] = fp
     for fp in meeting_best.values():
         fp.isProjectedWinner = True
 
@@ -684,7 +686,8 @@ def put_settings(payload: FormulaSettingsOut, db: Session = Depends(get_db)):
             existing.value = val
         else:
             db.add(FormulaSetting(id=key, value=val))
-    db.commit()
+    with commit_lock:
+        db.commit()
     return {"status": "ok", "message": "Settings saved"}
 
 
@@ -725,7 +728,8 @@ def reseed_data():
             db.query(Bet).delete()
             db.query(Participant).delete()
             db.query(Meeting).delete()
-            db.commit()
+            with commit_lock:
+                db.commit()
             _cache.clear()
             seed_database(db, force=True)
             update_meeting_statuses()
@@ -891,7 +895,8 @@ def create_bet(payload: BetCreate, db: Session = Depends(get_db)):
         pnl=0.0,
     )
     db.add(bet)
-    db.commit()
+    with commit_lock:
+        db.commit()
     db.refresh(bet)
     return BetOut(
         id=bet.id,
@@ -905,8 +910,8 @@ def create_bet(payload: BetCreate, db: Session = Depends(get_db)):
         potentialReturn=bet.potential_return,
         result=bet.result,
         pnl=bet.pnl,
-        createdAt=bet.created_at.isoformat() if b.created_at else "",
-        updatedAt=bet.updated_at.isoformat() if b.updated_at else "",
+        createdAt=bet.created_at.isoformat() if bet.created_at else "",
+        updatedAt=bet.updated_at.isoformat() if bet.updated_at else "",
     )
 
 
@@ -935,7 +940,8 @@ def update_bet(bet_id: int, payload: BetUpdate, db: Session = Depends(get_db)):
         elif payload.result == "void":
             bet.pnl = 0.0
             bet.settled_at = datetime.now(timezone.utc)
-    db.commit()
+    with commit_lock:
+        db.commit()
     db.refresh(bet)
     return BetOut(
         id=bet.id,
@@ -949,8 +955,8 @@ def update_bet(bet_id: int, payload: BetUpdate, db: Session = Depends(get_db)):
         potentialReturn=bet.potential_return,
         result=bet.result,
         pnl=bet.pnl,
-        createdAt=bet.created_at.isoformat() if b.created_at else "",
-        updatedAt=bet.updated_at.isoformat() if b.updated_at else "",
+        createdAt=bet.created_at.isoformat() if bet.created_at else "",
+        updatedAt=bet.updated_at.isoformat() if bet.updated_at else "",
     )
 
 
@@ -960,7 +966,8 @@ def delete_bet(bet_id: int, db: Session = Depends(get_db)):
     if not bet:
         raise HTTPException(status_code=404, detail="Bet not found")
     db.delete(bet)
-    db.commit()
+    with commit_lock:
+        db.commit()
     return {"status": "ok", "message": "Bet deleted"}
 
 

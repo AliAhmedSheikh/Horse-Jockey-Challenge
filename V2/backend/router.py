@@ -66,6 +66,9 @@ def _compute_win_probability(
     remaining = total_races - completed_races
     n_participants = len(all_participant_points) if all_participant_points else (total_participants or 12)
 
+    if completed_races == 0:
+        return 1.0 / max(n_participants, 2)
+
     # --- 1. Base rate: average points per race ---
     if completed_races > 0:
         pts_per_race = current_points / completed_races
@@ -78,8 +81,11 @@ def _compute_win_probability(
     # --- 2. Normalise within the field ---
     if all_participant_points and len(all_participant_points) > 1:
         max_pts = max(all_participant_points) if all_participant_points else 0
-        total_field_pts = sum(all_participant_points)
-        avg_field_pts = total_field_pts / len(all_participant_points)
+        scoring_pts = [p for p in all_participant_points if p > 0]
+        if scoring_pts:
+            avg_field_pts = sum(scoring_pts) / len(scoring_pts)
+        else:
+            avg_field_pts = 0
 
         if max_pts > 0:
             relative = (current_points - avg_field_pts) / max(max_pts, 1)
@@ -113,10 +119,41 @@ def _compute_win_probability(
     else:
         combined = flat_prior + 0.4 * (perf_signal - flat_prior)
 
-    relative_boost = relative * 0.20 * max(data_confidence, 0.4 if completed_races == 0 else 0)
+    relative_boost = relative * 0.20 * data_confidence
     combined += relative_boost
 
     return max(0.01, min(0.95, combined))
+
+
+def _compute_tied_indices(participants):
+    """For participants sorted by (-points, name), compute average index for tied groups.
+
+    Participants with the same points AND same completed_races share an average
+    index so they receive identical AI prices.
+    HOWEVER: when ALL participants have 0 completed races (pre-race), use individual
+    indices so the pre-race spread formula produces differentiated prices.
+    """
+    n = len(participants)
+    if n == 0:
+        return {}
+    all_pre_race = all(p.completed_races == 0 for p in participants)
+    idx_map = {}
+    i = 0
+    while i < n:
+        j = i
+        pts_i = participants[i].current_points
+        cr_i = participants[i].completed_races
+        while j < n and participants[j].current_points == pts_i and participants[j].completed_races == cr_i:
+            j += 1
+        if all_pre_race or (j - i) == 1:
+            for k in range(i, j):
+                idx_map[participants[k].id] = float(k)
+        else:
+            avg_idx = (i + j - 1) / 2.0
+            for k in range(i, j):
+                idx_map[participants[k].id] = avg_idx
+        i = j
+    return idx_map
 
 
 def _compute_ai_price_from_probability(probability: float) -> float:
@@ -191,7 +228,7 @@ def _meeting_to_frontend(meeting: Meeting, db: Session,
                 LatestUpdate(participant=p.name, pointsAdded=r.points_added, time=time_str)
             )
 
-    projected = sorted_ps[0].name if sorted_ps else ""
+    projected = sorted_ps[0].name if sorted_ps and meeting.completed_races > 0 else ""
     status_map = {
         MeetingStatus.UPCOMING.value: "Not Started",
         MeetingStatus.LIVE.value: "Live",
@@ -320,12 +357,14 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
     participants.sort(key=lambda p: (-p.current_points, p.name))
 
     all_pts = [p.current_points for p in participants]
+    avg_idx_map = _compute_tied_indices(participants)
 
     result = []
     for i, p in enumerate(participants):
-        result.append(_participant_to_frontend(p, db, all_pts, participant_index=i, total_participants=len(participants)))
+        fp = _participant_to_frontend(p, db, all_pts, participant_index=avg_idx_map[p.id], total_participants=len(participants))
+        result.append(fp)
 
-    if result:
+    if result and meeting.completed_races > 0:
         result[0].isProjectedWinner = True
 
     return result
@@ -344,10 +383,13 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
         raise HTTPException(status_code=404, detail="Participant not found")
 
     all_parts = db.query(Participant).filter(Participant.meeting_id == meeting_id).all()
+    all_parts.sort(key=lambda p: (-p.current_points, p.name))
     all_pts = [p.current_points for p in all_parts]
-    p_idx = next((i for i, pp in enumerate(all_parts) if pp.id == participant.id), None)
+    avg_idx_map = _compute_tied_indices(all_parts)
+    p_idx = avg_idx_map.get(participant.id, 0)
 
     total_races = meeting.total_races or 8
+
     ai_price, win_prob = _compute_ai_price(
         participant.current_points, participant.completed_races, total_races, all_pts, p_idx, len(all_parts)
     )
@@ -555,18 +597,21 @@ def get_dashboard(db: Session = Depends(get_db)):
         mtg_parts = participants_by_meeting.get(p.meeting_id, [])
         mtg_parts.sort(key=lambda pp: (-pp.current_points, pp.name))
         all_pts = [pp.current_points for pp in mtg_parts]
-        p_idx = next((i for i, pp in enumerate(mtg_parts) if pp.id == p.id), None)
+        avg_idx_map = _compute_tied_indices(mtg_parts)
+        p_idx = avg_idx_map.get(p.id, 0)
         fp = _participant_to_frontend_with_data(p, meeting, all_pts, participant_index=p_idx, total_participants=len(mtg_parts))
         if meeting and meeting.type == "jockey":
             jockeys.append(fp)
         else:
             drivers.append(fp)
 
-    # Mark projected winners per meeting
+    # Mark projected winners per meeting (only for meetings with completed races)
     meeting_best = {}
+    meeting_completed = {m.id: m.completed_races for m in meetings}
     for fp in jockeys + drivers:
-        if fp.meetingId not in meeting_best or (-fp.currentPoints, fp.name) < (-meeting_best[fp.meetingId].currentPoints, meeting_best[fp.meetingId].name):
-            meeting_best[fp.meetingId] = fp
+        if meeting_completed.get(fp.meetingId, 0) > 0:
+            if fp.meetingId not in meeting_best or (-fp.currentPoints, fp.name) < (-meeting_best[fp.meetingId].currentPoints, meeting_best[fp.meetingId].name):
+                meeting_best[fp.meetingId] = fp
     for fp in meeting_best.values():
         fp.isProjectedWinner = True
 
@@ -575,8 +620,11 @@ def get_dashboard(db: Session = Depends(get_db)):
         p = participant_map.get(r.participant_id)
         m = meeting_map.get(r.meeting_id)
         if p and m:
-            all_pts = [pp.current_points for pp in participants_by_meeting.get(m.id, [])]
-            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts, 0, len(all_pts))
+            mtg_parts = participants_by_meeting.get(m.id, [])
+            mtg_parts_s = sorted(mtg_parts, key=lambda pp: (-pp.current_points, pp.name))
+            all_pts = [pp.current_points for pp in mtg_parts_s]
+            avg_idx = _compute_tied_indices(mtg_parts_s)
+            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts, avg_idx.get(p.id, 0), len(all_pts))
 
             minutes_ago = int(
                 (datetime.now(timezone.utc) - (r.timestamp if r.timestamp and r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc))).total_seconds() / 60
@@ -638,7 +686,8 @@ def put_settings(payload: FormulaSettingsOut, db: Session = Depends(get_db)):
             existing.value = val
         else:
             db.add(FormulaSetting(id=key, value=val))
-    db.commit()
+    with commit_lock:
+        db.commit()
     return {"status": "ok", "message": "Settings saved"}
 
 
@@ -679,7 +728,8 @@ def reseed_data():
             db.query(Bet).delete()
             db.query(Participant).delete()
             db.query(Meeting).delete()
-            db.commit()
+            with commit_lock:
+                db.commit()
             _cache.clear()
             seed_database(db, force=True)
             update_meeting_statuses()
@@ -757,14 +807,18 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
     participants.sort(key=lambda p: (-p.current_points, p.name))
 
     all_pts = [p.current_points for p in participants]
+    avg_idx_map = _compute_tied_indices(participants)
+
+    is_prematch = meeting.completed_races == 0
 
     predictions = []
     total_parts = len(participants)
     for i, p in enumerate(participants):
         remaining = meeting.total_races - meeting.completed_races
+
         ai_price, win_prob = _compute_ai_price(
             p.current_points, p.completed_races, meeting.total_races, all_pts,
-            participant_index=i, total_participants=total_parts
+            participant_index=avg_idx_map[p.id], total_participants=total_parts
         )
 
         if meeting.completed_races > 0:
@@ -773,9 +827,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
             estimated_remaining_rides = round(remaining * participation_rate, 1)
             estimated_final = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
         else:
-            rank_ratio = i / max(total_parts - 1, 1) if total_parts > 1 else 0.5
-            pts_per_race = 0.3 + (1.0 - rank_ratio) * 1.8
-            estimated_final = round(pts_per_race * meeting.total_races, 1)
+            estimated_final = round(0.5 * meeting.total_races, 1)
 
         predictions.append({
             "id": p.id,
@@ -785,9 +837,13 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
             "remainingRaces": remaining,
             "winProbability": win_prob,
             "estimatedFinalPoints": estimated_final,
+            "aiPrice": ai_price,
         })
 
-    predictions.sort(key=lambda x: (-x["estimatedFinalPoints"]))
+    if not is_prematch:
+        predictions.sort(key=lambda x: (-x["estimatedFinalPoints"]))
+    else:
+        predictions.sort(key=lambda x: (-x["estimatedFinalPoints"]))
 
     return {
         "meetingId": meeting.id,
@@ -795,7 +851,7 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
         "status": meeting.status,
         "completedRaces": meeting.completed_races,
         "totalRaces": meeting.total_races,
-        "projectedWinner": predictions[0]["name"] if predictions else "",
+        "projectedWinner": "" if is_prematch else (predictions[0]["name"] if predictions else ""),
         "predictions": predictions,
     }
 
@@ -839,7 +895,8 @@ def create_bet(payload: BetCreate, db: Session = Depends(get_db)):
         pnl=0.0,
     )
     db.add(bet)
-    db.commit()
+    with commit_lock:
+        db.commit()
     db.refresh(bet)
     return BetOut(
         id=bet.id,
@@ -853,8 +910,8 @@ def create_bet(payload: BetCreate, db: Session = Depends(get_db)):
         potentialReturn=bet.potential_return,
         result=bet.result,
         pnl=bet.pnl,
-        createdAt=bet.created_at.isoformat() if b.created_at else "",
-        updatedAt=bet.updated_at.isoformat() if b.updated_at else "",
+        createdAt=bet.created_at.isoformat() if bet.created_at else "",
+        updatedAt=bet.updated_at.isoformat() if bet.updated_at else "",
     )
 
 
@@ -883,7 +940,8 @@ def update_bet(bet_id: int, payload: BetUpdate, db: Session = Depends(get_db)):
         elif payload.result == "void":
             bet.pnl = 0.0
             bet.settled_at = datetime.now(timezone.utc)
-    db.commit()
+    with commit_lock:
+        db.commit()
     db.refresh(bet)
     return BetOut(
         id=bet.id,
@@ -897,8 +955,8 @@ def update_bet(bet_id: int, payload: BetUpdate, db: Session = Depends(get_db)):
         potentialReturn=bet.potential_return,
         result=bet.result,
         pnl=bet.pnl,
-        createdAt=bet.created_at.isoformat() if b.created_at else "",
-        updatedAt=bet.updated_at.isoformat() if b.updated_at else "",
+        createdAt=bet.created_at.isoformat() if bet.created_at else "",
+        updatedAt=bet.updated_at.isoformat() if bet.updated_at else "",
     )
 
 
@@ -908,7 +966,8 @@ def delete_bet(bet_id: int, db: Session = Depends(get_db)):
     if not bet:
         raise HTTPException(status_code=404, detail="Bet not found")
     db.delete(bet)
-    db.commit()
+    with commit_lock:
+        db.commit()
     return {"status": "ok", "message": "Bet deleted"}
 
 

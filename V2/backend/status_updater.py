@@ -93,8 +93,8 @@ def _update_single_meeting(db, meeting, now_aus, race_resolver):
     """Update status for a single meeting."""
     st = meeting.scheduled_time
     if st is not None and st.tzinfo is None:
-        st = st.replace(tzinfo=AU_TZ)
-    scheduled_reached = st is not None and now_aus >= st
+        st = st.replace(tzinfo=timezone.utc)
+    scheduled_reached = st is not None and now_aus >= st.astimezone(AU_TZ)
 
     if meeting.status == MeetingStatus.UPCOMING.value:
         _handle_upcoming(db, meeting, scheduled_reached, st, race_resolver)

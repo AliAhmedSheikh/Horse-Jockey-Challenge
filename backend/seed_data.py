@@ -4,6 +4,7 @@ import logging
 import re
 
 from sqlalchemy.orm import Session
+from database import commit_lock
 from models import Meeting, Participant, Price, Result, MeetingStatus, MeetingType
 from scrapers.base import LadbrokesAPIScraper, invalidate_cache
 from time_utils import today_aus, AU_TZ
@@ -144,7 +145,8 @@ def seed_database(db: Session, force: bool = False):
                 db.query(Meeting.id).filter(Meeting.date != today)
             )).delete(synchronize_session='fetch')
             db.query(Meeting).filter(Meeting.date != today).delete()
-            db.commit()
+            with commit_lock:
+                db.commit()
 
     aus_date = today_aus()
 
@@ -286,12 +288,12 @@ def _seed_driver_meetings_from_listing(db: Session):
             id=mid, name=mtg["meeting_name"], date=aus_date,
             status=MeetingStatus.UPCOMING.value, type="driver",
             total_races=total_races, completed_races=0,
-            scheduled_time=datetime(now_aus.year, now_aus.month, now_aus.day, 17, 30, 0, tzinfo=AU_TZ),
-        )
-        db.add(meeting)
-        db.flush()
+                scheduled_time=datetime(now_aus.year, now_aus.month, now_aus.day, 7, 30, 0, tzinfo=timezone.utc),
+            )
+            db.add(meeting)
+            db.flush()
 
-        for name in driver_names:
+            for name in driver_names:
             if name == "Unknown":
                 continue
             pid = f"{mid}_{name.lower().replace(' ', '_')}"
@@ -304,7 +306,8 @@ def _seed_driver_meetings_from_listing(db: Session):
         existing.add(normalise_name(mtg["meeting_name"]))
         logger.info(f"Created driver meeting {mtg['meeting_name']} with {len(driver_names)} participants")
 
-    db.commit()
+    with commit_lock:
+        db.commit()
 
 
 def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
@@ -375,7 +378,7 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                     except (ValueError, TypeError):
                         continue
                 try:
-                    return datetime.fromtimestamp(int(s), tz=AU_TZ)
+                    return datetime.fromtimestamp(int(s), tz=timezone.utc)
                 except (ValueError, TypeError, OSError):
                     pass
                 return None
@@ -392,10 +395,13 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                     _d = datetime.strptime(aus_date, "%Y-%m-%d").date()
                 except (ValueError, TypeError):
                     _d = today_aus()
-                scheduled = datetime(_d.year, _d.month, _d.day, 17, 30, 0, tzinfo=AU_TZ)
+                scheduled = datetime(_d.year, _d.month, _d.day, 7, 30, 0, tzinfo=timezone.utc)
 
-            # Use the meeting's own date from its scheduled time, not today
-            meeting_date = scheduled.date() if hasattr(scheduled, 'date') else aus_date
+            # Use the meeting's own date from its scheduled time in AEST, not today
+            if hasattr(scheduled, 'astimezone'):
+                meeting_date = scheduled.astimezone(AU_TZ).date()
+            else:
+                meeting_date = scheduled.date() if hasattr(scheduled, 'date') else aus_date
             today_date = now_aus.date()
 
             # Skip meetings scheduled for a different day
@@ -456,7 +462,8 @@ def _seed_from_api(db: Session, api_jockey: list, api_driver: list):
                         timestamp=now,
                     ))
 
-    db.commit()
+    with commit_lock:
+        db.commit()
     _simulate_live_data(db, meeting_races_map)
     logger.info(f"Seeded {counter} meetings from API data")
 
@@ -493,7 +500,7 @@ def _seed_tab_meetings(db: Session, tab_jockey: list, tab_driver: list):
                 type=mtype,
                 total_races=total_races,
                 completed_races=0,
-                scheduled_time=datetime(now_aus.year, now_aus.month, now_aus.day, 17, 30, 0, tzinfo=AU_TZ),
+                scheduled_time=datetime(now_aus.year, now_aus.month, now_aus.day, 7, 30, 0, tzinfo=timezone.utc),
             )
             db.add(meeting)
             db.flush()
@@ -528,7 +535,8 @@ def _seed_tab_meetings(db: Session, tab_jockey: list, tab_driver: list):
             existing_names.add(normalise_name(meeting_name))
             logger.info(f"Seeded TAB meeting: {meeting_name} ({len(participants)} participants)")
 
-    db.commit()
+    with commit_lock:
+        db.commit()
 
 
 def _get_real_race_positions(race_data: dict, participants: list, price_map: dict = None):
@@ -740,7 +748,8 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
                 p.completed_races = 0
                 p.remaining_races = meeting.total_races
             db.query(Result).filter(Result.meeting_id == meeting.id).delete()
-            db.commit()
+            with commit_lock:
+                db.commit()
             continue
 
         if not races_data:
@@ -757,7 +766,8 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
                         p.completed_races = 0
                         p.remaining_races = meeting.total_races
                     meeting.completed_races = 0
-                    db.commit()
+                    with commit_lock:
+                        db.commit()
                 else:
                     logger.info(
                         f"Meeting {meeting.name}: no API race data but has {existing_results} results — keeping"
@@ -772,7 +782,8 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
                 f"Meeting {meeting.name}: no API race data, set to UPCOMING "
                 f"(status_manager will fetch results when available)"
             )
-            db.commit()
+            with commit_lock:
+                db.commit()
             continue
 
         # API-seeded meeting: determine completed races from real status
@@ -783,7 +794,8 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
             # No completed races yet — set to LIVE with 0 completed
             meeting.status = MeetingStatus.LIVE.value
             meeting.completed_races = 0
-            db.commit()
+            with commit_lock:
+                db.commit()
             continue
 
         meeting.status = MeetingStatus.LIVE.value
@@ -869,4 +881,5 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
             p.completed_races = race_counts[p.id]
             p.remaining_races = meeting.total_races - race_counts[p.id]
 
-        db.commit()
+        with commit_lock:
+            db.commit()

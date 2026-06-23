@@ -9,7 +9,7 @@ import threading
 import queue
 import logging
 from typing import Callable, Any, Optional
-from database import SessionLocal
+from database import SessionLocal, commit_lock
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,8 @@ def update_meeting_status(meeting_id: str, status: str, completed_races: int = N
         if cr is not None:
             update["completed_races"] = cr
         db.query(Meeting).filter(Meeting.id == mid).update(update)
-        db.commit()
+        with commit_lock:
+            db.commit()
     write_sync(_do, meeting_id, status, completed_races)
 
 
@@ -123,12 +124,13 @@ def upsert_result(meeting_id: str, participant_id: str, race_number: int,
             existing.final_points = fp
             existing.timestamp = datetime.now(timezone.utc)
         else:
-            db.add(Result(
-                meeting_id=mid, participant_id=pid, race_number=rn,
-                position=pos, points_added=pa, final_points=fp,
-                timestamp=datetime.now(timezone.utc),
-            ))
-        db.commit()
+                db.add(Result(
+                    meeting_id=mid, participant_id=pid, race_number=rn,
+                    position=pos, points_added=pa, final_points=fp,
+                    timestamp=datetime.now(timezone.utc),
+                ))
+        with commit_lock:
+            db.commit()
     write_sync(_do, meeting_id, participant_id, race_number, position, points_added, final_points)
 
 
@@ -163,7 +165,8 @@ def batch_upsert_results(results: list):
                     final_points=r["final_points"],
                     timestamp=now,
                 ))
-        db.commit()
+        with commit_lock:
+            db.commit()
     write_sync(_do, results)
 
 
@@ -184,7 +187,8 @@ def update_participant_points(meeting_id: str, updates: list):
                 "completed_races": u["completed_races"],
                 "remaining_races": u["remaining_races"],
             })
-        db.commit()
+        with commit_lock:
+            db.commit()
     write_sync(_do, meeting_id, updates)
 
 
@@ -210,5 +214,6 @@ def upsert_price(participant_id: str, meeting_id: str, bookmaker_name: str,
                 race_odds_json=roj,
                 timestamp=datetime.now(timezone.utc),
             ))
-        db.commit()
+        with commit_lock:
+            db.commit()
     write_sync(_do, participant_id, meeting_id, bookmaker_name, price, race_odds_json)

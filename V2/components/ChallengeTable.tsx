@@ -14,7 +14,7 @@ export default function ChallengeTable({
   type,
   onShowDetail,
 }: ChallengeTableProps) {
-  const sorted = [...participants].sort((a, b) => b.currentPoints - a.currentPoints);
+  const sorted = [...participants].sort((a, b) => b.currentPoints - a.currentPoints || a.name.localeCompare(b.name));
 
   return (
     <>

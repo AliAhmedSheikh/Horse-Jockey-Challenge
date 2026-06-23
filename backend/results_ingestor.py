@@ -18,7 +18,7 @@ import logging
 import time
 from datetime import datetime, timezone
 
-from database import SessionLocal
+from database import SessionLocal, commit_lock
 from models import Meeting, Participant, Price, Result, MeetingStatus
 from resolvers import ParticipantResolver, RaceResolver
 from scrapers.base import fetch_single_race_results
@@ -150,7 +150,8 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
         meeting.completed_races = next_race
         for attempt in range(5):
             try:
-                db.commit()
+                with commit_lock:
+                    db.commit()
                 break
             except Exception as e:
                 if "database is locked" in str(e) and attempt < 4:
@@ -240,7 +241,8 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
             meeting.completed_races = next_race
             for attempt in range(5):
                 try:
-                    db.commit()
+                    with commit_lock:
+                        db.commit()
                     break
                 except Exception as e:
                     if "database is locked" in str(e) and attempt < 4:
@@ -303,7 +305,8 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
 
     for attempt in range(5):
         try:
-            db.commit()
+            with commit_lock:
+                db.commit()
             break
         except Exception as e:
             if "database is locked" in str(e) and attempt < 4:

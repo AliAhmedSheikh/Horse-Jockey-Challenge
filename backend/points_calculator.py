@@ -13,7 +13,7 @@ This is separated from status_updater because:
 import logging
 from datetime import datetime, timezone
 
-from database import SessionLocal
+from database import SessionLocal, commit_lock
 from models import Meeting, Participant, Result, MeetingStatus
 from db_writer import update_participant_points
 
@@ -39,7 +39,8 @@ def recalculate_all_points():
         for meeting in meetings:
             _recalculate_meeting_points(db, meeting)
 
-        db.commit()
+        with commit_lock:
+            db.commit()
     except Exception as e:
         logger.error(f"Points calculation failed: {e}", exc_info=True)
         db.rollback()
