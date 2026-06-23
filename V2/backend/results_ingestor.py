@@ -116,7 +116,7 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
 
     # Check race status
     status = race_data.get("status", "")
-    if status in ("Abandoned", "Scratched", "Washout"):
+    if status in ("Abandoned", "Scratched", "Washout", "Abnd"):
         logger.info(
             f"Meeting {meeting.name} - Race {next_race} "
             f"status='{status}' — skipping (0 pts for all)"
@@ -148,6 +148,20 @@ def _process_meeting_race(db, meeting, race_resolver, participant_resolver):
                     time.sleep(1)
                 else:
                     raise
+
+        # If all races are now completed (abandoned), check if all were abandoned
+        if meeting.completed_races >= meeting.total_races:
+            all_results = db.query(Result).filter(
+                Result.meeting_id == meeting.id
+            ).all()
+            all_zero = all(r.points_added == 0 for r in all_results)
+            if all_zero:
+                meeting.status = MeetingStatus.FINISHED.value
+                meeting.updated_at = datetime.now(timezone.utc)
+                for p in participants:
+                    p.remaining_races = 0
+                db.commit()
+                logger.info(f"Meeting {meeting.name} -> FINISHED (all races abandoned)")
         return
     if status not in ("Final", "Interim", "Closed", "Results"):
         logger.info(
