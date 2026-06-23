@@ -1,5 +1,8 @@
+import threading
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
+
+commit_lock = threading.Lock()
 
 DATABASE_URL = "sqlite:///./jockey_driver.db"
 

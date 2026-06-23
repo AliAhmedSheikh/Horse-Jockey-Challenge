@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, asc, func
 
-from database import get_db, SessionLocal
+from database import get_db, SessionLocal, commit_lock
 from models import Meeting, Participant, Price, Result, MeetingStatus, FormulaSetting, Bet
 from time_utils import today_aus
 from schemas import (
@@ -87,6 +87,11 @@ def _compute_win_probability(
         else:
             avg_field_pts = 0
 
+        # --- Mathematical elimination ---
+        max_possible_final = current_points + remaining * 3.0
+        if max_pts > 0 and max_possible_final < max_pts:
+            return 0.01
+
         if max_pts > 0:
             relative = (current_points - avg_field_pts) / max(max_pts, 1)
         else:
@@ -130,14 +135,20 @@ def _compute_tied_indices(participants):
 
     Participants with the same points AND same completed_races share an average
     index so they receive identical AI prices.
-    HOWEVER: when ALL participants have 0 completed races (pre-race), use individual
-    indices so the pre-race spread formula produces differentiated prices.
+    When ALL participants have 0 completed races (pre-race), everyone is tied with
+    no data to separate them, so they all share the same average index and therefore
+    receive identical AI prices.
     """
     n = len(participants)
     if n == 0:
         return {}
     all_pre_race = all(p.completed_races == 0 for p in participants)
     idx_map = {}
+    if all_pre_race:
+        avg_idx = (n - 1) / 2.0
+        for k in range(n):
+            idx_map[participants[k].id] = avg_idx
+        return idx_map
     i = 0
     while i < n:
         j = i
@@ -145,7 +156,7 @@ def _compute_tied_indices(participants):
         cr_i = participants[i].completed_races
         while j < n and participants[j].current_points == pts_i and participants[j].completed_races == cr_i:
             j += 1
-        if all_pre_race or (j - i) == 1:
+        if (j - i) == 1:
             for k in range(i, j):
                 idx_map[participants[k].id] = float(k)
         else:

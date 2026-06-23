@@ -89,7 +89,7 @@ export default function MeetingsPage() {
       status: mObj?.status ?? "Not Started",
       completedRaces: mObj?.completedRaces ?? 0,
       totalRaces: mObj?.totalRaces ?? 0,
-      projectedWinner: mObj?.projectedWinner ?? leader.name,
+      projectedWinner: (mObj?.completedRaces ?? 0) > 0 ? (mObj?.projectedWinner ?? "") : "",
       leader,
     };
   });
