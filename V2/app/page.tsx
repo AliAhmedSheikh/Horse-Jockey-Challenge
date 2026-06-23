@@ -103,7 +103,7 @@ export default function DashboardPage() {
           icon={<IconCalendar className="w-5 h-5" />}
           trend={liveCount > 0 ? "up" : "neutral"}
           trendLabel={liveCount > 0 ? "Live" : "No live"}
-          onClick={() => router.push("/meetings")}
+          onClick={() => router.push("/live")}
         />
         <DataCard
           title="Jockey Challenges"
@@ -129,7 +129,7 @@ export default function DashboardPage() {
           subtitle="Tracked across all meetings"
           icon={<IconTrendingUp className="w-5 h-5" />}
           accent
-          onClick={() => router.push("/meetings")}
+          onClick={() => router.push("/jockey-challenges")}
         />
       </div>
 
@@ -138,8 +138,8 @@ export default function DashboardPage() {
           <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Quick Links</h2>
           <div className="space-y-2">
             {[
-              { label: "View Meetings", href: "/meetings", icon: IconCalendar },
-              { label: "Live Now", href: "/live", icon: IconTrendingUp },
+              { label: "Jockeys", href: "/jockey-challenges", icon: IconCalendar },
+              { label: "Drivers", href: "/driver-challenges", icon: IconTrendingUp },
               { label: "Results", href: "/results", icon: IconTrendingUp },
             ].map((link) => (
               <button
