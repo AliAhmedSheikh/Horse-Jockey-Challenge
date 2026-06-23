@@ -65,6 +65,7 @@ def _compute_win_probability(
     all_participant_points: Optional[List[float]] = None,
     participant_index: Optional[int] = None,
     total_participants: Optional[int] = None,
+    meeting_completed: bool = False,
 ) -> float:
     """Compute win probability from performance data only.
 
@@ -82,8 +83,7 @@ def _compute_win_probability(
     if completed_races == 0:
         return 1.0 / max(n_participants, 2)
 
-    # --- Completed meeting: final position-based pricing, no elimination ---
-    if completed_races >= total_races:
+    if meeting_completed:
         if all_participant_points and len(all_participant_points) > 1:
             max_pts = max(all_participant_points)
             if max_pts > 0:
@@ -209,6 +209,7 @@ def _compute_ai_price(
     all_participant_points: Optional[List[float]] = None,
     participant_index: Optional[int] = None,
     total_participants: Optional[int] = None,
+    meeting_completed: bool = False,
 ) -> tuple:
     """Compute AI price and win probability from performance data only.
 
@@ -216,7 +217,7 @@ def _compute_ai_price(
     """
     win_prob = _compute_win_probability(
         current_points, completed_races, total_races, all_participant_points,
-        participant_index, total_participants
+        participant_index, total_participants, meeting_completed
     )
     ai_price = _compute_ai_price_from_probability(win_prob)
     return ai_price, round(win_prob * 100, 1)
@@ -296,9 +297,10 @@ def _participant_to_frontend_with_data(
     total_participants: Optional[int] = None,
 ) -> ParticipantOut:
     total_races = meeting.total_races if meeting else 8
+    meeting_completed = meeting and meeting.completed_races >= total_races if meeting else False
     ai_price, win_prob = _compute_ai_price(
         p.current_points, p.completed_races, total_races, all_participant_points,
-        participant_index, total_participants
+        participant_index, total_participants, meeting_completed
     )
 
     remaining = total_races - p.completed_races if meeting else 0
@@ -325,8 +327,9 @@ def _participant_to_frontend_with_data(
 def _participant_to_frontend(p: Participant, db: Session, all_participant_points: Optional[List[float]] = None, is_projected_winner: bool = False, participant_index: Optional[int] = None, total_participants: Optional[int] = None) -> ParticipantOut:
     meeting = db.query(Meeting).filter(Meeting.id == p.meeting_id).first()
     total_races = meeting.total_races if meeting else 8
+    meeting_completed = meeting is not None and meeting.completed_races >= total_races
     ai_price, win_prob = _compute_ai_price(
-        p.current_points, p.completed_races, total_races, all_participant_points, participant_index, total_participants
+        p.current_points, p.completed_races, total_races, all_participant_points, participant_index, total_participants, meeting_completed
     )
 
     remaining = total_races - p.completed_races if meeting else 0
@@ -427,9 +430,10 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
     p_idx = avg_idx_map.get(participant.id, 0)
 
     total_races = meeting.total_races or 8
+    meeting_completed_flag = meeting.completed_races >= total_races
 
     ai_price, win_prob = _compute_ai_price(
-        participant.current_points, participant.completed_races, total_races, all_pts, p_idx, len(all_parts)
+        participant.current_points, participant.completed_races, total_races, all_pts, p_idx, len(all_parts), meeting_completed_flag
     )
 
     remaining = total_races - participant.completed_races
@@ -694,7 +698,7 @@ def get_dashboard(db: Session = Depends(get_db)):
             mtg_parts_s = sorted(mtg_parts, key=lambda pp: (-pp.current_points, pp.name))
             all_pts = [pp.current_points for pp in mtg_parts_s]
             avg_idx = _compute_tied_indices(mtg_parts_s)
-            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts, avg_idx.get(p.id, 0), len(all_pts))
+            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts, avg_idx.get(p.id, 0), len(all_pts), m.completed_races >= m.total_races)
 
             minutes_ago = int(
                 (datetime.now(timezone.utc) - (r.timestamp if r.timestamp and r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc))).total_seconds() / 60
@@ -888,7 +892,8 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
 
         ai_price, win_prob = _compute_ai_price(
             p.current_points, p.completed_races, meeting.total_races, all_pts,
-            participant_index=avg_idx_map[p.id], total_participants=total_parts
+            participant_index=avg_idx_map[p.id], total_participants=total_parts,
+            meeting_completed=meeting.completed_races >= meeting.total_races
         )
 
         if meeting.completed_races > 0:
