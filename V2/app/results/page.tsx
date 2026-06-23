@@ -16,7 +16,7 @@ export default function ResultsPage() {
     { refreshInterval: 15000 }
   );
 
-  const meetings = meetingsData.filter((m) => m.status === "Completed");
+  const meetings = (meetingsData ?? []).filter((m) => m.status === "Completed");
 
   if (isLoading) {
     return (
