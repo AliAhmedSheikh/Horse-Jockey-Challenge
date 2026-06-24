@@ -166,7 +166,7 @@ export default function DashboardPage() {
             {meetings.map((m) => (
               <div
                 key={m.id}
-                onClick={() => router.push(`/meetings/${m.id}`)}
+                onClick={() => router.push(m.type === "Jockey" ? `/jockey-challenges?meeting=${encodeURIComponent(m.name)}` : `/driver-challenges?meeting=${encodeURIComponent(m.name)}`)}
                 className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors"
               >
                 <div className="flex items-center gap-2.5">

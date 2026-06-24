@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import type { Participant, Meeting } from "@/data/types";
@@ -9,11 +10,12 @@ import ParticipantDetailModal from "@/components/ParticipantDetailModal";
 import { IconChevronRight, IconArrowLeft } from "@/data/icons";
 
 export default function DriverChallengesPage() {
+  const searchParams = useSearchParams();
   const { data, error, isLoading } = useSWR<{ drivers: Participant[] }>("/api/dashboard", fetcher, { refreshInterval: 30000 });
   const { data: meetingsData } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
   const allDrivers = data?.drivers ?? [];
   const meetings = meetingsData ?? [];
-  const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
+  const [selectedMeeting, setSelectedMeeting] = useState<string | null>(searchParams.get("meeting"));
   const [detailModal, setDetailModal] = useState<{ participantId: string; meetingId: string } | null>(null);
 
   const completedMeetingNames = new Set(meetings.filter((m) => m.status === "Completed" || m.status === "Abandoned").map((m) => m.name));
