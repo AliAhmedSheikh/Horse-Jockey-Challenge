@@ -618,37 +618,7 @@ def get_meeting_detail(meeting_id: str, db: Session = Depends(get_db)):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
-
-    participants = db.query(Participant).filter(
-        Participant.meeting_id == meeting_id
-    ).all()
-
-    participant_out = []
-    for p in participants:
-        prices = db.query(Price).filter(
-            Price.participant_id == p.id
-        ).all()
-        price_dict = {pr.bookmaker_name: pr.price for pr in prices}
-
-        participant_out.append({
-            "id": p.id,
-            "name": p.name,
-            "currentPoints": p.current_points,
-            "completedRaces": p.completed_races,
-            "ladbrokesPrice": price_dict.get("Ladbrokes"),
-            "startingOdds": price_dict.get("TABtouch_PreRace"),
-        })
-
-    return {
-        "id": meeting.id,
-        "name": meeting.name,
-        "type": meeting.type.value if hasattr(meeting.type, 'value') else meeting.type,
-        "status": meeting.status.value if hasattr(meeting.status, 'value') else meeting.status,
-        "completedRaces": meeting.completed_races,
-        "totalRaces": meeting.total_races,
-        "date": meeting.date,
-        "participants": participant_out,
-    }
+    return _meeting_to_frontend(meeting, db)
 
 
 def _cached(key: str, ttl: int = CACHE_TTL):
