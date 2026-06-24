@@ -297,6 +297,16 @@ def _meeting_to_frontend(meeting: Meeting, db: Session,
     )
 
 
+def _get_tabtouch_price(db: Session, participant_id: str) -> Optional[float]:
+    price_row = db.query(Price).filter(
+        Price.participant_id == participant_id,
+        Price.bookmaker_name == "TABtouch_PreRace",
+    ).first()
+    if price_row:
+        return price_row.price
+    return None
+
+
 def _participant_to_frontend_with_data(
     p: Participant,
     meeting: Optional[Meeting],
@@ -304,6 +314,7 @@ def _participant_to_frontend_with_data(
     is_projected_winner: bool = False,
     participant_index: Optional[int] = None,
     total_participants: Optional[int] = None,
+    db: Optional[Session] = None,
 ) -> ParticipantOut:
     total_races = meeting.total_races if meeting else 8
     ai_price, win_prob = _compute_ai_price(
@@ -324,11 +335,14 @@ def _participant_to_frontend_with_data(
             estimated_remaining_rides = remaining
         projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
 
+    tabtouch_price = _get_tabtouch_price(db, p.id) if db else None
+
     return ParticipantOut(
         id=p.id, name=p.name, meetingName=meeting.name if meeting else "", meetingId=p.meeting_id,
         aiPrice=ai_price, winProbability=win_prob,
         currentPoints=p.current_points, projectedFinalPoints=projected,
         isProjectedWinner=is_projected_winner,
+        tabtouchPrice=tabtouch_price,
     )
 
 
@@ -352,6 +366,8 @@ def _participant_to_frontend(p: Participant, db: Session, all_participant_points
             estimated_remaining_rides = remaining
         projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
 
+    tabtouch_price = _get_tabtouch_price(db, p.id)
+
     return ParticipantOut(
         id=p.id,
         name=p.name,
@@ -362,6 +378,7 @@ def _participant_to_frontend(p: Participant, db: Session, all_participant_points
         currentPoints=p.current_points,
         projectedFinalPoints=projected,
         isProjectedWinner=is_projected_winner,
+        tabtouchPrice=tabtouch_price,
     )
 
 
@@ -601,7 +618,37 @@ def get_meeting_detail(meeting_id: str, db: Session = Depends(get_db)):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
-    return _meeting_to_frontend(meeting, db)
+
+    participants = db.query(Participant).filter(
+        Participant.meeting_id == meeting_id
+    ).all()
+
+    participant_out = []
+    for p in participants:
+        prices = db.query(Price).filter(
+            Price.participant_id == p.id
+        ).all()
+        price_dict = {pr.bookmaker_name: pr.price for pr in prices}
+
+        participant_out.append({
+            "id": p.id,
+            "name": p.name,
+            "currentPoints": p.current_points,
+            "completedRaces": p.completed_races,
+            "ladbrokesPrice": price_dict.get("Ladbrokes"),
+            "startingOdds": price_dict.get("TABtouch_PreRace"),
+        })
+
+    return {
+        "id": meeting.id,
+        "name": meeting.name,
+        "type": meeting.type.value if hasattr(meeting.type, 'value') else meeting.type,
+        "status": meeting.status.value if hasattr(meeting.status, 'value') else meeting.status,
+        "completedRaces": meeting.completed_races,
+        "totalRaces": meeting.total_races,
+        "date": meeting.date,
+        "participants": participant_out,
+    }
 
 
 def _cached(key: str, ttl: int = CACHE_TTL):
@@ -679,7 +726,7 @@ def get_dashboard(db: Session = Depends(get_db)):
         all_pts = [pp.current_points for pp in mtg_parts]
         avg_idx_map = _compute_tied_indices(mtg_parts)
         p_idx = avg_idx_map.get(p.id, 0)
-        fp = _participant_to_frontend_with_data(p, meeting, all_pts, participant_index=p_idx, total_participants=len(mtg_parts))
+        fp = _participant_to_frontend_with_data(p, meeting, all_pts, participant_index=p_idx, total_participants=len(mtg_parts), db=db)
         if meeting and meeting.type == "jockey":
             jockeys.append(fp)
         else:

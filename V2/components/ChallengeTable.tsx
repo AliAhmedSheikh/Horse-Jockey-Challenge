@@ -22,8 +22,9 @@ export default function ChallengeTable({
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
             <colgroup>
-              <col className="w-[45%]" />
-              <col className="w-[25%]" />
+              <col className="w-[35%]" />
+              <col className="w-[20%]" />
+              <col className="w-[15%]" />
               <col className="w-[15%]" />
               <col className="w-[15%]" />
             </colgroup>
@@ -37,6 +38,9 @@ export default function ChallengeTable({
                 </th>
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   AI Price
+                </th>
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  TAB
                 </th>
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Pts
@@ -84,6 +88,13 @@ export default function ChallengeTable({
                   <td className="px-2 py-3 text-sm font-semibold text-slate-900 dark:text-white text-right">
                     ${p.aiPrice.toFixed(2)}
                   </td>
+                  <td className="px-2 py-3 text-sm font-semibold text-right">
+                    {p.tabtouchPrice != null ? (
+                      <span className="text-blue-600 dark:text-blue-400">${p.tabtouchPrice.toFixed(2)}</span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="px-2 py-3 text-sm font-bold text-slate-900 dark:text-white text-right">
                     {p.currentPoints}
                   </td>
@@ -127,13 +138,25 @@ export default function ChallengeTable({
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   AI Price
                 </p>
                 <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
                   ${p.aiPrice.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  TAB
+                </p>
+                <p className="text-sm font-bold mt-0.5">
+                  {p.tabtouchPrice != null ? (
+                    <span className="text-blue-600 dark:text-blue-400">${p.tabtouchPrice.toFixed(2)}</span>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
                 </p>
               </div>
               <div>

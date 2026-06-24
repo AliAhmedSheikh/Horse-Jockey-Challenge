@@ -8,6 +8,7 @@ export interface Participant {
   currentPoints: number;
   projectedFinalPoints: number;
   isProjectedWinner: boolean;
+  tabtouchPrice?: number | null;
 }
 
 export interface Meeting {

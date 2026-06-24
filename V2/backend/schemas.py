@@ -40,6 +40,7 @@ class ParticipantOut(BaseModel):
     currentPoints: float
     projectedFinalPoints: float
     isProjectedWinner: bool
+    tabtouchPrice: Optional[float] = None
 
 
 class ResultOut(BaseModel):
