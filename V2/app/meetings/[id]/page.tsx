@@ -192,28 +192,30 @@ export default function MeetingDetailPage() {
           <table className="w-full table-fixed">
             <colgroup>
               <col className="w-[40px]" />
-              <col className="w-[50%]" />
-              <col className="w-[20%]" />
-              <col className="w-[20%]" />
+              <col className="w-[40%]" />
+              <col className="w-[17%]" />
+              <col className="w-[17%]" />
+              <col className="w-[13%]" />
             </colgroup>
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/80">
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-8">#</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Participant</th>
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">AI Price</th>
+                <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">TAB</th>
                 <th className="text-right px-2 py-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pts</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
               {participantsLoading ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading participants...
                   </td>
                 </tr>
               ) : participantsEmpty ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     No participants loaded
                   </td>
                 </tr>
@@ -241,6 +243,13 @@ export default function MeetingDetailPage() {
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</span>
                   </td>
                   <td className="px-2 py-3 text-right">
+                    {p.tabtouchPrice != null ? (
+                      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">${p.tabtouchPrice.toFixed(2)}</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-3 text-right">
                     <span className="text-sm font-bold text-slate-900 dark:text-white">{p.currentPoints}</span>
                   </td>
                 </tr>
@@ -263,10 +272,18 @@ export default function MeetingDetailPage() {
                 </button>
                 {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
               </div>
-              <div className="grid grid-cols-2 gap-2 text-center">
+              <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">AI Price</p>
                   <p className="text-sm font-bold text-slate-900 dark:text-white">${p.aiPrice.toFixed(2)}</p>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">TAB</p>
+                  {p.tabtouchPrice != null ? (
+                    <p className="text-sm font-bold text-blue-600 dark:text-blue-400">${p.tabtouchPrice.toFixed(2)}</p>
+                  ) : (
+                    <p className="text-sm text-slate-400">—</p>
+                  )}
                 </div>
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">Points</p>

@@ -1,15 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
-import type { Meeting } from "@/data/types";
+import type { Meeting, PodiumEntry } from "@/data/types";
 import DataCard from "@/components/DataCard";
-import { IconList, IconUser, IconCar, IconChevronRight, IconRefresh } from "@/data/icons";
+import { IconList, IconUser, IconCar, IconChevronRight, IconStar, IconRefresh } from "@/data/icons";
 
 export default function ResultsPage() {
-  const router = useRouter();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: meetingsData, error, isLoading, mutate } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
+  const { data: podium, isLoading: podiumLoading } = useSWR<PodiumEntry[]>(
+    selectedId ? `/api/meetings/${selectedId}/podium` : null,
+    fetcher,
+    { refreshInterval: 15000 }
+  );
 
   const meetings = (meetingsData ?? []).filter((m) => m.status === "Completed" || m.status === "Abandoned");
 
@@ -54,27 +59,68 @@ export default function ResultsPage() {
           {meetings.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">No meetings available</p>
           ) : meetings.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => router.push(`/meetings/${m.id}`)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700/50 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors text-left group"
-            >
-              <div className="flex items-center gap-3">
-                {m.type === "Jockey" ? <IconUser className="w-4 h-4 text-slate-400" /> : <IconCar className="w-4 h-4 text-slate-400" />}
-                <div>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-white">{m.name}</span>
-                  <span className="ml-2 text-[10px] text-slate-500 dark:text-slate-400">{m.type}</span>
+            <div key={m.id} className="border border-slate-200 dark:border-slate-700/50 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setSelectedId(selectedId === m.id ? null : m.id)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  {m.type === "Jockey" ? <IconUser className="w-4 h-4 text-slate-400" /> : <IconCar className="w-4 h-4 text-slate-400" />}
+                  <div>
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">{m.name}</span>
+                    <span className="ml-2 text-[10px] text-slate-500 dark:text-slate-400">{m.type}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                  m.status === "Completed" ? "badge-completed" : m.status === "Abandoned" ? "bg-red-500/10 text-red-500 border-red-500/20" : "badge-upcoming"
-                }`}>
-                  {m.status === "Abandoned" ? "Abandoned" : m.status}
-                </span>
-                <IconChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" />
-              </div>
-            </button>
+                <div className="flex items-center gap-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                    m.status === "Completed" ? "badge-completed" : m.status === "Abandoned" ? "bg-red-500/10 text-red-500 border-red-500/20" : "badge-upcoming"
+                  }`}>
+                    {m.status === "Abandoned" ? "Abandoned" : m.status}
+                  </span>
+                  <IconChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${selectedId === m.id ? "rotate-90" : ""}`} />
+                </div>
+              </button>
+
+              {selectedId === m.id && (
+                <div key={selectedId} className="px-4 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700/50">
+                  {podiumLoading ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">Loading...</p>
+                  ) : !podium || podium.length === 0 ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                      {m.status === "Not Started" ? "Meeting has not started yet" : "No results available"}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {podium.map((entry) => (
+                        <div key={entry.position} className={`rounded-xl p-4 text-center ${
+                          entry.position === 1
+                            ? "bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-500/10 dark:to-amber-500/5 border border-amber-200 dark:border-amber-500/20"
+                            : entry.position === 2
+                            ? "bg-slate-50 dark:bg-slate-700/20 border border-slate-200 dark:border-slate-700/50"
+                            : "bg-slate-50 dark:bg-slate-700/20 border border-slate-200 dark:border-slate-700/50"
+                        }`}>
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 ${
+                            entry.position === 1
+                              ? "bg-amber-500 text-white"
+                              : entry.position === 2
+                              ? "bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200"
+                              : "bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300"
+                          }`}>
+                            <span className="text-sm font-bold">{entry.position}</span>
+                          </div>
+                          <p className="text-sm font-bold text-slate-900 dark:text-white">{entry.participant_name}</p>
+                          <div className="flex items-center justify-center gap-1 mt-1">
+                            <span className="text-lg font-bold text-emerald-500">{entry.final_points}</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">pts</span>
+                            {entry.position === 1 && <IconStar className="w-3.5 h-3.5 text-amber-400 ml-1" />}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       </div>

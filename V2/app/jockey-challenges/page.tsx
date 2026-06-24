@@ -1,18 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import type { Participant, Meeting } from "@/data/types";
 import ChallengeTable from "@/components/ChallengeTable";
 import ParticipantDetailModal from "@/components/ParticipantDetailModal";
 import { IconChevronRight, IconArrowLeft } from "@/data/icons";
-
-function getInitialMeeting(): string | null {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
-  return params.get("meeting");
-}
 
 export default function JockeyChallengesPage() {
   const { data, error, isLoading } = useSWR<{ jockeys: Participant[] }>("/api/dashboard", fetcher, { refreshInterval: 30000 });
@@ -21,11 +15,6 @@ export default function JockeyChallengesPage() {
   const meetings = meetingsData ?? [];
   const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
   const [detailModal, setDetailModal] = useState<{ participantId: string; meetingId: string } | null>(null);
-
-  useEffect(() => {
-    const m = getInitialMeeting();
-    if (m) setSelectedMeeting(m);
-  }, []);
 
   const completedMeetingNames = new Set(meetings.filter((m) => m.status === "Completed" || m.status === "Abandoned").map((m) => m.name));
   const jockeys = allJockeys.filter((j) => !completedMeetingNames.has(j.meetingName));
