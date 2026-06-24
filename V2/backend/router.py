@@ -1196,3 +1196,16 @@ def run_audit(db: Session = Depends(get_db)):
         "mediumSeverity": medium_severity,
         "issues": issues,
     }
+
+
+@router.post("/admin/pull-prerace")
+def pull_prerace(db: Session = Depends(get_db)):
+    """Admin endpoint to pull pre-race TABtouch odds."""
+    from scrapers.tabtouch_prerace import pull_all_prerace_for_today
+
+    total = pull_all_prerace_for_today(db)
+
+    return {
+        "status": "success",
+        "prices_inserted": total
+    }
