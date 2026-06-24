@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import type { Participant, Meeting } from "@/data/types";
@@ -9,14 +8,24 @@ import ChallengeTable from "@/components/ChallengeTable";
 import ParticipantDetailModal from "@/components/ParticipantDetailModal";
 import { IconChevronRight, IconArrowLeft } from "@/data/icons";
 
+function getInitialMeeting(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("meeting");
+}
+
 export default function DriverChallengesPage() {
-  const searchParams = useSearchParams();
   const { data, error, isLoading } = useSWR<{ drivers: Participant[] }>("/api/dashboard", fetcher, { refreshInterval: 30000 });
   const { data: meetingsData } = useSWR<Meeting[]>("/api/meetings/today", fetcher, { refreshInterval: 30000 });
   const allDrivers = data?.drivers ?? [];
   const meetings = meetingsData ?? [];
-  const [selectedMeeting, setSelectedMeeting] = useState<string | null>(searchParams.get("meeting"));
+  const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
   const [detailModal, setDetailModal] = useState<{ participantId: string; meetingId: string } | null>(null);
+
+  useEffect(() => {
+    const m = getInitialMeeting();
+    if (m) setSelectedMeeting(m);
+  }, []);
 
   const completedMeetingNames = new Set(meetings.filter((m) => m.status === "Completed" || m.status === "Abandoned").map((m) => m.name));
   const drivers = allDrivers.filter((d) => !completedMeetingNames.has(d.meetingName));
