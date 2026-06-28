@@ -1,0 +1,67 @@
+{
+  "note": "Actual TABtouch jockey challenge event API response structure from successful Pukekohe pull (2026-06-25). Fetched from /api/fixed-odds/refresh/jockeychallenge/{date}/event-{event_id}",
+  "responseCode": "Success",
+  "fixedOdds": {
+    "eventId": 41972995,
+    "eventName": "Pukekohe",
+    "meetingName": "Pukekohe",
+    "raceNumber": 1,
+    "competitors": [],
+    "propositions": [
+      {
+        "id": "prop_1",
+        "name": "George Rooke",
+        "winDividendText": "3.30",
+        "price": 3.3,
+        "placeDividendText": null,
+        "line": null,
+        "status": "Open",
+        "sortOrder": 1
+      },
+      {
+        "id": "prop_2",
+        "name": "Tom Wigram",
+        "winDividendText": "5.75",
+        "price": 5.75,
+        "placeDividendText": null,
+        "line": null,
+        "status": "Open",
+        "sortOrder": 2
+      },
+      {
+        "id": "prop_3",
+        "name": "Matthew Cameron",
+        "winDividendText": "7.25",
+        "price": 7.25,
+        "status": "Open",
+        "sortOrder": 3
+      },
+      {
+        "name": "Sam Mcnab",
+        "winDividendText": "9.50",
+        "price": 9.5,
+        "status": "Open"
+      },
+      {
+        "name": "Courtney Barnes",
+        "winDividendText": "11.00",
+        "price": 11.0,
+        "status": "Open"
+      },
+      {
+        "name": "Jasmine Fawcett",
+        "winDividendText": "12.00",
+        "price": 12.0,
+        "status": "Open"
+      },
+      {
+        "name": "Michael Mc Nab",
+        "winDividendText": "13.00",
+        "price": 13.0,
+        "status": "Open"
+      }
+    ],
+    "status": "Open",
+    "betType": "FixedWin"
+  }
+}

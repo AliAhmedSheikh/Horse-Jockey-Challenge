@@ -1,0 +1,35 @@
+{
+  "note": "Ladbrokes API response - jockey challenge meetings listing. Fetched from https://api.ladbrokes.com.au/affiliates/v1/racing/jockey-challenge/events/{date}",
+  "inferred_structure": {
+    "meetings": [
+      {
+        "meetingId": "46874452-cb22-4fe0-b789-0e3e172fcf69",
+        "meetingName": "Pukekohe",
+        "venue": "Pukekohe",
+        "raceType": "Jockey Challenge",
+        "date": "2026-06-25",
+        "totalRaces": 10,
+        "participants": [
+          {
+            "name": "George Rooke",
+            "price": 3.3,
+            "horse": "Some Horse"
+          },
+          {
+            "name": "Tom Wigram",
+            "price": 5.75
+          }
+        ]
+      },
+      {
+        "meetingId": "13b1a2a0-a1a9-4a07-a00a-169557c827e1",
+        "meetingName": "Wyong",
+        "venue": "Wyong",
+        "raceType": "Jockey Challenge",
+        "date": "2026-06-25",
+        "totalRaces": 7,
+        "participants": []
+      }
+    ]
+  }
+}
