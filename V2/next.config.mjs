@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  generateBuildId: () => Date.now().toString(),
   async rewrites() {
     return [
       {

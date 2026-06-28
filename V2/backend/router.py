@@ -3,16 +3,18 @@
 # If this marker is missing from the deployed file, the OLD version is running.
 # Verify after deploy: GET /api/version should return this string.
 # ===========================================================================
-ROUTER_VERSION = "v2-FIXES-2026-06-23"
+ROUTER_VERSION = "v3-MONTE-CARLO-AI-2026-06-28"
 
 import functools
 import json
 import logging
 import math
+import random
 import threading
 import time
+from collections import defaultdict
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -39,6 +41,12 @@ from schemas import (
     ParticipantDetail,
     RideDetail,
 )
+
+try:
+    from monte_carlo import build_race_data_from_participants, simulate_race
+except Exception:  # keep backend alive if monte_carlo.py is missing during deploy
+    build_race_data_from_participants = None
+    simulate_race = None
 
 router = APIRouter()
 
@@ -233,13 +241,306 @@ def _compute_ai_price(
 
 
 # ---------------------------------------------------------------------------
+# Monte Carlo challenge-pricing bridge
+# ---------------------------------------------------------------------------
+# The scraper stores individual horse/runner win odds in Price.race_odds_json.
+# These are NOT bookmaker Jockey/Driver Challenge prices. They are inputs for
+# our own AI challenge model. This bridge converts those race odds into:
+#   horse odds -> expected 3-2-1 points -> challenge win probability -> AI price
+
+AI_SIMULATIONS = 12000
+AI_PRICE_MARGIN = 0.175
+
+
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        if value in (None, ""):
+            return default
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def _normalise_race_odds(raw) -> Dict[str, Dict[str, Any]]:
+    """Return clean {race_number: {horse, odds}} race odds map."""
+    if not isinstance(raw, dict):
+        return {}
+    cleaned: Dict[str, Dict[str, Any]] = {}
+    for k, v in raw.items():
+        if not isinstance(v, dict):
+            continue
+        try:
+            race_num = int(k)
+        except (ValueError, TypeError):
+            continue
+        horse = (v.get("horse") or "").strip()
+        odds = _safe_float(v.get("odds"), 0.0)
+        if race_num > 0 and horse and odds > 0:
+            cleaned[str(race_num)] = {"horse": horse, "odds": odds}
+    return cleaned
+
+
+def _load_race_odds_by_participant(db: Session, meeting_id: str) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """Load saved runner odds per participant from Price.race_odds_json.
+
+    Prefer Ladbrokes rows because base.py stores the richest per-race horse odds
+    there. If another bookmaker row has race_odds_json and Ladbrokes is missing,
+    use that as fallback.
+    """
+    rows = db.query(Price).filter(
+        Price.meeting_id == meeting_id,
+        Price.race_odds_json.isnot(None),
+    ).all()
+
+    by_pid: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    source_rank = {"Ladbrokes": 0, "TAB": 1, "TABtouch": 2, "TABtouch_PreRace": 3}
+    best_rank: Dict[str, int] = {}
+
+    for row in rows:
+        if not row.race_odds_json:
+            continue
+        try:
+            parsed = json.loads(row.race_odds_json)
+        except (ValueError, TypeError):
+            continue
+        cleaned = _normalise_race_odds(parsed)
+        if not cleaned:
+            continue
+        rank = source_rank.get(row.bookmaker_name, 9)
+        if row.participant_id not in by_pid or rank < best_rank.get(row.participant_id, 99):
+            by_pid[row.participant_id] = cleaned
+            best_rank[row.participant_id] = rank
+    return by_pid
+
+
+def _fallback_projection(p: Participant, meeting: Optional[Meeting], all_pts=None, idx=None, n=None) -> Dict[str, float]:
+    total_races = meeting.total_races if meeting else 8
+    ai_price, win_prob = _compute_ai_price(
+        p.current_points,
+        p.completed_races,
+        total_races,
+        all_pts,
+        idx,
+        n,
+    )
+    remaining = max(0, total_races - (meeting.completed_races if meeting else p.completed_races))
+    if p.completed_races == 0:
+        projected = round(0.5 * total_races, 1) if total_races else 0.0
+    else:
+        avg_per_race = p.current_points / max(p.completed_races, 1)
+        meeting_completed = meeting.completed_races if meeting else p.completed_races
+        participation_rate = min(p.completed_races / max(meeting_completed, 1), 1.0)
+        projected = round(p.current_points + avg_per_race * remaining * participation_rate, 1)
+    return {
+        "ai_price": ai_price,
+        "win_probability": win_prob,
+        "projected_final": projected,
+        "remaining_rides": remaining,
+    }
+
+
+def _run_remaining_race_simulation(
+    participants: List[Participant],
+    meeting: Meeting,
+    race_odds_by_pid: Dict[str, Dict[str, Dict[str, Any]]],
+    n_simulations: int = AI_SIMULATIONS,
+    margin: float = AI_PRICE_MARGIN,
+) -> Dict[str, Dict[str, float]]:
+    """Simulate only remaining races and combine with current locked points."""
+    if not participants:
+        return {}
+
+    participant_payload = []
+    for p in participants:
+        participant_payload.append({
+            "id": p.id,
+            "name": p.name,
+            "race_odds": race_odds_by_pid.get(p.id, {}),
+        })
+
+    total_races = meeting.total_races or 0
+    completed_races = meeting.completed_races or 0
+
+    # build_race_data_from_participants strips overround and prepares per-race runners
+    if build_race_data_from_participants is None or simulate_race is None:
+        return {}
+
+    race_data = build_race_data_from_participants(participant_payload, total_races)
+    remaining_race_data = {
+        rn: runners for rn, runners in race_data.items()
+        if rn > completed_races and len(runners) >= 3
+    }
+
+    names = [p.name for p in participants]
+    current_points = {p.name: float(p.current_points or 0.0) for p in participants}
+    name_to_pid = {p.name: p.id for p in participants}
+
+    # If no future race odds are available, use current standings only.
+    if not remaining_race_data:
+        max_pts = max(current_points.values()) if current_points else 0.0
+        leaders = [name for name, pts in current_points.items() if abs(pts - max_pts) < 0.01]
+        share = 1.0 / max(len(leaders), 1)
+        result = {}
+        for p in participants:
+            prob = share if p.name in leaders and max_pts > 0 else (1.0 / max(len(participants), 2) if max_pts <= 0 else 0.0)
+            ai_price = 100.0 if prob <= 0 else (1.0 / prob) / (1.0 + margin)
+            result[p.id] = {
+                "ai_price": round(max(1.50, min(100.0, ai_price)), 2),
+                "win_probability": round(prob * 100.0, 1),
+                "projected_final": round(float(p.current_points or 0.0), 1),
+                "remaining_rides": 0,
+            }
+        return result
+
+    rng = random.Random(42 + int(completed_races) + len(participants) + total_races)
+    win_counts: Dict[str, float] = defaultdict(float)
+    final_points_sum: Dict[str, float] = defaultdict(float)
+
+    for _ in range(max(1000, int(n_simulations))):
+        sim_points = dict(current_points)
+        for race_num in sorted(remaining_race_data.keys()):
+            runners = remaining_race_data[race_num]
+            winner, second, third = simulate_race(runners, rng)
+            if winner:
+                sim_points[winner["jockey"]] = sim_points.get(winner["jockey"], 0.0) + 3.0
+            if second:
+                sim_points[second["jockey"]] = sim_points.get(second["jockey"], 0.0) + 2.0
+            if third:
+                sim_points[third["jockey"]] = sim_points.get(third["jockey"], 0.0) + 1.0
+
+        # Ensure participants with no remaining ride still exist in final points.
+        for name in names:
+            sim_points.setdefault(name, current_points.get(name, 0.0))
+
+        max_pts = max(sim_points.values()) if sim_points else 0.0
+        winners = [name for name, pts in sim_points.items() if name in name_to_pid and abs(pts - max_pts) < 0.01]
+        share = 1.0 / max(len(winners), 1)
+        for name in winners:
+            win_counts[name] += share
+        for name in names:
+            final_points_sum[name] += sim_points.get(name, 0.0)
+
+    total_runs = float(max(1000, int(n_simulations)))
+    result: Dict[str, Dict[str, float]] = {}
+    leader_points = max(current_points.values()) if current_points else 0.0
+
+    for p in participants:
+        race_odds = race_odds_by_pid.get(p.id, {})
+        remaining_rides = sum(1 for rn in race_odds.keys() if int(rn) > completed_races)
+        max_possible = float(p.current_points or 0.0) + remaining_rides * 3.0
+
+        # Mathematical elimination with actual remaining rides, not all remaining meeting races.
+        if leader_points > 0 and max_possible < leader_points:
+            prob = 0.01
+        else:
+            prob = win_counts.get(p.name, 0.0) / total_runs
+            # Keep a tiny floor for displayed odds, but don't make outsiders look too short.
+            prob = max(0.0001, min(0.95, prob))
+
+        ai_price = (1.0 / prob) / (1.0 + margin) if prob > 0 else 100.0
+        result[p.id] = {
+            "ai_price": round(max(1.50, min(100.0, ai_price)), 2),
+            "win_probability": round(prob * 100.0, 1),
+            "projected_final": round(final_points_sum.get(p.name, p.current_points or 0.0) / total_runs, 1),
+            "remaining_rides": int(remaining_rides),
+        }
+
+    return result
+
+
+def _get_meeting_ai_model(db: Session, meeting: Optional[Meeting], participants: Optional[List[Participant]] = None) -> Dict[str, Dict[str, float]]:
+    """Return AI model output for all participants in a meeting.
+
+    Uses Monte Carlo if race_odds_json exists, otherwise falls back to old
+    points-only model so API never breaks.
+    """
+    if not meeting:
+        return {}
+    if participants is None:
+        participants = db.query(Participant).filter(Participant.meeting_id == meeting.id).all()
+    if not participants:
+        return {}
+
+    race_odds_by_pid = _load_race_odds_by_participant(db, meeting.id)
+    has_any_odds = any(bool(v) for v in race_odds_by_pid.values())
+
+    if has_any_odds:
+        try:
+            mc = _run_remaining_race_simulation(participants, meeting, race_odds_by_pid)
+            if mc:
+                return mc
+        except Exception as e:
+            logger.warning(f"Monte Carlo AI model failed for {meeting.name}: {e}", exc_info=True)
+
+    # Fallback: old points-only model
+    sorted_ps = sorted(participants, key=lambda pp: (-pp.current_points, pp.name))
+    all_pts = [pp.current_points for pp in sorted_ps]
+    avg_idx_map = _compute_tied_indices(sorted_ps)
+    fallback = {}
+    for p in sorted_ps:
+        fallback[p.id] = _fallback_projection(
+            p,
+            meeting,
+            all_pts,
+            avg_idx_map.get(p.id, 0),
+            len(sorted_ps),
+        )
+    return fallback
+
+
+def _remaining_rides_from_odds(db: Session, meeting: Meeting, participant_id: str) -> int:
+    race_odds = _load_race_odds_by_participant(db, meeting.id).get(participant_id, {})
+    if race_odds:
+        return sum(1 for rn in race_odds.keys() if int(rn) > (meeting.completed_races or 0))
+    return max(0, (meeting.total_races or 0) - (meeting.completed_races or 0))
+
+
+def _race_input_probability_for_detail(
+    race_odds_by_pid: Dict[str, Dict[str, Dict[str, Any]]],
+    participant_id: str,
+    race_num: int,
+) -> tuple[Optional[float], Optional[float]]:
+    """Approximate race win probability and expected 3-2-1 points for modal display."""
+    entries = []
+    for pid, race_odds in race_odds_by_pid.items():
+        rd = race_odds.get(str(race_num))
+        if not isinstance(rd, dict):
+            continue
+        odds = _safe_float(rd.get("odds"), 0.0)
+        if odds > 0:
+            entries.append((pid, odds, 1.0 / odds))
+    total = sum(x[2] for x in entries)
+    if total <= 0:
+        return None, None
+    for pid, odds, implied in entries:
+        if pid == participant_id:
+            win_prob = implied / total
+            # Conservative expected-points estimate for display only.
+            expected_points = win_prob * 3.0
+            return round(win_prob * 100.0, 1), round(expected_points, 2)
+    return None, None
+
+
+# ---------------------------------------------------------------------------
 # Frontend converters
 # ---------------------------------------------------------------------------
+
+def _meeting_type_value(meeting_or_value) -> str:
+    val = meeting_or_value
+    if hasattr(meeting_or_value, "type"):
+        val = meeting_or_value.type
+    if hasattr(val, "value"):
+        return str(val.value).lower()
+    return str(val).lower()
+
+def _meeting_type_label(meeting_or_value) -> str:
+    return "Jockey" if _meeting_type_value(meeting_or_value) == "jockey" else "Driver"
 
 def _meeting_to_frontend(meeting: Meeting, db: Session,
                           _participants: Optional[List[Participant]] = None,
                           _results: Optional[List[Result]] = None,
-                          _participant_map: Optional[dict] = None) -> MeetingOut:
+                          _participant_map: Optional[dict] = None,
+                          _ai_model: Optional[dict] = None) -> MeetingOut:
     if _participants is not None:
         participants = _participants
     else:
@@ -276,7 +577,16 @@ def _meeting_to_frontend(meeting: Meeting, db: Session,
                 LatestUpdate(participant=p.name, pointsAdded=r.points_added, time=time_str)
             )
 
-    projected = sorted_ps[0].name if sorted_ps and meeting.completed_races > 0 else ""
+    if _ai_model is None:
+        _ai_model = _get_meeting_ai_model(db, meeting, participants)
+
+    projected = ""
+    if participants and _ai_model:
+        best = max(participants, key=lambda p: _ai_model.get(p.id, {}).get("win_probability", 0.0))
+        projected = best.name if best else ""
+    elif sorted_ps and meeting.completed_races > 0:
+        projected = sorted_ps[0].name
+
     status_map = {
         MeetingStatus.UPCOMING.value: "Not Started",
         MeetingStatus.LIVE.value: "Live",
@@ -286,7 +596,7 @@ def _meeting_to_frontend(meeting: Meeting, db: Session,
     return MeetingOut(
         id=meeting.id,
         name=meeting.name,
-        type="Jockey" if meeting.type == "jockey" else "Driver",
+        type=_meeting_type_label(meeting),
         status=status_map.get(meeting.status, "Not Started"),
         completedRaces=meeting.completed_races,
         totalRaces=meeting.total_races,
@@ -295,7 +605,6 @@ def _meeting_to_frontend(meeting: Meeting, db: Session,
         projectedWinner=projected,
         scheduledTime=meeting.scheduled_time.isoformat() if meeting.scheduled_time else None,
     )
-
 
 def _get_tabtouch_price(db: Session, participant_id: str) -> Optional[float]:
     price_row = db.query(Price).filter(
@@ -315,71 +624,58 @@ def _participant_to_frontend_with_data(
     participant_index: Optional[int] = None,
     total_participants: Optional[int] = None,
     db: Optional[Session] = None,
+    ai_model: Optional[dict] = None,
 ) -> ParticipantOut:
     total_races = meeting.total_races if meeting else 8
-    ai_price, win_prob = _compute_ai_price(
-        p.current_points, p.completed_races, total_races, all_participant_points,
-        participant_index, total_participants
-    )
 
-    remaining = total_races - p.completed_races if meeting else 0
-    if p.completed_races == 0:
-        projected = round(0.5 * total_races, 1) if total_races else 0
+    model_row = ai_model.get(p.id) if ai_model else None
+    if model_row:
+        ai_price = float(model_row.get("ai_price", 100.0))
+        win_prob = float(model_row.get("win_probability", 0.0))
+        projected = float(model_row.get("projected_final", p.current_points or 0.0))
     else:
-        avg_per_race = p.current_points / p.completed_races
-        meeting_completed = meeting.completed_races if meeting else 0
-        if meeting_completed > 0:
-            participation_rate = min(p.completed_races / meeting_completed, 1.0)
-            estimated_remaining_rides = round(remaining * participation_rate, 1)
-        else:
-            estimated_remaining_rides = remaining
-        projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
+        ai_price, win_prob = _compute_ai_price(
+            p.current_points, p.completed_races, total_races, all_participant_points,
+            participant_index, total_participants
+        )
+        fallback = _fallback_projection(p, meeting, all_participant_points, participant_index, total_participants)
+        projected = fallback["projected_final"]
 
     tabtouch_price = _get_tabtouch_price(db, p.id) if db else None
 
     return ParticipantOut(
         id=p.id, name=p.name, meetingName=meeting.name if meeting else "", meetingId=p.meeting_id,
-        aiPrice=ai_price, winProbability=win_prob,
-        currentPoints=p.current_points, projectedFinalPoints=projected,
+        aiPrice=round(ai_price, 2), winProbability=round(win_prob, 1),
+        currentPoints=p.current_points, projectedFinalPoints=round(projected, 1),
         isProjectedWinner=is_projected_winner,
         tabtouchPrice=tabtouch_price,
     )
 
 
-def _participant_to_frontend(p: Participant, db: Session, all_participant_points: Optional[List[float]] = None, is_projected_winner: bool = False, participant_index: Optional[int] = None, total_participants: Optional[int] = None) -> ParticipantOut:
+def _participant_to_frontend(
+    p: Participant,
+    db: Session,
+    all_participant_points: Optional[List[float]] = None,
+    is_projected_winner: bool = False,
+    participant_index: Optional[int] = None,
+    total_participants: Optional[int] = None,
+    ai_model: Optional[dict] = None,
+) -> ParticipantOut:
     meeting = db.query(Meeting).filter(Meeting.id == p.meeting_id).first()
-    total_races = meeting.total_races if meeting else 8
-    ai_price, win_prob = _compute_ai_price(
-        p.current_points, p.completed_races, total_races, all_participant_points, participant_index, total_participants
+    if ai_model is None and meeting is not None:
+        parts = db.query(Participant).filter(Participant.meeting_id == meeting.id).all()
+        ai_model = _get_meeting_ai_model(db, meeting, parts)
+    return _participant_to_frontend_with_data(
+        p,
+        meeting,
+        all_participant_points,
+        is_projected_winner,
+        participant_index,
+        total_participants,
+        db,
+        ai_model,
     )
 
-    remaining = total_races - p.completed_races if meeting else 0
-    if p.completed_races == 0:
-        projected = round(0.5 * total_races, 1) if total_races else 0
-    else:
-        avg_per_race = p.current_points / p.completed_races
-        meeting_completed = meeting.completed_races if meeting else 0
-        if meeting_completed > 0:
-            participation_rate = min(p.completed_races / meeting_completed, 1.0)
-            estimated_remaining_rides = round(remaining * participation_rate, 1)
-        else:
-            estimated_remaining_rides = remaining
-        projected = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
-
-    tabtouch_price = _get_tabtouch_price(db, p.id)
-
-    return ParticipantOut(
-        id=p.id,
-        name=p.name,
-        meetingName=meeting.name if meeting else "",
-        meetingId=p.meeting_id,
-        aiPrice=ai_price,
-        winProbability=win_prob,
-        currentPoints=p.current_points,
-        projectedFinalPoints=projected,
-        isProjectedWinner=is_projected_winner,
-        tabtouchPrice=tabtouch_price,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -423,17 +719,26 @@ def get_meeting_participants(meeting_id: str, db: Session = Depends(get_db)):
 
     all_pts = [p.current_points for p in participants]
     avg_idx_map = _compute_tied_indices(participants)
+    ai_model = _get_meeting_ai_model(db, meeting, participants)
 
     result = []
-    for i, p in enumerate(participants):
-        fp = _participant_to_frontend(p, db, all_pts, participant_index=avg_idx_map[p.id], total_participants=len(participants))
+    for p in participants:
+        fp = _participant_to_frontend(
+            p,
+            db,
+            all_pts,
+            participant_index=avg_idx_map.get(p.id, 0),
+            total_participants=len(participants),
+            ai_model=ai_model,
+        )
         result.append(fp)
 
-    if result and meeting.completed_races > 0:
+    # Client asked for shortest price to longest price.
+    result.sort(key=lambda x: (x.aiPrice, -x.winProbability, x.name))
+    if result:
         result[0].isProjectedWinner = True
 
     return result
-
 
 @router.get("/meetings/{meeting_id}/participants/{participant_id}/detail")
 def get_participant_detail(meeting_id: str, participant_id: str, db: Session = Depends(get_db)):
@@ -449,28 +754,18 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
 
     all_parts = db.query(Participant).filter(Participant.meeting_id == meeting_id).all()
     all_parts.sort(key=lambda p: (-p.current_points, p.name))
-    all_pts = [p.current_points for p in all_parts]
-    avg_idx_map = _compute_tied_indices(all_parts)
-    p_idx = avg_idx_map.get(participant.id, 0)
+
+    ai_model = _get_meeting_ai_model(db, meeting, all_parts)
+    model_row = ai_model.get(participant.id, {})
 
     total_races = meeting.total_races or 8
-
-    ai_price, win_prob = _compute_ai_price(
-        participant.current_points, participant.completed_races, total_races, all_pts, p_idx, len(all_parts)
-    )
-
-    remaining = total_races - participant.completed_races
-    if participant.completed_races == 0:
-        projected = round(0.5 * total_races, 1) if total_races else 0
-    else:
-        avg_per_race = participant.current_points / participant.completed_races
-        meeting_completed = meeting.completed_races if meeting else 0
-        if meeting_completed > 0:
-            participation_rate = min(participant.completed_races / meeting_completed, 1.0)
-            estimated_remaining_rides = round(remaining * participation_rate, 1)
-        else:
-            estimated_remaining_rides = remaining
-        projected = round(participant.current_points + avg_per_race * estimated_remaining_rides, 1)
+    ai_price = float(model_row.get("ai_price", 100.0)) if model_row else _compute_ai_price(
+        participant.current_points, participant.completed_races, total_races
+    )[0]
+    win_prob = float(model_row.get("win_probability", 0.0)) if model_row else _compute_ai_price(
+        participant.current_points, participant.completed_races, total_races
+    )[1]
+    projected = float(model_row.get("projected_final", participant.current_points or 0.0)) if model_row else participant.current_points or 0.0
 
     existing_results = db.query(Result).filter(
         Result.meeting_id == meeting_id,
@@ -478,32 +773,19 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
     ).all()
     results_map = {r.race_number: r for r in existing_results}
 
-    # Load per-race horse name + odds for this participant (display only).
-    # Populated by the scraper into Price.race_odds_json as
-    #   {"1": {"odds": 5.50, "horse": "Horse A"}, "3": {...}, ...}
-    # These are individual race win odds for display, NOT used in the
-    # challenge AI price (which stays points-based and odds-free).
-    race_odds_map = {}
-    price_row = db.query(Price).filter(
-        Price.participant_id == participant_id,
-        Price.meeting_id == meeting_id,
-        Price.race_odds_json.isnot(None),
-    ).first()
-    if price_row and price_row.race_odds_json:
-        try:
-            parsed = json.loads(price_row.race_odds_json)
-            if isinstance(parsed, dict):
-                for k, v in parsed.items():
-                    if isinstance(v, dict):
-                        race_odds_map[str(k)] = {
-                            "horse": (v.get("horse") or "").strip(),
-                            "odds": v.get("odds"),
-                        }
-        except (ValueError, TypeError):
-            race_odds_map = {}
+    # Load all participants' actual declared rides/drives from Price.race_odds_json.
+    # These are race runner odds used as AI inputs, not true bookmaker challenge prices.
+    race_odds_by_pid = _load_race_odds_by_participant(db, meeting_id)
+    race_odds_map = race_odds_by_pid.get(participant_id, {})
+
+    completed_cutoff = meeting.completed_races or 0
+    remaining = int(model_row.get("remaining_rides", 0)) if model_row else sum(
+        1 for rn in race_odds_map.keys() if int(rn) > completed_cutoff
+    )
 
     rides = []
-    for race_num in range(1, total_races + 1):
+    race_nums = sorted({int(k) for k in race_odds_map.keys()} | set(results_map.keys()))
+    for race_num in race_nums:
         result = results_map.get(race_num)
         if result and result.position is not None:
             if result.position == 1:
@@ -516,22 +798,19 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
                 status = "Placed"
             else:
                 status = "Unplaced"
-        elif race_num <= meeting.completed_races:
+        elif race_num <= completed_cutoff:
             status = "Completed"
         else:
             status = "Upcoming"
 
-        # Per-race horse name + individual race odds (display only).
         ride_odds_info = race_odds_map.get(str(race_num), {})
         horse_name = ride_odds_info.get("horse", "") or ""
-        race_odds_val = ride_odds_info.get("odds")
-        try:
-            race_odds_val = float(race_odds_val) if race_odds_val not in (None, "") else None
-        except (ValueError, TypeError):
-            race_odds_val = None
+        race_odds_val = _safe_float(ride_odds_info.get("odds"), 0.0)
+        race_odds_val = race_odds_val if race_odds_val > 0 else None
 
-        race_expected_pts = None
-        race_win_prob = None
+        race_win_prob, race_expected_pts = _race_input_probability_for_detail(
+            race_odds_by_pid, participant_id, race_num
+        )
 
         rides.append(RideDetail(
             raceNumber=race_num,
@@ -548,18 +827,17 @@ def get_participant_detail(meeting_id: str, participant_id: str, db: Session = D
         id=participant_id,
         name=participant.name,
         meetingName=meeting.name,
-        meetingType=meeting.type.value if hasattr(meeting.type, 'value') else meeting.type,
+        meetingType=_meeting_type_value(meeting),
         currentPoints=participant.current_points,
-        projectedFinalPoints=projected,
-        projectedAdditionalPoints=round(projected - participant.current_points, 1),
+        projectedFinalPoints=round(projected, 1),
+        projectedAdditionalPoints=round(projected - (participant.current_points or 0.0), 1),
         aiPrice=round(ai_price, 2),
-        winProbability=win_prob,
+        winProbability=round(win_prob, 1),
         remainingRides=remaining,
         totalRaces=total_races,
         completedRaces=participant.completed_races,
         rides=rides,
     )
-
 
 @router.get("/meetings/{meeting_id}/results")
 def get_meeting_results(meeting_id: str, db: Session = Depends(get_db)):
@@ -675,6 +953,11 @@ def get_dashboard(db: Session = Depends(get_db)):
 
     meeting_map = {m.id: m for m in meetings}
 
+    ai_models_by_meeting = {}
+    for m in meetings:
+        mtg_participants = participants_by_meeting.get(m.id, [])
+        ai_models_by_meeting[m.id] = _get_meeting_ai_model(db, m, mtg_participants)
+
     frontend_meetings = []
     for m in meetings:
         mtg_participants = participants_by_meeting.get(m.id, [])
@@ -684,6 +967,7 @@ def get_dashboard(db: Session = Depends(get_db)):
             _participants=mtg_participants,
             _results=mtg_results,
             _participant_map=participant_map,
+            _ai_model=ai_models_by_meeting.get(m.id),
         ))
 
     jockeys = []
@@ -696,19 +980,29 @@ def get_dashboard(db: Session = Depends(get_db)):
         all_pts = [pp.current_points for pp in mtg_parts]
         avg_idx_map = _compute_tied_indices(mtg_parts)
         p_idx = avg_idx_map.get(p.id, 0)
-        fp = _participant_to_frontend_with_data(p, meeting, all_pts, participant_index=p_idx, total_participants=len(mtg_parts), db=db)
-        if meeting and meeting.type == "jockey":
+        fp = _participant_to_frontend_with_data(
+            p,
+            meeting,
+            all_pts,
+            participant_index=p_idx,
+            total_participants=len(mtg_parts),
+            db=db,
+            ai_model=ai_models_by_meeting.get(p.meeting_id),
+        )
+        if meeting and _meeting_type_value(meeting) == "jockey":
             jockeys.append(fp)
         else:
             drivers.append(fp)
 
-    # Mark projected winners per meeting (only for meetings with completed races)
+    # Sort by meeting then shortest AI price first.
+    jockeys.sort(key=lambda x: (x.meetingName, x.aiPrice, -x.winProbability, x.name))
+    drivers.sort(key=lambda x: (x.meetingName, x.aiPrice, -x.winProbability, x.name))
+
+    # Mark projected winners per meeting by highest AI win probability, even pre-match.
     meeting_best = {}
-    meeting_completed = {m.id: m.completed_races for m in meetings}
     for fp in jockeys + drivers:
-        if meeting_completed.get(fp.meetingId, 0) > 0:
-            if fp.meetingId not in meeting_best or (-fp.currentPoints, fp.name) < (-meeting_best[fp.meetingId].currentPoints, meeting_best[fp.meetingId].name):
-                meeting_best[fp.meetingId] = fp
+        if fp.meetingId not in meeting_best or fp.winProbability > meeting_best[fp.meetingId].winProbability:
+            meeting_best[fp.meetingId] = fp
     for fp in meeting_best.values():
         fp.isProjectedWinner = True
 
@@ -717,11 +1011,14 @@ def get_dashboard(db: Session = Depends(get_db)):
         p = participant_map.get(r.participant_id)
         m = meeting_map.get(r.meeting_id)
         if p and m:
-            mtg_parts = participants_by_meeting.get(m.id, [])
-            mtg_parts_s = sorted(mtg_parts, key=lambda pp: (-pp.current_points, pp.name))
-            all_pts = [pp.current_points for pp in mtg_parts_s]
-            avg_idx = _compute_tied_indices(mtg_parts_s)
-            ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts, avg_idx.get(p.id, 0), len(all_pts))
+            model_row = ai_models_by_meeting.get(m.id, {}).get(p.id, {})
+            ai_price = model_row.get("ai_price")
+            if ai_price is None:
+                mtg_parts = participants_by_meeting.get(m.id, [])
+                mtg_parts_s = sorted(mtg_parts, key=lambda pp: (-pp.current_points, pp.name))
+                all_pts = [pp.current_points for pp in mtg_parts_s]
+                avg_idx = _compute_tied_indices(mtg_parts_s)
+                ai_price, _ = _compute_ai_price(p.current_points, p.completed_races, m.total_races, all_pts, avg_idx.get(p.id, 0), len(all_pts))
 
             minutes_ago = int(
                 (datetime.now(timezone.utc) - (r.timestamp if r.timestamp and r.timestamp.tzinfo else r.timestamp.replace(tzinfo=timezone.utc))).total_seconds() / 60
@@ -733,9 +1030,9 @@ def get_dashboard(db: Session = Depends(get_db)):
                 raceNumber=r.race_number,
                 participant=p.name,
                 pointsAdded=r.points_added,
-                updatedAiPrice=ai_price,
+                updatedAiPrice=round(float(ai_price), 2),
                 timeUpdated=f"{max(1, minutes_ago)}m ago",
-                type="Jockey" if m.type == "jockey" else "Driver",
+                type=_meeting_type_label(m),
             ))
 
     today_meetings = len(frontend_meetings)
@@ -754,7 +1051,6 @@ def get_dashboard(db: Session = Depends(get_db)):
             totalParticipants=len(jockeys) + len(drivers),
         ),
     )
-
 
 DEFAULT_SETTINGS = {
     "currentPointsWeight": 25.0,
@@ -902,45 +1198,25 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
     ).all()
 
     participants.sort(key=lambda p: (-p.current_points, p.name))
-
-    all_pts = [p.current_points for p in participants]
-    avg_idx_map = _compute_tied_indices(participants)
-
-    is_prematch = meeting.completed_races == 0
+    ai_model = _get_meeting_ai_model(db, meeting, participants)
 
     predictions = []
-    total_parts = len(participants)
-    for i, p in enumerate(participants):
-        remaining = meeting.total_races - meeting.completed_races
-
-        ai_price, win_prob = _compute_ai_price(
-            p.current_points, p.completed_races, meeting.total_races, all_pts,
-            participant_index=avg_idx_map[p.id], total_participants=total_parts
-        )
-
-        if meeting.completed_races > 0:
-            avg_per_race = p.current_points / max(p.completed_races, 1)
-            participation_rate = min(p.completed_races / meeting.completed_races, 1.0)
-            estimated_remaining_rides = round(remaining * participation_rate, 1)
-            estimated_final = round(p.current_points + avg_per_race * estimated_remaining_rides, 1)
-        else:
-            estimated_final = round(0.5 * meeting.total_races, 1)
-
+    for p in participants:
+        model_row = ai_model.get(p.id, {})
+        remaining = int(model_row.get("remaining_rides", _remaining_rides_from_odds(db, meeting, p.id)))
         predictions.append({
             "id": p.id,
             "name": p.name,
             "currentPoints": p.current_points,
             "completedRaces": p.completed_races,
             "remainingRaces": remaining,
-            "winProbability": win_prob,
-            "estimatedFinalPoints": estimated_final,
-            "aiPrice": ai_price,
+            "winProbability": round(float(model_row.get("win_probability", 0.0)), 1),
+            "estimatedFinalPoints": round(float(model_row.get("projected_final", p.current_points or 0.0)), 1),
+            "aiPrice": round(float(model_row.get("ai_price", 100.0)), 2),
         })
 
-    if not is_prematch:
-        predictions.sort(key=lambda x: (-x["estimatedFinalPoints"]))
-    else:
-        predictions.sort(key=lambda x: (-x["estimatedFinalPoints"]))
+    # Highest win probability first; this also gives a projected winner before Race 1.
+    predictions.sort(key=lambda x: (-x["winProbability"], x["aiPrice"], x["name"]))
 
     return {
         "meetingId": meeting.id,
@@ -948,10 +1224,9 @@ def get_meeting_prediction(meeting_id: str, db: Session = Depends(get_db)):
         "status": meeting.status,
         "completedRaces": meeting.completed_races,
         "totalRaces": meeting.total_races,
-        "projectedWinner": "" if is_prematch else (predictions[0]["name"] if predictions else ""),
+        "projectedWinner": predictions[0]["name"] if predictions else "",
         "predictions": predictions,
     }
-
 
 @router.get("/bets")
 def get_bets(db: Session = Depends(get_db)):
