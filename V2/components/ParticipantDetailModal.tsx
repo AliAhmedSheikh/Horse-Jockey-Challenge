@@ -135,13 +135,15 @@ export default function ParticipantDetailModal({
             <div className="overflow-y-auto max-h-[50vh]">
               <table className="w-full">
                 <thead className="sticky top-0 bg-slate-50 dark:bg-slate-700/50">
-                  <tr className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    <th className="px-6 py-2.5 text-left font-medium">Race</th>
-                    <th className="px-4 py-2.5 text-left font-medium">Horse</th>
-                    <th className="px-4 py-2.5 text-center font-medium">Odds</th>
-                    <th className="px-4 py-2.5 text-center font-medium">Status</th>
-                    <th className="px-6 py-2.5 text-center font-medium">Points</th>
-                  </tr>
+                    <tr className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <th className="px-6 py-2.5 text-left font-medium">Race</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Horse</th>
+                      <th className="px-4 py-2.5 text-center font-medium">Odds</th>
+                      <th className="px-4 py-2.5 text-center font-medium">Expected Pts</th>
+                      <th className="px-4 py-2.5 text-center font-medium">Win %</th>
+                      <th className="px-4 py-2.5 text-center font-medium">Status</th>
+                      <th className="px-6 py-2.5 text-center font-medium">Points</th>
+                    </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                   {detail.rides.map((ride) => (
@@ -162,6 +164,20 @@ export default function ParticipantDetailModal({
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
+                        {ride.expectedPoints != null ? (
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{ride.expectedPoints.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-sm text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {ride.winProbability != null ? (
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{(ride.winProbability * 100).toFixed(1)}%</span>
+                        ) : (
+                          <span className="text-sm text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
                         <RaceStatusBadge ride={ride} />
                       </td>
                       <td className="px-6 py-3 text-center">
@@ -175,7 +191,7 @@ export default function ParticipantDetailModal({
                   ))}
                   {detail.rides.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
+                      <td colSpan={7} className="px-6 py-8 text-center text-sm text-slate-400">
                         No ride data available yet.
                       </td>
                     </tr>
