@@ -172,7 +172,7 @@ export default function ParticipantDetailModal({
                       </td>
                       <td className="px-4 py-3 text-center">
                         {ride.winProbability != null ? (
-                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{(ride.winProbability * 100).toFixed(1)}%</span>
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{ride.winProbability.toFixed(1)}%</span>
                         ) : (
                           <span className="text-sm text-slate-400">—</span>
                         )}
