@@ -227,22 +227,60 @@ def run_simulation(
     return {j: count / total_wins for j, count in win_counts.items()}
 
 
+def calibrate_prob(raw_prob: float, power: float = 0.50, min_floor: float = 0.001) -> float:
+    """Calibrate Monte Carlo win probability to bookmaker-style challenge price.
+
+    Monte Carlo simulation gives the true probability of winning the challenge,
+    but in a large field even the strongest favourite rarely exceeds 25-30%.
+    This function compresses the probability range using a power transform so that
+    prices match bookmaker-style challenge market conventions.
+
+    With power=0.50:
+      50% MC win prob → 70.7% effective → $1.41 (clamped to $1.50)
+      30% → 54.8% → $1.83
+      20% → 44.7% → $2.24
+      10% → 31.6% → $3.16
+       5% → 22.4% → $4.47
+       1% → 10.0% → $10.00
+     0.1% → 3.2% → $31.62
+    0.01% → 1.0% → $100.0
+    """
+    p = max(min_floor, min(0.99, raw_prob))
+    return p ** power
+
+
+def _race_quality_price(p_data, total_races):
+    """Compute fallback price from individual race odds quality."""
+    race_odds = p_data.get("race_odds", {})
+    if not race_odds:
+        return 100.0
+    total_race_prob = 0.0
+    n_rides = 0
+    for rn, rd in race_odds.items():
+        if isinstance(rd, dict) and "odds" in rd and "horse" in rd:
+            if rd["odds"] > 0 and rd["horse"]:
+                n_rides += 1
+                implied = 1.0 / rd["odds"]
+                total_race_prob += implied
+    if n_rides == 0:
+        return 100.0
+    rides_ratio = n_rides / max(total_races, 1)
+    avg_race_prob = total_race_prob / n_rides if n_rides > 0 else 0
+    est_challenge_prob = avg_race_prob * rides_ratio  # removed 0.6 multiplier
+    if est_challenge_prob <= 0:
+        return 100.0
+    cal_prob = calibrate_prob(est_challenge_prob)
+    return round(max(1.50, min(100.0, 1.0 / cal_prob)), 2)
+
+
 def compute_challenge_prices(
     participants: List[Dict],
     total_races: int,
     n_simulations: int = 50000,
-    margin: float = 0.175,
 ) -> Dict[str, float]:
     """Compute AI prices for all participants using Monte Carlo simulation.
 
-    Args:
-        participants: list of participant dicts with 'name' and 'race_odds'
-        total_races: total races in the meeting
-        n_simulations: number of Monte Carlo runs
-        margin: overround to add back (default 17.5%)
-
-    Returns:
-        dict mapping participant name -> AI price
+    Uses calibrated probability to produce bookmaker-style challenge prices.
     """
     race_data = build_race_data_from_participants(participants, total_races)
 
@@ -251,46 +289,15 @@ def compute_challenge_prices(
 
     win_probs = run_simulation(race_data, total_races, n_simulations)
 
-    n_parts = len(participants)
-
-    def _race_quality_price(p_data):
-        race_odds = p_data.get("race_odds", {})
-        if not race_odds:
-            return 100.0
-        best_prob = 0.0
-        total_race_prob = 0.0
-        n_rides = 0
-        for rn, rd in race_odds.items():
-            if isinstance(rd, dict) and "odds" in rd and "horse" in rd:
-                if rd["odds"] > 0 and rd["horse"]:
-                    n_rides += 1
-                    implied = 1.0 / rd["odds"]
-                    total_race_prob += implied
-                    best_prob = max(best_prob, implied)
-        if n_rides == 0:
-            return 100.0
-        rides_ratio = n_rides / max(total_races, 1)
-        avg_race_prob = total_race_prob / n_rides if n_rides > 0 else 0
-        est_challenge_prob = avg_race_prob * rides_ratio * 0.6
-        if est_challenge_prob <= 0:
-            return 100.0
-        fair_price = 1.0 / est_challenge_prob
-        return fair_price / (1.0 + margin)
-
     prices = {}
     for p in participants:
         name = p["name"]
-        prob = win_probs.get(name, 0.0)
-        fallback = _race_quality_price(p)
-        if prob > 0:
-            fair_price = 1.0 / prob
-            ai_price = fair_price / (1.0 + margin)
-            mc_price = round(max(1.50, min(100.0, ai_price)), 2)
-            if mc_price < 100.0:
-                prices[name] = mc_price
-            else:
-                prices[name] = round(max(1.50, min(100.0, fallback)), 2)
+        raw_prob = win_probs.get(name, 0.0)
+        if raw_prob <= 0:
+            prices[name] = _race_quality_price(p, total_races)
         else:
-            prices[name] = round(max(1.50, min(100.0, fallback)), 2)
+            cal_prob = calibrate_prob(raw_prob)
+            price = 1.0 / cal_prob
+            prices[name] = round(max(1.50, min(100.0, price)), 2)
 
     return prices

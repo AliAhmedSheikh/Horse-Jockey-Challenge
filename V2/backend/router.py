@@ -43,10 +43,11 @@ from schemas import (
 )
 
 try:
-    from monte_carlo import build_race_data_from_participants, simulate_race
+    from monte_carlo import build_race_data_from_participants, simulate_race, calibrate_prob
 except Exception:  # keep backend alive if monte_carlo.py is missing during deploy
     build_race_data_from_participants = None
     simulate_race = None
+    calibrate_prob = None
 
 router = APIRouter()
 
@@ -213,10 +214,15 @@ def _compute_tied_indices(participants):
 
 
 def _compute_ai_price_from_probability(probability: float) -> float:
-    """Convert probability to odds price: AI Price = 1 / probability."""
+    """Convert probability to odds price: AI Price = 1 / probability.
+
+    Note: this is the old fallback model (no race odds available for Monte Carlo).
+    The Monte Carlo path applies its own calibration in _run_remaining_race_simulation,
+    so this function uses raw price conversion without calibration.
+    """
     if probability <= 0:
         return 100.0
-    price = 1.0 / probability
+    price = 1.0 / max(probability, 0.001)
     return round(max(1.50, min(100.0, price)), 2)
 
 
@@ -380,10 +386,13 @@ def _run_remaining_race_simulation(
         max_pts = max(current_points.values()) if current_points else 0.0
         leaders = [name for name, pts in current_points.items() if abs(pts - max_pts) < 0.01]
         share = 1.0 / max(len(leaders), 1)
+        cal_power = 0.50
         result = {}
         for p in participants:
             prob = share if p.name in leaders and max_pts > 0 else (1.0 / max(len(participants), 2) if max_pts <= 0 else 0.0)
-            ai_price = 100.0 if prob <= 0 else (1.0 / prob) / (1.0 + margin)
+            prob = max(0.001, min(0.95, prob))
+            cal_prob = calibrate_prob(prob, cal_power) if calibrate_prob is not None else prob ** cal_power
+            ai_price = 1.0 / cal_prob if cal_prob > 0 else 100.0
             result[p.id] = {
                 "ai_price": round(max(1.50, min(100.0, ai_price)), 2),
                 "win_probability": round(prob * 100.0, 1),
@@ -424,6 +433,7 @@ def _run_remaining_race_simulation(
     result: Dict[str, Dict[str, float]] = {}
     leader_points = max(current_points.values()) if current_points else 0.0
 
+    cal_power = 0.50
     for p in participants:
         race_odds = race_odds_by_pid.get(p.id, {})
         remaining_rides = sum(1 for rn in race_odds.keys() if int(rn) > completed_races)
@@ -434,13 +444,19 @@ def _run_remaining_race_simulation(
             prob = 0.01
         else:
             prob = win_counts.get(p.name, 0.0) / total_runs
-            # Keep a tiny floor for displayed odds, but don't make outsiders look too short.
-            prob = max(0.0001, min(0.95, prob))
+            # Floor at 0.001 so no one exceeds $100 after calibration
+            prob = max(0.001, min(0.95, prob))
 
-        ai_price = (1.0 / prob) / (1.0 + margin) if prob > 0 else 100.0
+        # Calibrated price: apply power compression, no margin needed
+        if calibrate_prob is not None:
+            cal_prob = calibrate_prob(prob, cal_power)
+        else:
+            cal_prob = prob ** cal_power
+        ai_price = 1.0 / cal_prob if cal_prob > 0 else 100.0
+        win_pct = round(prob * 100.0, 1)
         result[p.id] = {
             "ai_price": round(max(1.50, min(100.0, ai_price)), 2),
-            "win_probability": round(prob * 100.0, 1),
+            "win_probability": win_pct,
             "projected_final": round(final_points_sum.get(p.name, p.current_points or 0.0) / total_runs, 1),
             "remaining_rides": int(remaining_rides),
         }
