@@ -14,7 +14,17 @@ export default function ChallengeTable({
   type,
   onShowDetail,
 }: ChallengeTableProps) {
-  const sorted = [...participants].sort((a, b) => b.currentPoints - a.currentPoints || a.name.localeCompare(b.name));
+  const sorted = [...participants].sort((a, b) => {
+    const allPreRace = participants.every(p => p.currentPoints === 0);
+    if (allPreRace) {
+      if (a.aiPrice !== b.aiPrice) return a.aiPrice - b.aiPrice;
+      if ((b.projectedFinalPoints || 0) !== (a.projectedFinalPoints || 0)) return (b.projectedFinalPoints || 0) - (a.projectedFinalPoints || 0);
+      return a.name.localeCompare(b.name);
+    }
+    if (b.currentPoints !== a.currentPoints) return b.currentPoints - a.currentPoints;
+    if (a.aiPrice !== b.aiPrice) return a.aiPrice - b.aiPrice;
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <>

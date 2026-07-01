@@ -97,7 +97,28 @@ export default function MeetingDetailPage() {
     );
   }
 
-  const sorted = participants ? [...participants].sort((a, b) => b.currentPoints - a.currentPoints) : [];
+  const sorted = participants ? [...participants].sort((a, b) => {
+    if (meeting.completedRaces === 0) {
+      if (a.aiPrice !== b.aiPrice) return a.aiPrice - b.aiPrice;
+      if ((b.projectedFinalPoints || 0) !== (a.projectedFinalPoints || 0)) return (b.projectedFinalPoints || 0) - (a.projectedFinalPoints || 0);
+      return a.name.localeCompare(b.name);
+    }
+    if (b.currentPoints !== a.currentPoints) return b.currentPoints - a.currentPoints;
+    if (a.aiPrice !== b.aiPrice) return a.aiPrice - b.aiPrice;
+    return a.name.localeCompare(b.name);
+  }) : [];
+  function tieRank(i: number): { rank: number; tied: boolean } {
+    if (i === 0 || sorted[i].currentPoints !== sorted[i - 1].currentPoints) {
+      let prev = i;
+      while (prev > 0 && sorted[prev - 1].currentPoints === sorted[i].currentPoints) prev--;
+      let next = i;
+      while (next < sorted.length - 1 && sorted[next + 1].currentPoints === sorted[i].currentPoints) next++;
+      return { rank: prev + 1, tied: next - prev > 1 };
+    }
+    let first = i;
+    while (first > 0 && sorted[first - 1].currentPoints === sorted[i].currentPoints) first--;
+    return { rank: first + 1, tied: true };
+  }
   const participantsEmpty = !participantsLoading && (!participants || participants.length === 0);
 
   return (
@@ -215,14 +236,16 @@ export default function MeetingDetailPage() {
                     No participants loaded
                   </td>
                 </tr>
-              ) : sorted.map((p, i) => (
+              ) : sorted.map((p, i) => {
+                const tr = tieRank(i);
+                return (
                 <tr key={p.id} className={`bg-white dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${
-                  i === 0 ? "bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-500/5 dark:to-transparent" : ""
+                  tr.rank === 1 ? "bg-gradient-to-r from-amber-50/50 to-transparent dark:from-amber-500/5 dark:to-transparent" : ""
                 }`}>
                   <td className="px-4 py-3">
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                      i === 0 ? "bg-amber-500 text-white" : i === 1 ? "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300" : i === 2 ? "bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300" : "text-slate-400"
-                    }`}>{i + 1}</span>
+                      tr.rank === 1 ? "bg-amber-500 text-white" : tr.rank === 2 ? "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300" : tr.rank === 3 ? "bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300" : "text-slate-400"
+                    }`}>{tr.tied ? "T" : tr.rank}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -232,7 +255,7 @@ export default function MeetingDetailPage() {
                       >
                         {p.name}
                       </button>
-                      {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
+                      {tr.rank === 1 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
                     </div>
                   </td>
                   <td className="px-2 py-3 text-right">
@@ -249,7 +272,7 @@ export default function MeetingDetailPage() {
                     <span className="text-sm font-bold text-slate-900 dark:text-white">{p.currentPoints}</span>
                   </td>
                 </tr>
-              ))}
+                );})}
             </tbody>
           </table>
         </div>
@@ -257,16 +280,23 @@ export default function MeetingDetailPage() {
         <div className="md:hidden space-y-3 mt-4">
           {sorted.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">No participants loaded</p>
-          ) : sorted.map((p, i) => (
+          ) : sorted.map((p, i) => {
+            const tr = tieRank(i);
+            return (
             <div key={p.id} className="bg-slate-50 dark:bg-slate-700/20 rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
-                <button
-                  onClick={() => setDetailModal({ participantId: p.id, meetingId: params.id as string })}
-                  className="text-sm font-bold text-slate-900 dark:text-white hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer text-left"
-                >
-                  {i + 1}. {p.name}
-                </button>
-                {i === 0 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
+                <div className="flex items-center gap-2">
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    tr.rank === 1 ? "bg-amber-500 text-white" : tr.rank === 2 ? "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300" : tr.rank === 3 ? "bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300" : "text-slate-400"
+                  }`}>{tr.tied ? "T" : tr.rank}</span>
+                  <button
+                    onClick={() => setDetailModal({ participantId: p.id, meetingId: params.id as string })}
+                    className="text-sm font-bold text-slate-900 dark:text-white hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer text-left"
+                  >
+                    {p.name}
+                  </button>
+                  {tr.rank === 1 && p.isProjectedWinner && <IconStar className="w-3 h-3 text-amber-400" />}
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-2">
@@ -287,7 +317,8 @@ export default function MeetingDetailPage() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
 
