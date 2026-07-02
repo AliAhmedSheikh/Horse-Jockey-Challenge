@@ -108,6 +108,7 @@ export default function MeetingDetailPage() {
     return a.name.localeCompare(b.name);
   }) : [];
   function tieRank(i: number): { rank: number; tied: boolean } {
+    if (!meeting || meeting.completedRaces === 0) return { rank: i + 1, tied: false };
     if (i === 0 || sorted[i].currentPoints !== sorted[i - 1].currentPoints) {
       let prev = i;
       while (prev > 0 && sorted[prev - 1].currentPoints === sorted[i].currentPoints) prev--;
