@@ -913,3 +913,80 @@ def _simulate_live_data(db: Session, meeting_races_map: dict = None):
 
         with commit_lock:
             db.commit()
+
+
+def refresh_race_odds():
+    """Refresh race odds from Ladbrokes API for all today's pre-race meetings.
+
+    Called hourly by scheduler to ensure horse/drive odds stay current
+    before meetings start. Updates Price.race_odds_json in place.
+    AI prices are recalculated on next dashboard load automatically.
+    """
+    from scrapers.base import LadbrokesAPIScraper, invalidate_cache
+    from database import commit_lock
+    db = SessionLocal()
+    try:
+        today = today_aus()
+        meetings = db.query(Meeting).filter(Meeting.date == today).all()
+        if not meetings:
+            logger.info("No meetings today — skipping odds refresh")
+            return
+
+        api = LadbrokesAPIScraper()
+        jockey_meetings = api.fetch_jockey_challenge_meetings()
+        driver_meetings = api.fetch_driver_challenge_meetings()
+        api.close()
+        invalidate_cache()
+
+        all_meetings = {
+            normalise_name(m["meeting_name"]): m
+            for m in (jockey_meetings + driver_meetings)
+        }
+
+        updated = 0
+        now = datetime.now(timezone.utc)
+        for meeting in meetings:
+            norm_name = normalise_name(meeting.name)
+            fresh_data = all_meetings.get(norm_name)
+            if not fresh_data:
+                continue
+
+            for p in fresh_data.get("participants", []):
+                name = p["name"].strip()
+                pid = f"{meeting.id}_{name.lower().replace(' ', '_')}"
+                race_odds = p.get("race_odds", {})
+                new_price = round(max(MIN_PRICE, min(MAX_PRICE, p.get("price", 100.0))), 2)
+
+                existing = db.query(Price).filter(
+                    Price.participant_id == pid,
+                    Price.meeting_id == meeting.id,
+                    Price.bookmaker_name == "Ladbrokes",
+                ).first()
+
+                if existing:
+                    existing.race_odds_json = json.dumps(race_odds) if race_odds else None
+                    existing.price = new_price
+                    existing.timestamp = now
+                else:
+                    db.add(Price(
+                        participant_id=pid,
+                        meeting_id=meeting.id,
+                        bookmaker_name="Ladbrokes",
+                        price=new_price,
+                        race_odds_json=json.dumps(race_odds) if race_odds else None,
+                        timestamp=now,
+                    ))
+                updated += 1
+
+        with commit_lock:
+            db.commit()
+
+        # Clear API cache so next dashboard load picks up fresh odds
+        from router import _cache
+        _cache.clear()
+
+        logger.info(f"Refreshed race odds for {len(meetings)} meetings ({updated} participants)")
+    except Exception as e:
+        logger.warning(f"Race odds refresh failed: {e}", exc_info=True)
+    finally:
+        db.close()

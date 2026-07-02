@@ -89,7 +89,16 @@ async def lifespan(app: FastAPI):
         name="Calculate participant points",
         replace_existing=True,
     )
-    # Bookmaker scraper REMOVED — AI price model is now probability-based
+    # 4. Hourly race odds refresh: keeps horse/drive prices current pre-meeting
+    from seed_data import refresh_race_odds
+    scheduler.add_job(
+        refresh_race_odds,
+        "interval",
+        hours=1,
+        id="race_odds_refresh",
+        name="Refresh horse/race odds from Ladbrokes",
+        replace_existing=True,
+    )
     scheduler.add_job(
         _keep_alive,
         "interval",
@@ -99,7 +108,7 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     scheduler.start()
-    logger.info("Scheduler started with 3-job status engine (no bookmaker scraping)")
+    logger.info("Scheduler started with 4-job engine (30s results, 60s points, 1hr odds refresh)")
 
     yield
 
