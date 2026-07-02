@@ -133,71 +133,123 @@ export default function ParticipantDetailModal({
             </div>
 
             <div className="overflow-y-auto max-h-[50vh]">
-              <table className="w-full">
-                <thead className="sticky top-0 bg-slate-50 dark:bg-slate-700/50">
-                    <tr className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      <th className="px-6 py-2.5 text-left font-medium">Race</th>
-                      <th className="px-4 py-2.5 text-left font-medium">Horse</th>
-                      <th className="px-4 py-2.5 text-center font-medium">Odds</th>
-                      <th className="px-4 py-2.5 text-center font-medium">Expected Pts</th>
-                      <th className="px-4 py-2.5 text-center font-medium">Win %</th>
-                      <th className="px-4 py-2.5 text-center font-medium">Status</th>
-                      <th className="px-6 py-2.5 text-center font-medium">Points</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                  {detail.rides.map((ride) => (
-                    <tr key={ride.raceNumber} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                      <td className="px-6 py-3">
-                        <span className="text-sm font-bold text-slate-900 dark:text-white">R{ride.raceNumber}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-slate-700 dark:text-slate-300">
-                          {ride.horseName || <span className="text-slate-400">—</span>}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
+              {/* Desktop table */}
+              <div className="overflow-x-auto hidden md:block">
+                <table className="w-full min-w-[640px]">
+                  <thead className="sticky top-0 bg-slate-50 dark:bg-slate-700/50">
+                      <tr className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        <th className="px-6 py-2.5 text-left font-medium">Race</th>
+                        <th className="px-4 py-2.5 text-left font-medium">Horse</th>
+                        <th className="px-4 py-2.5 text-center font-medium">Odds</th>
+                        <th className="px-4 py-2.5 text-center font-medium">Expected Pts</th>
+                        <th className="px-4 py-2.5 text-center font-medium">Win %</th>
+                        <th className="px-4 py-2.5 text-center font-medium">Status</th>
+                        <th className="px-6 py-2.5 text-center font-medium">Points</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    {detail.rides.map((ride) => (
+                      <tr key={ride.raceNumber} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                        <td className="px-6 py-3">
+                          <span className="text-sm font-bold text-slate-900 dark:text-white">R{ride.raceNumber}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            {ride.horseName || <span className="text-slate-400">—</span>}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {ride.raceOdds != null ? (
+                            <span className="text-sm font-semibold text-amber-500">${ride.raceOdds.toFixed(1)}</span>
+                          ) : (
+                            <span className="text-sm text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {ride.expectedPoints != null ? (
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{ride.expectedPoints.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-sm text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {ride.winProbability != null ? (
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{ride.winProbability.toFixed(1)}%</span>
+                          ) : (
+                            <span className="text-sm text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <RaceStatusBadge ride={ride} />
+                        </td>
+                        <td className="px-6 py-3 text-center">
+                          {ride.pointsAwarded !== null && ride.pointsAwarded > 0 ? (
+                            <span className="text-sm font-bold text-amber-500">+{ride.pointsAwarded}</span>
+                          ) : (
+                            <span className="text-sm text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {detail.rides.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center text-sm text-slate-400">
+                          No ride data available yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile stacked cards */}
+              <div className="md:hidden space-y-3 px-4 py-3">
+                {detail.rides.length === 0 && (
+                  <p className="text-sm text-slate-400 text-center py-6">No ride data available yet.</p>
+                )}
+                {detail.rides.map((ride) => (
+                  <div key={ride.raceNumber} className="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">R{ride.raceNumber} - {ride.horseName || <span className="text-slate-400">—</span>}</span>
+                      <RaceStatusBadge ride={ride} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                        <span className="text-slate-500 dark:text-slate-400">Odds</span>
                         {ride.raceOdds != null ? (
-                          <span className="text-sm font-semibold text-amber-500">${ride.raceOdds.toFixed(1)}</span>
+                          <span className="font-semibold text-amber-500">${ride.raceOdds.toFixed(1)}</span>
                         ) : (
-                          <span className="text-sm text-slate-400">—</span>
+                          <span className="text-slate-400">—</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
+                      </div>
+                      <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                        <span className="text-slate-500 dark:text-slate-400">Expected Pts</span>
                         {ride.expectedPoints != null ? (
-                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{ride.expectedPoints.toFixed(2)}</span>
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">{ride.expectedPoints.toFixed(2)}</span>
                         ) : (
-                          <span className="text-sm text-slate-400">—</span>
+                          <span className="text-slate-400">—</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
+                      </div>
+                      <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                        <span className="text-slate-500 dark:text-slate-400">Win %</span>
                         {ride.winProbability != null ? (
-                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{ride.winProbability.toFixed(1)}%</span>
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">{ride.winProbability.toFixed(1)}%</span>
                         ) : (
-                          <span className="text-sm text-slate-400">—</span>
+                          <span className="text-slate-400">—</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <RaceStatusBadge ride={ride} />
-                      </td>
-                      <td className="px-6 py-3 text-center">
+                      </div>
+                      <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                        <span className="text-slate-500 dark:text-slate-400">Points</span>
                         {ride.pointsAwarded !== null && ride.pointsAwarded > 0 ? (
-                          <span className="text-sm font-bold text-amber-500">+{ride.pointsAwarded}</span>
+                          <span className="font-bold text-amber-500">+{ride.pointsAwarded}</span>
                         ) : (
-                          <span className="text-sm text-slate-400">—</span>
+                          <span className="text-slate-400">—</span>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                  {detail.rides.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-sm text-slate-400">
-                        No ride data available yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="sticky bottom-0 bg-slate-50 dark:bg-slate-700/30 border-t border-slate-200 dark:border-slate-700 px-6 py-3 flex items-center justify-between">
